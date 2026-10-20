@@ -1,0 +1,17 @@
+# Build context hygiene for Dockerfile.api (context = repo root).
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.egg-info
+.pytest_cache
+.env
+.env.*
+!.env.example
+data/*.db
+web
+design
+*.md
+!README.md
+DEPLOY.md

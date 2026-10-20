@@ -1,0 +1,54 @@
+[project]
+name = "argus"
+version = "0.1.0"
+description = "Self-hosted AI code reviewer for GitHub pull requests"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+# mcp is capped below 2.0: that major removed `mcp.server.fastmcp`, which
+# argus.mcp_server imports at module scope, so an unbounded spec turns every
+# fresh resolve into an ImportError. Raise the cap deliberately, after
+# porting to the 2.x handler API.
+# ruff is a runtime dependency, not a dev tool: the review engine executes it as a
+# lane. Pinned exactly, and to the same version CI lints with, because the
+# deterministic tier's claim is that a finding is re-executable — which is only
+# true against a known binary. A floating version could change what fires, or
+# rename a diagnostic (0.15 reports an unparseable file as `invalid-syntax`, not
+# `E999`), and a rename is how a file that does not compile reads as clean.
+dependencies = ["anthropic>=0.117", "httpx>=0.27", "pydantic>=2", "fastapi>=0.110", "uvicorn>=0.29", "mcp>=1.2,<2", "ruff==0.15.17", "pyyaml>=6,<7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "markdown-it-py>=3"]
+# The MCP server is host-side tooling (agents run it via stdio); the api
+# container does not need it, so it stays out of the runtime dependencies.
+mcp = ["mcp>=1.2,<2"]
+
+# Same tools as the dev extra, as a dependency group: `uv run` syncs the "dev"
+# group by default, so a bare `uv run pytest` uses the locked pytest instead of
+# whatever pytest sits on the host PATH.
+[dependency-groups]
+dev = ["pytest>=8", "markdown-it-py>=3"]
+
+[project.urls]
+Homepage = "https://github.com/phj6688/argus-review"
+Repository = "https://github.com/phj6688/argus-review"
+Issues = "https://github.com/phj6688/argus-review/issues"
+
+[project.scripts]
+argus = "argus.cli:main"
+jarvis = "argus.jarvis.cli:main"
+argus-mcp = "argus.mcp_server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+# Pin ruff's current default rule set explicitly so a ruff version bump can't
+# silently change what "lint" enforces. Widen deliberately, never by accident.
+select = ["E4", "E7", "E9", "F"]

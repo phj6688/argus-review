@@ -1,0 +1,52 @@
+# Argus API (FastAPI + uvicorn). Built from the repo root so src/ and
+# pyproject.toml are in context. Runtime image is slim; uv installs the
+# project into a venv on PATH.
+FROM python:3.13-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    VENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH
+
+# uv for fast, reproducible installs (pinned).
+COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Dependency layer first for cache reuse: copy only what defines the deps.
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
+
+# Install the exact locked runtime set (uv.lock), then the project itself with
+# --no-deps so the image can never resolve a different transitive tree than the
+# one CI audits. Reproducible build, pinned supply chain.
+RUN uv venv "$VENV" --python 3.13 \
+    && uv export --frozen --no-dev --no-emit-project --format requirements-txt -o /tmp/requirements.lock \
+    && uv pip install --python "$VENV/bin/python" -r /tmp/requirements.lock \
+    && uv pip install --python "$VENV/bin/python" --no-deps .
+
+# Known-false-positive suppression reads the file named by ARGUS_KNOWN_FPS_PATH;
+# none is baked in. Mount your own and set the variable to enable it.
+# Default rule index: without this the image grounds on the in-code seed rules
+# only, because the installed package path resolves inside site-packages, not /app.
+# ARGUS_RULES_PATH overrides it with a mounted file.
+COPY data/rules/index.json ./data/rules/index.json
+
+# SQLite lives here; the compose file mounts a named volume over it so data
+# survives recreate. ARGUS_DB_PATH points at it.
+RUN mkdir -p /data
+ENV ARGUS_DB_PATH=/data/argus.db
+
+# Run as non-root.
+RUN useradd --system --uid 10001 --home-dir /app argus \
+    && chown -R argus:argus /app /data
+USER argus
+
+EXPOSE 8000
+
+# /health is shallow (no network) so HEALTHCHECK never depends on the LLM backend.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).status==200 else 1)"
+
+CMD ["uvicorn", "argus.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

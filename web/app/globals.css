@@ -1,0 +1,235 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Argus — Amber Terminal design system (dark only)
+   All design values live here as tokens. Components reference
+   tokens (Tailwind utilities or var(--x)), never raw hex.
+   ============================================================ */
+
+@theme {
+  /* Solid palette → generate bg-/text-/border- utilities */
+  --color-ground: #15120b; /* app background */
+  --color-surface: #1b160d; /* cards, panels, rail items */
+  --color-rail: #18130b; /* left rail */
+  --color-inset: #14110a; /* code blocks, inset fields */
+  --color-accent: #f0a82a; /* amber — primary signal */
+  --color-accent-dim: #d8a766; /* amber text on tinted chips */
+  --color-heading: #c9772b; /* burnt orange — card headings */
+  --color-text: #ece0c8; /* warm bone — primary text */
+  --color-dim: #a89a7e; /* secondary text */
+  --color-faint: #6f6450; /* labels, captions, meta */
+  --color-prose: #c4b79c; /* finding description body */
+
+  /* Severity ramp (hottest → dimmest) */
+  --color-critical: #e8503f;
+  --color-major: #d9722b;
+  --color-minor: #f0a82a;
+  --color-nit: #8a7d63;
+  --color-refactor: #c98a4a; /* Reports "Refactor" category bar */
+
+  /* Semantic accents */
+  --color-sage: #a9c98f; /* positive / confirmed / diff-add */
+  --color-warn: #e8a23f; /* degraded */
+  --color-warn-text: #d8b078;
+  --color-diff-del: #e8a99f;
+  --color-diff-ctx: #7a6f57;
+
+  /* Typefaces (wired to next/font variables on <html>) */
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* Alpha tints + per-severity vars — referenced via var() or arbitrary
+   values. Kept out of @theme so they don't spawn unused utilities. */
+:root {
+  --sev-critical: #e8503f;
+  --sev-major: #d9722b;
+  --sev-minor: #f0a82a;
+  --sev-nit: #8a7d63;
+
+  /* Bone hairlines / fills (236,224,200) */
+  --line-05: rgba(236, 224, 200, 0.05);
+  --line-06: rgba(236, 224, 200, 0.06);
+  --line-07: rgba(236, 224, 200, 0.07);
+  --line: rgba(236, 224, 200, 0.08);
+  --line-09: rgba(236, 224, 200, 0.09);
+  --line-10: rgba(236, 224, 200, 0.1);
+  --line-12: rgba(236, 224, 200, 0.12);
+  --line-14: rgba(236, 224, 200, 0.14);
+  --bone-03: rgba(236, 224, 200, 0.03); /* row hover */
+  --bone-04: rgba(236, 224, 200, 0.04); /* chip bg */
+  --bone-05: rgba(236, 224, 200, 0.05);
+  --bone-07: rgba(236, 224, 200, 0.07); /* bar track */
+  --bone-10: rgba(236, 224, 200, 0.1); /* bar track strong */
+
+  /* Accent tints (240,168,42) */
+  --accent-04: rgba(240, 168, 42, 0.04);
+  --accent-08: rgba(240, 168, 42, 0.08);
+  --accent-10: rgba(240, 168, 42, 0.1);
+  --accent-12: rgba(240, 168, 42, 0.12);
+  --accent-14: rgba(240, 168, 42, 0.14);
+  --accent-18: rgba(240, 168, 42, 0.18);
+  --accent-35: rgba(240, 168, 42, 0.35);
+  --accent-22: rgba(240, 168, 42, 0.22);
+  --accent-25: rgba(240, 168, 42, 0.25);
+  --accent-28: rgba(240, 168, 42, 0.28);
+  --accent-50: rgba(240, 168, 42, 0.5);
+  --accent-70: rgba(240, 168, 42, 0.7);
+  --accent-85: rgba(240, 168, 42, 0.85);
+
+  /* Sage tints (127,170,106) */
+  --sage-08: rgba(127, 170, 106, 0.08);
+  --sage-10: rgba(127, 170, 106, 0.1);
+  --sage-13: rgba(127, 170, 106, 0.13);
+  --sage-16: rgba(127, 170, 106, 0.16);
+  --sage-30: rgba(127, 170, 106, 0.3);
+  --sage-35: rgba(127, 170, 106, 0.35);
+
+  /* Major tint (217,114,43) */
+  --major-14: rgba(217, 114, 43, 0.14);
+
+  /* Critical tints (232,80,63) */
+  --crit-08: rgba(232, 80, 63, 0.08);
+  --crit-10: rgba(232, 80, 63, 0.1);
+  --crit-28: rgba(232, 80, 63, 0.28);
+  --crit-50: rgba(232, 80, 63, 0.5);
+  --crit-60: rgba(232, 80, 63, 0.6);
+
+  /* Warn tints (232,162,63) */
+  --warn-06: rgba(232, 162, 63, 0.06);
+  --warn-22: rgba(232, 162, 63, 0.22);
+
+  --tip-bg: #221b10; /* floating tooltip surface */
+  --shadow-frame: 0 30px 80px -40px rgba(0, 0, 0, 0.8);
+  --shadow-tip: 0 14px 34px -10px rgba(0, 0, 0, 0.75);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--color-ground);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: normal;
+}
+
+::selection {
+  background: var(--accent-25);
+}
+
+[data-tip] {
+  cursor: help;
+}
+
+/* Tabular numerals on every number readout */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- repeated-pattern component classes ---- */
+@layer components {
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+  }
+
+  /* small uppercase card label */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /* widest-tracking section eyebrow */
+  .eyebrow-wide {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  .stat-num {
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .screen-title {
+    font-size: 23px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  /* segmented-control track */
+  .segment {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--color-surface);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 3px;
+  }
+}
+
+/* Radix control focus rings (keyboard only) */
+.argus-switch:focus-visible,
+.argus-thumb:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-ground), 0 0 0 4px var(--accent-50);
+}
+
+/* Repeated rows/cards isolate layout work (no-flicker rule) */
+.card-contain {
+  contain: layout style;
+}
+
+/* Proposed-fix disclosure chevron */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+.chev {
+  transition: transform 0.15s ease;
+}
+details[open] .chev {
+  transform: rotate(90deg);
+}
+
+@keyframes argusPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.pulse {
+  animation: argusPulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}

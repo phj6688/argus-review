@@ -1,0 +1,11 @@
+# Mined CodeRabbit history = private repo content. Never commit the raw corpus.
+raw/
+*.jsonl
+*.json
+# Keep this file.
+# The rule index is config (no private content); commit it.
+!rules/index.json
+# The synthetic example of the known-false-positive format. A real set describes
+# code in your repos, so keep it outside the tree (ARGUS_KNOWN_FPS_PATH).
+# manual_sweep_labels.jsonl stays ignored: it lists real bug locations.
+!fixtures/known_fps.example.jsonl

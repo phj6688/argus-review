@@ -1,0 +1,46 @@
+# Argus web console (Next.js 16, standalone output). Multi-stage: install +
+# build, then a minimal runner that ships only the standalone server and
+# static assets. Build context is web/ (set in docker-compose.yml).
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# NEXT_PUBLIC_* is inlined at build time. The console fetches the API from
+# React Server Components (server-side, in-cluster), so this is the internal
+# API container URL on platform-net, not a public address. Routes mount at
+# root on the API, so no /api/v1 suffix here.
+ARG NEXT_PUBLIC_ARGUS_API=http://argus-api:8000
+ENV NEXT_PUBLIC_ARGUS_API=$NEXT_PUBLIC_ARGUS_API
+ARG NEXT_PUBLIC_ARGUS_CLIENT_API=""
+ENV NEXT_PUBLIC_ARGUS_CLIENT_API=$NEXT_PUBLIC_ARGUS_CLIENT_API
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
+
+# Standalone output bundles a self-contained server.js plus a trimmed
+# node_modules; static assets are copied alongside.
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=build --chown=nextjs:nodejs /app/public ./public
+
+USER nextjs
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+
+CMD ["node", "server.js"]

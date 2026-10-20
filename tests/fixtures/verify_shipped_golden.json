@@ -1,0 +1,1026 @@
+{
+ "source": "origin/dev 186db67, captured before ARGUS_VERIFY_VARIANT existed",
+ "direct": [
+  {
+   "name": "full-valid",
+   "finding_input": {
+    "file": "src/app/handler.py",
+    "line": 42,
+    "end_line": 44,
+    "severity": "major",
+    "confidence": 0.8,
+    "title": "Timeout missing on upstream call",
+    "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+    "proposed_fix": "Pass timeout=10 to requests.get.",
+    "rule_id": "py-requests-timeout",
+    "category": "resources",
+    "evidence": "resp = requests.get(url)\nreturn resp.json()"
+   },
+   "diff_text": "## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+   "replies": [
+    {
+     "is_real": true,
+     "confidence": 0.9,
+     "reasoning": "the call has no timeout"
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 42,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Timeout missing on upstream call\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": true,
+    "confidence": 0.9,
+    "reasoning": "the call has no timeout"
+   },
+   "verdict_json": "{\"is_real\":true,\"confidence\":0.9,\"reasoning\":\"the call has no timeout\"}"
+  },
+  {
+   "name": "full-no_reasoning",
+   "finding_input": {
+    "file": "src/app/handler.py",
+    "line": 42,
+    "end_line": 44,
+    "severity": "major",
+    "confidence": 0.8,
+    "title": "Timeout missing on upstream call",
+    "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+    "proposed_fix": "Pass timeout=10 to requests.get.",
+    "rule_id": "py-requests-timeout",
+    "category": "resources",
+    "evidence": "resp = requests.get(url)\nreturn resp.json()"
+   },
+   "diff_text": "## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+   "replies": [
+    {
+     "is_real": false,
+     "confidence": 0.65
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 42,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Timeout missing on upstream call\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.65,
+    "reasoning": ""
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.65,\"reasoning\":\"\"}"
+  },
+  {
+   "name": "full-extra_key",
+   "finding_input": {
+    "file": "src/app/handler.py",
+    "line": 42,
+    "end_line": 44,
+    "severity": "major",
+    "confidence": 0.8,
+    "title": "Timeout missing on upstream call",
+    "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+    "proposed_fix": "Pass timeout=10 to requests.get.",
+    "rule_id": "py-requests-timeout",
+    "category": "resources",
+    "evidence": "resp = requests.get(url)\nreturn resp.json()"
+   },
+   "diff_text": "## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+   "replies": [
+    {
+     "is_real": false,
+     "confidence": 0.7,
+     "reasoning": "r",
+     "counter_evidence": {
+      "path": "a.py",
+      "start_line": 1,
+      "end_line": 1,
+      "quote": "x"
+     }
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 42,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Timeout missing on upstream call\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.7,
+    "reasoning": "r"
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.7,\"reasoning\":\"r\"}"
+  },
+  {
+   "name": "full-retry",
+   "finding_input": {
+    "file": "src/app/handler.py",
+    "line": 42,
+    "end_line": 44,
+    "severity": "major",
+    "confidence": 0.8,
+    "title": "Timeout missing on upstream call",
+    "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+    "proposed_fix": "Pass timeout=10 to requests.get.",
+    "rule_id": "py-requests-timeout",
+    "category": "resources",
+    "evidence": "resp = requests.get(url)\nreturn resp.json()"
+   },
+   "diff_text": "## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+   "replies": [
+    {
+     "confidence": 0.9
+    },
+    {
+     "is_real": false,
+     "confidence": 0.95,
+     "reasoning": "refuted"
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 42,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Timeout missing on upstream call\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    },
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 42,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Timeout missing on upstream call\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.95,
+    "reasoning": "refuted"
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.95,\"reasoning\":\"refuted\"}"
+  },
+  {
+   "name": "minimal-valid",
+   "finding_input": {
+    "file": "a.py",
+    "line": 1,
+    "severity": "minor",
+    "confidence": 0.3,
+    "title": "t",
+    "description": "d",
+    "proposed_fix": "f"
+   },
+   "diff_text": "",
+   "replies": [
+    {
+     "is_real": true,
+     "confidence": 0.9,
+     "reasoning": "the call has no timeout"
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"a.py\",\n  \"line\": 1,\n  \"severity\": \"minor\",\n  \"confidence\": 0.3,\n  \"title\": \"t\",\n  \"description\": \"d\",\n  \"proposed_fix\": \"f\",\n  \"rule_id\": null\n}\n\n# Diff under review\n",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": true,
+    "confidence": 0.9,
+    "reasoning": "the call has no timeout"
+   },
+   "verdict_json": "{\"is_real\":true,\"confidence\":0.9,\"reasoning\":\"the call has no timeout\"}"
+  },
+  {
+   "name": "minimal-no_reasoning",
+   "finding_input": {
+    "file": "a.py",
+    "line": 1,
+    "severity": "minor",
+    "confidence": 0.3,
+    "title": "t",
+    "description": "d",
+    "proposed_fix": "f"
+   },
+   "diff_text": "",
+   "replies": [
+    {
+     "is_real": false,
+     "confidence": 0.65
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"a.py\",\n  \"line\": 1,\n  \"severity\": \"minor\",\n  \"confidence\": 0.3,\n  \"title\": \"t\",\n  \"description\": \"d\",\n  \"proposed_fix\": \"f\",\n  \"rule_id\": null\n}\n\n# Diff under review\n",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.65,
+    "reasoning": ""
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.65,\"reasoning\":\"\"}"
+  },
+  {
+   "name": "minimal-extra_key",
+   "finding_input": {
+    "file": "a.py",
+    "line": 1,
+    "severity": "minor",
+    "confidence": 0.3,
+    "title": "t",
+    "description": "d",
+    "proposed_fix": "f"
+   },
+   "diff_text": "",
+   "replies": [
+    {
+     "is_real": false,
+     "confidence": 0.7,
+     "reasoning": "r",
+     "counter_evidence": {
+      "path": "a.py",
+      "start_line": 1,
+      "end_line": 1,
+      "quote": "x"
+     }
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"a.py\",\n  \"line\": 1,\n  \"severity\": \"minor\",\n  \"confidence\": 0.3,\n  \"title\": \"t\",\n  \"description\": \"d\",\n  \"proposed_fix\": \"f\",\n  \"rule_id\": null\n}\n\n# Diff under review\n",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.7,
+    "reasoning": "r"
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.7,\"reasoning\":\"r\"}"
+  },
+  {
+   "name": "minimal-retry",
+   "finding_input": {
+    "file": "a.py",
+    "line": 1,
+    "severity": "minor",
+    "confidence": 0.3,
+    "title": "t",
+    "description": "d",
+    "proposed_fix": "f"
+   },
+   "diff_text": "",
+   "replies": [
+    {
+     "confidence": 0.9
+    },
+    {
+     "is_real": false,
+     "confidence": 0.95,
+     "reasoning": "refuted"
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"a.py\",\n  \"line\": 1,\n  \"severity\": \"minor\",\n  \"confidence\": 0.3,\n  \"title\": \"t\",\n  \"description\": \"d\",\n  \"proposed_fix\": \"f\",\n  \"rule_id\": null\n}\n\n# Diff under review\n",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    },
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"a.py\",\n  \"line\": 1,\n  \"severity\": \"minor\",\n  \"confidence\": 0.3,\n  \"title\": \"t\",\n  \"description\": \"d\",\n  \"proposed_fix\": \"f\",\n  \"rule_id\": null\n}\n\n# Diff under review\n",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.95,
+    "reasoning": "refuted"
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.95,\"reasoning\":\"refuted\"}"
+  },
+  {
+   "name": "special-valid",
+   "finding_input": {
+    "file": "web/ünï.ts",
+    "line": 7,
+    "severity": "critical",
+    "confidence": 1.0,
+    "title": "Quote \"and\" backslash \\ in title",
+    "description": "Tab\tand newline\nand emoji ✓",
+    "proposed_fix": "Use `escape()`; see <tag> & co.",
+    "rule_id": null,
+    "category": "security",
+    "evidence": "  x = \"<b>\" + name\n",
+    "end_line": null
+   },
+   "diff_text": "## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+   "replies": [
+    {
+     "is_real": true,
+     "confidence": 0.9,
+     "reasoning": "the call has no timeout"
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"web/ünï.ts\",\n  \"line\": 7,\n  \"severity\": \"critical\",\n  \"confidence\": 1.0,\n  \"title\": \"Quote \\\"and\\\" backslash \\\\ in title\",\n  \"description\": \"Tab\\tand newline\\nand emoji ✓\",\n  \"proposed_fix\": \"Use `escape()`; see <tag> & co.\",\n  \"rule_id\": null\n}\n\n# Diff under review\n## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": true,
+    "confidence": 0.9,
+    "reasoning": "the call has no timeout"
+   },
+   "verdict_json": "{\"is_real\":true,\"confidence\":0.9,\"reasoning\":\"the call has no timeout\"}"
+  },
+  {
+   "name": "special-no_reasoning",
+   "finding_input": {
+    "file": "web/ünï.ts",
+    "line": 7,
+    "severity": "critical",
+    "confidence": 1.0,
+    "title": "Quote \"and\" backslash \\ in title",
+    "description": "Tab\tand newline\nand emoji ✓",
+    "proposed_fix": "Use `escape()`; see <tag> & co.",
+    "rule_id": null,
+    "category": "security",
+    "evidence": "  x = \"<b>\" + name\n",
+    "end_line": null
+   },
+   "diff_text": "## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+   "replies": [
+    {
+     "is_real": false,
+     "confidence": 0.65
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"web/ünï.ts\",\n  \"line\": 7,\n  \"severity\": \"critical\",\n  \"confidence\": 1.0,\n  \"title\": \"Quote \\\"and\\\" backslash \\\\ in title\",\n  \"description\": \"Tab\\tand newline\\nand emoji ✓\",\n  \"proposed_fix\": \"Use `escape()`; see <tag> & co.\",\n  \"rule_id\": null\n}\n\n# Diff under review\n## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.65,
+    "reasoning": ""
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.65,\"reasoning\":\"\"}"
+  },
+  {
+   "name": "special-extra_key",
+   "finding_input": {
+    "file": "web/ünï.ts",
+    "line": 7,
+    "severity": "critical",
+    "confidence": 1.0,
+    "title": "Quote \"and\" backslash \\ in title",
+    "description": "Tab\tand newline\nand emoji ✓",
+    "proposed_fix": "Use `escape()`; see <tag> & co.",
+    "rule_id": null,
+    "category": "security",
+    "evidence": "  x = \"<b>\" + name\n",
+    "end_line": null
+   },
+   "diff_text": "## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+   "replies": [
+    {
+     "is_real": false,
+     "confidence": 0.7,
+     "reasoning": "r",
+     "counter_evidence": {
+      "path": "a.py",
+      "start_line": 1,
+      "end_line": 1,
+      "quote": "x"
+     }
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"web/ünï.ts\",\n  \"line\": 7,\n  \"severity\": \"critical\",\n  \"confidence\": 1.0,\n  \"title\": \"Quote \\\"and\\\" backslash \\\\ in title\",\n  \"description\": \"Tab\\tand newline\\nand emoji ✓\",\n  \"proposed_fix\": \"Use `escape()`; see <tag> & co.\",\n  \"rule_id\": null\n}\n\n# Diff under review\n## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.7,
+    "reasoning": "r"
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.7,\"reasoning\":\"r\"}"
+  },
+  {
+   "name": "special-retry",
+   "finding_input": {
+    "file": "web/ünï.ts",
+    "line": 7,
+    "severity": "critical",
+    "confidence": 1.0,
+    "title": "Quote \"and\" backslash \\ in title",
+    "description": "Tab\tand newline\nand emoji ✓",
+    "proposed_fix": "Use `escape()`; see <tag> & co.",
+    "rule_id": null,
+    "category": "security",
+    "evidence": "  x = \"<b>\" + name\n",
+    "end_line": null
+   },
+   "diff_text": "## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+   "replies": [
+    {
+     "confidence": 0.9
+    },
+    {
+     "is_real": false,
+     "confidence": 0.95,
+     "reasoning": "refuted"
+    }
+   ],
+   "calls": [
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"web/ünï.ts\",\n  \"line\": 7,\n  \"severity\": \"critical\",\n  \"confidence\": 1.0,\n  \"title\": \"Quote \\\"and\\\" backslash \\\\ in title\",\n  \"description\": \"Tab\\tand newline\\nand emoji ✓\",\n  \"proposed_fix\": \"Use `escape()`; see <tag> & co.\",\n  \"rule_id\": null\n}\n\n# Diff under review\n## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    },
+    {
+     "model": "model-x",
+     "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+     "user": "# Finding\n{\n  \"file\": \"web/ünï.ts\",\n  \"line\": 7,\n  \"severity\": \"critical\",\n  \"confidence\": 1.0,\n  \"title\": \"Quote \\\"and\\\" backslash \\\\ in title\",\n  \"description\": \"Tab\\tand newline\\nand emoji ✓\",\n  \"proposed_fix\": \"Use `escape()`; see <tag> & co.\",\n  \"rule_id\": null\n}\n\n# Diff under review\n## File: web/ünï.ts (typescript)\n```diff\n@@ -1 +1 @@\n-old\n+x = \"<b>\" + name\n```",
+     "tool_name": "report_verdict",
+     "input_schema": {
+      "type": "object",
+      "properties": {
+       "is_real": {
+        "type": "boolean"
+       },
+       "confidence": {
+        "type": "number",
+        "description": "0.0 to 1.0"
+       },
+       "reasoning": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "is_real",
+       "confidence",
+       "reasoning"
+      ],
+      "additionalProperties": false
+     },
+     "max_tokens": 2000
+    }
+   ],
+   "verdict_type": "Verdict",
+   "verdict": {
+    "is_real": false,
+    "confidence": 0.95,
+    "reasoning": "refuted"
+   },
+   "verdict_json": "{\"is_real\":false,\"confidence\":0.95,\"reasoning\":\"refuted\"}"
+  }
+ ],
+ "run_diff_review": {
+  "files": [
+   {
+    "filename": "src/app/handler.py",
+    "status": "modified",
+    "patch": "@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n"
+   }
+  ],
+  "reviewer_reply": {
+   "findings": [
+    {
+     "file": "src/app/handler.py",
+     "line": 41,
+     "end_line": 44,
+     "severity": "major",
+     "confidence": 0.8,
+     "title": "Timeout missing on upstream call",
+     "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+     "proposed_fix": "Pass timeout=10 to requests.get.",
+     "rule_id": "py-requests-timeout",
+     "category": "resources",
+     "evidence": "resp = requests.get(url)\nreturn resp.json()"
+    },
+    {
+     "file": "src/app/handler.py",
+     "line": 42,
+     "end_line": 44,
+     "severity": "major",
+     "confidence": 0.8,
+     "title": "Second defect",
+     "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+     "proposed_fix": "Pass timeout=10 to requests.get.",
+     "rule_id": "py-requests-timeout",
+     "category": "resources",
+     "evidence": "return resp.json()"
+    }
+   ]
+  },
+  "verdict_replies": [
+   {
+    "is_real": true,
+    "confidence": 0.9,
+    "reasoning": "real"
+   },
+   {
+    "is_real": false,
+    "confidence": 0.8,
+    "reasoning": "refuted"
+   }
+  ],
+  "verifier_calls": [
+   {
+    "model": "model-x",
+    "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+    "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 41,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Timeout missing on upstream call\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+    "tool_name": "report_verdict",
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "is_real": {
+       "type": "boolean"
+      },
+      "confidence": {
+       "type": "number",
+       "description": "0.0 to 1.0"
+      },
+      "reasoning": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "is_real",
+      "confidence",
+      "reasoning"
+     ],
+     "additionalProperties": false
+    },
+    "max_tokens": 2000
+   },
+   {
+    "model": "model-x",
+    "system": "You are a skeptical senior engineer verifying ONE finding from a code review. Try to REFUTE it using only the diff. Decide whether the flagged code is actually wrong and whether the proposed fix is needed. If you cannot confirm the issue is real from the evidence, mark it not real; default to refuted when uncertain. Report via the report_verdict tool.",
+    "user": "# Finding\n{\n  \"file\": \"src/app/handler.py\",\n  \"line\": 42,\n  \"severity\": \"major\",\n  \"confidence\": 0.8,\n  \"title\": \"Second defect\",\n  \"description\": \"requests.get has no timeout, so a stalled upstream hangs the worker.\",\n  \"proposed_fix\": \"Pass timeout=10 to requests.get.\",\n  \"rule_id\": \"py-requests-timeout\"\n}\n\n# Diff under review\n## File: src/app/handler.py (python)\n```diff\n@@ -40,3 +40,4 @@\n def fetch(url):\n+    resp = requests.get(url)\n+    return resp.json()\n```",
+    "tool_name": "report_verdict",
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "is_real": {
+       "type": "boolean"
+      },
+      "confidence": {
+       "type": "number",
+       "description": "0.0 to 1.0"
+      },
+      "reasoning": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "is_real",
+      "confidence",
+      "reasoning"
+     ],
+     "additionalProperties": false
+    },
+    "max_tokens": 2000
+   }
+  ],
+  "verdicts": [
+   {
+    "is_real": true,
+    "confidence": 0.9,
+    "reasoning": "real"
+   },
+   {
+    "is_real": false,
+    "confidence": 0.8,
+    "reasoning": "refuted"
+   }
+  ],
+  "serialized": [
+   {
+    "verdict": {
+     "is_real": true,
+     "confidence": 0.9,
+     "reasoning": "real"
+    },
+    "lane": "llm",
+    "judge": null,
+    "fingerprint": "argusfp:68dac158937f0d72194c3d0a5baa9ad0",
+    "file": "src/app/handler.py",
+    "line": 41,
+    "severity": "major",
+    "confidence": 0.8,
+    "title": "Timeout missing on upstream call",
+    "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+    "proposed_fix": "Pass timeout=10 to requests.get.",
+    "rule_id": "py-requests-timeout",
+    "end_line": 44,
+    "category": "resources",
+    "evidence": "resp = requests.get(url)\nreturn resp.json()",
+    "verdict_is_real": true,
+    "verdict_confidence": 0.9
+   },
+   {
+    "verdict": {
+     "is_real": false,
+     "confidence": 0.8,
+     "reasoning": "refuted"
+    },
+    "lane": "llm",
+    "judge": null,
+    "fingerprint": "argusfp:ebe3f4408350768a3c95911c3276fbc8",
+    "file": "src/app/handler.py",
+    "line": 42,
+    "severity": "major",
+    "confidence": 0.8,
+    "title": "Second defect",
+    "description": "requests.get has no timeout, so a stalled upstream hangs the worker.",
+    "proposed_fix": "Pass timeout=10 to requests.get.",
+    "rule_id": "py-requests-timeout",
+    "end_line": 44,
+    "category": "resources",
+    "evidence": "return resp.json()",
+    "verdict_is_real": false,
+    "verdict_confidence": 0.8
+   }
+  ],
+  "llm_record": {
+   "lane": "llm",
+   "status": "ran",
+   "model": "model-x",
+   "files_reviewed": 1,
+   "files_full": 0,
+   "files_windowed": 0,
+   "files_hunks_only": 1,
+   "files_read_failed": 0,
+   "context_tokens_estimated": 43,
+   "files_omitted": 0,
+   "files_without_patch": 0,
+   "findings_received": 2,
+   "findings_repaired": 0,
+   "findings_dropped": 0,
+   "passes_run": 1,
+   "findings_per_pass": [
+    2
+   ],
+   "duplicates_dropped": 0,
+   "later_pass_errors": 0,
+   "findings_reanchored": 0,
+   "evidence_not_found": 0,
+   "evidence_too_short": 0,
+   "evidence_missing": 0,
+   "evidence_unreadable": 0,
+   "evidence_removed_line": 0
+  }
+ }
+}

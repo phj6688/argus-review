@@ -1,0 +1,163 @@
+# Argus console: FastAPI API plus Next.js web. Both ports bind to 127.0.0.1, so
+# nothing is reachable from other machines until you add a reverse proxy
+# (see DEPLOY.md). Settings come from .env (copy .env.example first):
+#   cp .env.example .env
+#   docker compose up -d --build
+# Compose creates its own network and the named volume `argus-data`.
+# Site-specific changes (external networks, an existing volume, extra mounts)
+# belong in a docker-compose.override.yml that stays out of git.
+
+name: argus
+
+services:
+  argus-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: argus-api:latest
+    container_name: argus-api
+    restart: unless-stopped
+    environment:
+      # Gateway pair (optional): an Anthropic-compatible endpoint plus its bearer
+      # token. Leave both empty to use ANTHROPIC_API_KEY, OPENAI_*, or OPENROUTER_*
+      # below. The base URL must be reachable from inside the container.
+      ANTHROPIC_BASE_URL: "${ANTHROPIC_BASE_URL:-}"
+      ANTHROPIC_AUTH_TOKEN: "${ANTHROPIC_AUTH_TOKEN:-}"
+      ARGUS_AUTH_MODE: "${ARGUS_AUTH_MODE:-token}"
+      ARGUS_API_TOKEN: "${ARGUS_API_TOKEN:-}"
+      # Reviewer model. Empty uses the default of the selected provider (see
+      # src/argus/providers.py). Once you save the config screen, the stored row
+      # in ARGUS_DB_PATH wins over this variable. See .env.example.
+      ARGUS_MODEL: "${ARGUS_MODEL:-}"
+      # Opt-in second attempt when a review fails on the primary. Unset means
+      # fail-hard. The switch is recorded on the review row, never silent.
+      # Covers POST /reviews and the watcher, not POST /review-diff. A model id
+      # with a slash runs on OpenRouter.
+      ARGUS_FALLBACK_MODEL: "${ARGUS_FALLBACK_MODEL:-}"
+      # Public base URL the API advertises. Set it when a reverse proxy fronts the API.
+      ARGUS_PUBLIC_API_URL: "${ARGUS_PUBLIC_API_URL:-http://localhost:8000}"
+      # Browser-origin CORS allowlist. Console fetches happen server side and
+      # need no CORS; this covers browser-side calls to the API.
+      ARGUS_CORS_ORIGINS: "${ARGUS_CORS_ORIGINS:-http://localhost:3000}"
+      ARGUS_DB_PATH: "/data/argus.db"
+      # GitHub read token (Contents:read, Pull requests:read) for fetching PR
+      # diffs and house rules. Optional at boot so the console still serves;
+      # reviews fail with a clear error until it is set.
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      # Linear read token for the optional intent lane: recover a PR's Linear
+      # issue and add it to the review prompt. Needs ARGUS_LINEAR_REPOS and
+      # ARGUS_LINEAR_KEY_PREFIX too. Leave empty to keep the lane off.
+      LINEAR_API_KEY: "${LINEAR_API_KEY:-}"
+      # Optional second-opinion judges. The lane picks the judge whose model family
+      # differs from the reviewer's: a GPT reviewer is judged by a Claude model and
+      # the other way round. ARGUS_JUDGE_BASE_URL is an OpenAI-style chat
+      # completions URL (OpenRouter works). Set ARGUS_JUDGE_LIVE=1 to turn it on.
+      #
+      # This block is an allowlist: a variable set in .env but absent here never
+      # reaches the container. Adding a judge var to .env alone does nothing.
+      ARGUS_JUDGE_LIVE: "${ARGUS_JUDGE_LIVE:-}"
+      ARGUS_JUDGE_BASE_URL: "${ARGUS_JUDGE_BASE_URL:-}"
+      ARGUS_JUDGE_ANTHROPIC_MODEL: "${ARGUS_JUDGE_ANTHROPIC_MODEL:-}"
+      ARGUS_JUDGE_ANTHROPIC_KEY: "${ARGUS_JUDGE_ANTHROPIC_KEY:-}"
+      ARGUS_JUDGE_OPENAI_MODEL: "${ARGUS_JUDGE_OPENAI_MODEL:-}"
+      ARGUS_JUDGE_OPENAI_KEY: "${ARGUS_JUDGE_OPENAI_KEY:-}"
+      # Provider credentials. ARGUS_PROVIDER picks the provider; empty selects it
+      # from the credentials that are set. ARGUS_MODEL_OPTIONS lists the models the
+      # config screen offers (comma-separated).
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      ARGUS_PROVIDER: "${ARGUS_PROVIDER:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      ARGUS_OPENAI_TOKEN_PARAM: "${ARGUS_OPENAI_TOKEN_PARAM:-}"
+      ARGUS_CLI_MAX_CONCURRENCY: "${ARGUS_CLI_MAX_CONCURRENCY:-}"
+      ARGUS_CLI_TIMEOUT: "${ARGUS_CLI_TIMEOUT:-}"
+      ARGUS_MODEL_OPTIONS: "${ARGUS_MODEL_OPTIONS:-}"
+      # PR watcher. Off by default so a fresh install reviews nothing by surprise.
+      ARGUS_WATCH_ENABLED: "${ARGUS_WATCH_ENABLED:-}"
+      ARGUS_WATCH_INTERVAL: "${ARGUS_WATCH_INTERVAL:-60}"
+      ARGUS_AUTODISCOVER: "${ARGUS_AUTODISCOVER:-}"
+      ARGUS_WATCH_OWNERS: "${ARGUS_WATCH_OWNERS:-}"
+      # Only OWNER/MEMBER/COLLABORATOR authored PRs are reviewed unless set to 0.
+      ARGUS_WATCH_TRUSTED_ONLY: "${ARGUS_WATCH_TRUSTED_ONLY:-1}"
+      # Hard boundary: owners or owner/repo entries that are never reviewed or
+      # watched, whatever the console config says.
+      ARGUS_DENY_OWNERS: "${ARGUS_DENY_OWNERS:-}"
+      # Linear intent lane: full owner/name repos and the issue key prefix.
+      # Both empty leaves the lane off.
+      ARGUS_LINEAR_REPOS: "${ARGUS_LINEAR_REPOS:-}"
+      ARGUS_LINEAR_KEY_PREFIX: "${ARGUS_LINEAR_KEY_PREFIX:-}"
+      ARGUS_WATCH_ACTIVE_DAYS: "${ARGUS_WATCH_ACTIVE_DAYS:-90}"
+      ARGUS_WATCH_DISCOVERY_TICKS: "${ARGUS_WATCH_DISCOVERY_TICKS:-1}"
+      ARGUS_WATCH_INCLUDE_DRAFTS: "${ARGUS_WATCH_INCLUDE_DRAFTS:-}"
+      ARGUS_WATCH_INCLUDE_BOTS: "${ARGUS_WATCH_INCLUDE_BOTS:-}"
+      ARGUS_WATCH_FAST_MERGES: "${ARGUS_WATCH_FAST_MERGES:-1}"
+      ARGUS_WATCH_MAX_ATTEMPTS: "${ARGUS_WATCH_MAX_ATTEMPTS:-4}"
+      ARGUS_REVIEW_WORKERS: "${ARGUS_REVIEW_WORKERS:-2}"
+      ARGUS_REVIEW_TIMEOUT_S: "${ARGUS_REVIEW_TIMEOUT_S:-1800}"
+      ARGUS_VERIFY_VARIANT: "${ARGUS_VERIFY_VARIANT:-shipped}"
+      ARGUS_LLM_MAX_CONCURRENCY: "${ARGUS_LLM_MAX_CONCURRENCY:-3}"
+      # Empty means the code default. Reviewer passes per review (1 to 3), model
+      # request timeout in seconds, and retries on a failed model request.
+      ARGUS_REVIEW_PASSES: "${ARGUS_REVIEW_PASSES:-}"
+      ARGUS_LLM_TIMEOUT: "${ARGUS_LLM_TIMEOUT:-}"
+      ARGUS_LLM_MAX_RETRIES: "${ARGUS_LLM_MAX_RETRIES:-}"
+      # Token for GET /health?deep=1 from a non-loopback caller.
+      ARGUS_HEALTH_TOKEN: "${ARGUS_HEALTH_TOKEN:-}"
+      # Static-check lanes. Rule ids to skip (config) and the ruff rule set.
+      ARGUS_CONFIG_IGNORE: "${ARGUS_CONFIG_IGNORE:-}"
+      ARGUS_RUFF_RULES: "${ARGUS_RUFF_RULES:-}"
+      ARGUS_GITHUB_MIN_REMAINING: "${ARGUS_GITHUB_MIN_REMAINING:-500}"
+      ARGUS_PUBLISH: "${ARGUS_PUBLISH:-0}"
+      ARGUS_PUBLISH_REPOS: "${ARGUS_PUBLISH_REPOS:-}"
+      ARGUS_PUBLISH_TOKEN: "${ARGUS_PUBLISH_TOKEN:-}"
+      # Login of the publishing account. Empty resolves it from the token via GET /user.
+      ARGUS_PUBLISH_BOT_LOGIN: "${ARGUS_PUBLISH_BOT_LOGIN:-}"
+      ARGUS_PUBLISH_MIN_SEVERITY: "${ARGUS_PUBLISH_MIN_SEVERITY:-minor}"
+      ARGUS_PUBLISH_MAX_COMMENTS: "${ARGUS_PUBLISH_MAX_COMMENTS:-4}"
+      ARGUS_REPLY_LOOP: "${ARGUS_REPLY_LOOP:-1}"
+      ARGUS_REPLY_MAX_WRITES_PER_RUN: "${ARGUS_REPLY_MAX_WRITES_PER_RUN:-20}"
+      ARGUS_RECHECK_MAX_PER_RUN: "${ARGUS_RECHECK_MAX_PER_RUN:-10}"
+      ARGUS_OUTCOME_INTERVAL_TICKS: "${ARGUS_OUTCOME_INTERVAL_TICKS:-10}"
+      ARGUS_CR_THREADS_PATH: "${ARGUS_CR_THREADS_PATH:-}"
+    volumes:
+      - argus-data:/data
+    ports:
+      # Loopback only. Put a reverse proxy in front before you expose it.
+      - "127.0.0.1:8350:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  argus-web:
+    build:
+      context: ./web
+      dockerfile: ../Dockerfile.web
+      args:
+        # Server-side (RSC) fetch target: the API service on the compose network.
+        NEXT_PUBLIC_ARGUS_API: "http://argus-api:8000"
+        NEXT_PUBLIC_ARGUS_CLIENT_API: "${NEXT_PUBLIC_ARGUS_CLIENT_API:-}"
+    environment:
+      ARGUS_AUTH_MODE: "${ARGUS_AUTH_MODE:-token}"
+      ARGUS_API_TOKEN: "${ARGUS_API_TOKEN:-}"
+    image: argus-web:latest
+    container_name: argus-web
+    restart: unless-stopped
+    depends_on:
+      argus-api:
+        condition: service_healthy
+    ports:
+      # Loopback only. Put a reverse proxy in front before you expose it.
+      - "127.0.0.1:3350:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  argus-data:

@@ -1,0 +1,248 @@
+name: CI
+
+# Gates every PR into dev/master and every push to those branches.
+# Two stacks live here: the Python tool/API (src, tests) and the Next.js
+# console (web). On pull requests a path filter runs only the changed stack;
+# pushes to dev/master run everything so the integration branches are always
+# fully gated. A final aggregate job ("CI passed") is the single status to
+# require in branch protection. CLI tools are version-pinned and third-party
+# actions are commit-pinned so a green run today stays green.
+
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+    branches: [dev, master]
+  workflow_dispatch:
+
+# New pushes to the same ref cancel superseded runs.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only: no job writes to the repo or needs a token beyond checkout.
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changed areas
+    # Both stacks run on GitHub-hosted Ubuntu runners.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # paths-filter reads the PR's changed-file list via the API.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        id: filter
+        with:
+          # Editing this workflow re-runs both stacks so CI changes are self-tested.
+          filters: |
+            python:
+              - 'src/**'
+              - 'tests/**'
+              - 'data/**'
+              - 'pyproject.toml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'web/**'
+              - '.github/workflows/ci.yml'
+
+  python-lint:
+    name: Python lint (ruff)
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+      - name: ruff check
+        run: uvx ruff@0.15.17 check src tests
+
+  python-test:
+    name: Python tests (py ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+      - name: Run tests
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv pip install -e ".[dev]"
+          .venv/bin/python -m pytest -q
+
+  python-security:
+    name: Python security (pip-audit + bandit)
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+      - name: Verify uv.lock is in sync with pyproject.toml
+        run: uv lock --check
+      - name: Audit the locked dependency set (pip-audit)
+        run: |
+          uv export --frozen --format requirements-txt --no-hashes -o requirements-ci.txt
+          uvx pip-audit@2.10.1 -r requirements-ci.txt
+      - name: Static analysis (bandit, medium+)
+        run: uvx bandit@1.9.4 -q -r src --severity-level medium --confidence-level medium
+
+  web-build:
+    name: Web build (lint, types, build)
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+  web-e2e:
+    name: Web e2e (Playwright)
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run e2e
+        run: npx playwright test
+      - name: Run console auth tests
+        run: npm run test:auth
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-screenshots
+          path: web/e2e/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: '8.30.1'
+          GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}" \
+            --output "${RUNNER_TEMP}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          mkdir -p "${RUNNER_TEMP}/gitleaks-bin"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/gitleaks-bin" gitleaks
+          echo "${RUNNER_TEMP}/gitleaks-bin" >> "$GITHUB_PATH"
+      - name: Scan Git history for secrets
+        run: gitleaks git --redact --no-banner --exit-code 1 .
+
+  # Always runs (no paths-filter gate), so "CI passed" can never go green on a
+  # PR where every real job was skipped (a docs-only change used to pass with
+  # zero jobs executed). Cheap, universal checks that apply to every PR class.
+  sanity:
+    name: Sanity (always runs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: No merge-conflict markers
+        run: |
+          if grep -rInE '^(<<<<<<< |>>>>>>> )' \
+              --include='*.py' --include='*.ts' --include='*.tsx' \
+              --include='*.yml' --include='*.yaml' --include='*.md' . ; then
+            echo "::error::merge conflict markers found"; exit 1
+          fi
+      - name: Python sources parse (syntax check)
+        run: python3 -m compileall -q src
+
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [changes, sanity, secret-scan, python-lint, python-test, python-security, web-build, web-e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify no required job failed and at least one real job ran
+        run: |
+          echo "Job results: ${{ join(needs.*.result, ', ') }}"
+          for r in ${{ join(needs.*.result, ' ') }}; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::A required job did not pass (result: $r)"; exit 1 ;;
+            esac
+          done
+          # Both unconditional checks must succeed before "CI passed" can be green.
+          if [ "${{ needs.sanity.result }}" != "success" ] || [ "${{ needs.secret-scan.result }}" != "success" ]; then
+            echo "::error::an always-run check did not succeed; CI passed would be vacuous"; exit 1
+          fi
+          echo "All required jobs passed (or were skipped)."

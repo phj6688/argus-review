@@ -1,0 +1,12 @@
+# Build context hygiene for Dockerfile.web (context = web/).
+node_modules
+.next
+out
+build
+.env
+.env.*
+e2e/screenshots
+playwright-report
+test-results
+*.tsbuildinfo
+.DS_Store

@@ -1,0 +1,20 @@
+[
+  {"id": "loopback-binding", "summary": "Bind service ports to 127.0.0.1 when only a local reverse proxy needs them", "source": "Deployment hardening"},
+  {"id": "auth-gate", "summary": "Every public route must sit behind authentication; an anonymous request returns 302/401/403", "source": "Deployment hardening"},
+  {"id": "no-secret-in-code", "summary": "Never commit secrets or edit credential files", "source": "Secrets handling"},
+  {"id": "least-privilege-token", "summary": "Tokens are read-only and scoped to the repos they need", "source": "Secrets handling"},
+  {"id": "no-default-credentials", "summary": "Do not ship a default or placeholder password for a service; require it from the environment", "source": "Secrets handling"},
+  {"id": "no-open-redirect", "summary": "Validate redirect targets; never redirect to an unvalidated URL", "source": "OWASP: unvalidated redirects"},
+  {"id": "parameterized-sql", "summary": "Pass values to SQL as bound parameters; never build a query by string formatting", "source": "OWASP: injection"},
+  {"id": "no-shell-true", "summary": "Do not run a subprocess with shell=True on untrusted input; pass an argument list", "source": "OWASP: injection"},
+  {"id": "webhook-signature", "summary": "Verify a webhook signature with a constant-time comparison before acting on the payload", "source": "OWASP: authentication failures"},
+  {"id": "transaction-atomicity", "summary": "A unit of work commits or rolls back as one; no side-effecting commit, no partial write", "source": "Reliability"},
+  {"id": "input-validation", "summary": "Validate and bound external input before it reaches storage or logic", "source": "Reliability"},
+  {"id": "null-handling", "summary": "Handle the None/empty path explicitly; do not assume presence", "source": "Reliability"},
+  {"id": "db-integrity", "summary": "Respect schema constraints; keep the read model and the event log consistent", "source": "Reliability"},
+  {"id": "doc-code-consistency", "summary": "Code must match its docstring / documented contract", "source": "Maintainability"},
+  {"id": "pinned-dependencies", "summary": "Bound dependency versions; an open range lets a fresh resolve break a working build", "source": "Build reproducibility"},
+  {"id": "no-innerhtml-loop", "summary": "Never replace innerHTML in a WS/SSE/polling loop; update textContent only", "source": "Frontend performance"},
+  {"id": "loading-error-states", "summary": "Every async operation has a loading and an error state", "source": "Frontend UX"},
+  {"id": "feature-branch-only", "summary": "Never commit directly to the default branch; use a feature branch and a reviewed merge", "source": "Git workflow"}
+]
