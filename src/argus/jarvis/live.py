@@ -129,7 +129,9 @@ def _pr_meta(repo: str, pr: int) -> dict:
                       for c in records if c.get("sha") == head_sha), None)
     return {"title": body.get("title") or "", "body": body.get("body") or "", "commits": messages,
             "head_sha": head_sha, "head_committed_at": head_date,
-            "author_association": body.get("author_association")}
+            "author_association": body.get("author_association"),
+            "branch": (body.get("head") or {}).get("ref"),
+            "author": (body.get("user") or {}).get("login")}
 
 
 def probe_scan(repo: str, pr: int, files: list[FilePatch] | None = None,

@@ -23,9 +23,26 @@ docker compose up -d --build
 curl -fsS http://127.0.0.1:8350/health
 ```
 
-The compose file publishes the API on `127.0.0.1:8350` and the console on
-`127.0.0.1:3350`. Keep both bound to loopback: nothing should reach them except
-your own reverse proxy.
+The compose file publishes the API on `127.0.0.1:${ARGUS_API_PORT:-8350}` and the
+console on `127.0.0.1:${ARGUS_WEB_PORT:-3350}`. Keep both bound to loopback: nothing
+should reach them except your own reverse proxy. Set `ARGUS_API_PORT` and
+`ARGUS_WEB_PORT` in `.env` when those ports are taken.
+
+The compose file sets no project, container or image names, so the names follow
+the folder (or `-p NAME`). Two copies on one host need different folders or
+project names, and different ports. If you rely on fixed names, for example for a
+script that addresses a container by name, add them in `docker-compose.override.yml`:
+
+```yaml
+name: argus
+services:
+  argus-api:
+    container_name: argus-api
+    image: argus-api:latest
+  argus-web:
+    container_name: argus-web
+    image: argus-web:latest
+```
 
 ## Authentication
 
@@ -50,7 +67,10 @@ Set `ARGUS_PUBLIC_API_URL` to the external URL and `ARGUS_CORS_ORIGINS` to the
 console origin. If your proxy serves the API under a path prefix such as `/api/v1`,
 build the console with `NEXT_PUBLIC_ARGUS_CLIENT_API=/api/v1` so browser calls use it.
 
-- `/health` is a shallow liveness check. `/health?deep=1` makes a real model call.
+- `/health` is a shallow liveness check with no model call. It always answers
+  `status: ok` while the API runs, and adds `provider` (the resolved provider, or
+  `null`) and `provider_configured` (`false` when no provider credentials are set).
+  Alert on `provider_configured`, not on `status`. `/health?deep=1` makes a real model call.
   The API allows `deep=1` for loopback callers or with the `ARGUS_HEALTH_TOKEN` header
   after API authentication. A reverse proxy on the same host connects over loopback, so
   in proxy mode an anonymous `deep=1` request through that proxy would pass. Either keep
@@ -143,10 +163,13 @@ docker compose up -d --build --force-recreate
 - The MCP server is a stdio command. Run it on the host (`uv sync`, then register
   `.venv/bin/argus-mcp` with your MCP client, with `ARGUS_API_TOKEN` in its
   environment), or inside the API container with
-  `docker exec -i -e ARGUS_API=http://127.0.0.1:8000 argus-api /opt/venv/bin/argus-mcp`.
+  `docker compose -f /path/to/argus/docker-compose.yml exec -T -e ARGUS_API=http://127.0.0.1:8000 argus-api /opt/venv/bin/argus-mcp`.
   `ARGUS_API` overrides the default `http://127.0.0.1:8350`.
 - Scheduled evaluation wrappers live in `deploy/cron/`. They read their paths and
   notification settings from environment variables; see the comments at the top
   of each script. The weekly replay runs in a container on `ARGUS_EVAL_NETWORK`
   (default `bridge`). If your model endpoint is a container hostname on a compose
   network, set `ARGUS_EVAL_NETWORK` to that network, or the hostname will not resolve.
+  The scripts find the API container through `ARGUS_COMPOSE_FILE` (the compose file you
+  started the stack with), or `ARGUS_API_CONTAINER` and `ARGUS_API_IMAGE` when you name
+  them yourself. Without any of these they fall back to a container named `argus-api`.

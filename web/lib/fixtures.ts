@@ -94,6 +94,9 @@ export const reviewDetail: ReviewDetail = {
   branch: "fix/metrics-bind",
   author: "acme-dev",
   model: "gpt-6.1-sol",
+  model_used: "gpt-6.1-sol",
+  fallback_from: null,
+  fallback_reason: null,
   status: "done",
   time: "22m ago",
   filesChanged: 3,
@@ -250,6 +253,48 @@ const C = {
   minor: "var(--color-minor)",
   refactor: "var(--color-refactor)",
   nit: "var(--color-nit)",
+};
+
+/* Detail variants for the run-truth states the live API can return. They are
+   reachable by direct URL only, so the review list stays the same. */
+export const FALLBACK_ID = "acme-web-fallback";
+export const ERROR_ID = "acme-web-error";
+export const BARE_ID = "acme-web-bare";
+
+/** The same review as the API returns it when the run never recorded the PR header. */
+function withoutHeader(detail: ReviewDetail): ReviewDetail {
+  const copy = { ...detail };
+  delete copy.branch;
+  delete copy.author;
+  delete copy.filesChanged;
+  delete copy.added;
+  delete copy.removed;
+  return copy;
+}
+
+const bareBase = withoutHeader(reviewDetail);
+
+export const demoDetails: Record<string, ReviewDetail> = {
+  [SHOWCASE_ID]: reviewDetail,
+  [FALLBACK_ID]: {
+    ...reviewDetail,
+    id: FALLBACK_ID,
+    model: "claude-sonnet-5-5",
+    model_used: "gpt-6.1-sol",
+    fallback_from: "claude-sonnet-5-5",
+    fallback_reason: "RuntimeError: provider returned 529 overloaded",
+  },
+  [ERROR_ID]: {
+    ...bareBase,
+    id: ERROR_ID,
+    status: "error",
+    decision: "insufficient_evidence",
+    model_used: null,
+    bugs: [],
+    nits: [],
+    error: "BackendNotConfigured: ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN not set",
+  },
+  [BARE_ID]: { ...bareBase, id: BARE_ID },
 };
 
 export const reports: Record<ReportPeriod, Report> = {
@@ -492,7 +537,8 @@ export const integrations: Integrations = {
   "mcpServers": {
     "argus": {
       "command": "docker",
-      "args": ["exec", "-i", "-e", "ARGUS_API=http://127.0.0.1:8000",
+      "args": ["compose", "-f", "/path/to/argus/docker-compose.yml",
+               "exec", "-T", "-e", "ARGUS_API=http://127.0.0.1:8000",
                "argus-api", "/opt/venv/bin/argus-mcp"]
     }
   }

@@ -42,7 +42,14 @@ export interface ReviewSummary {
   repo: string;
   pr: number;
   title: string;
+  /** The model the review was configured with. */
   model: string;
+  /** Run lifecycle: "running", "done" or "error". */
+  status?: string;
+  /** The model that actually answered. Null when the run errored or no model read the change. */
+  model_used?: string | null;
+  fallback_from?: string | null;
+  fallback_reason?: string | null;
   counts: SeverityCounts;
   action: ActionState;
   age: string;
@@ -83,16 +90,25 @@ export interface ReviewDetail {
   repo: string;
   pr: number;
   title: string;
-  branch: string;
-  author: string;
+  /** Header facts the run recorded. Absent when the source did not supply them. */
+  branch?: string;
+  author?: string;
+  /** The model the review was configured with. */
   model: string;
+  /** The model that actually answered. Null when the run errored or no model read the change. */
+  model_used?: string | null;
+  /** Set when the primary model failed and the fallback model answered. */
+  fallback_from?: string | null;
+  fallback_reason?: string | null;
+  /** Failure text of an errored run, with credentials removed. */
+  error?: string | null;
   /** Run lifecycle, independent of the verdict: a poller must not have to
    *  recognise a decision value to know the run finished. */
   status: string;
   time: string;
-  filesChanged: number;
-  added: number;
-  removed: number;
+  filesChanged?: number;
+  added?: number;
+  removed?: number;
   decision: Decision;
   bugs: VerifiedFinding[];
   nits: VerifiedFinding[];

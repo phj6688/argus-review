@@ -110,6 +110,7 @@ def test_pr_meta_repeated_commits_error_returns_empty_messages(monkeypatch):
     assert live._pr_meta("o/r", 1) == {
         "title": "Fix", "body": "Details", "head_sha": "head",
         "commits": [], "head_committed_at": None, "author_association": None,
+        "branch": None, "author": None,
     }
     assert [call.args[0] for call in get.call_args_list] == [pull_url, commits_url, commits_url]
     github.time.sleep.assert_called_once_with(1)

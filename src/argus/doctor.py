@@ -27,6 +27,37 @@ def _error_detail(error: Exception) -> str:
     return f"{type(error).__name__}: {error}"
 
 
+def _credential_check(provider: str) -> tuple[str, bool, str] | None:
+    required = {
+        providers.GATEWAY: (client.ENV_BASE_URL, client.ENV_AUTH_TOKEN),
+        providers.ANTHROPIC: (client.ENV_ANTHROPIC_KEY,),
+        providers.OPENROUTER: (client.ENV_OPENROUTER_KEY,),
+    }.get(provider, ())
+    if not required:
+        return None
+    missing = [name for name in required if not os.environ.get(name, "").strip()]
+    detail = f"{', '.join(missing)} not set" if missing else f"{', '.join(required)} set"
+    return ("credentials", not missing, detail)
+
+
+def configuration_problem(model: str | None = None) -> str | None:
+    """Why a review on this model cannot start, or None when it can.
+
+    Offline: it reads the environment only and makes no network call. The text is
+    what `argus doctor` prints for the same failure, so the console, the API and
+    the CLI all give one answer.
+    """
+    model = model or client.DEFAULT_MODEL
+    try:
+        provider = providers.resolve(model)
+    except providers.BackendNotConfigured as error:
+        return str(error)
+    credentials = _credential_check(provider)
+    if credentials is not None and not credentials[1]:
+        return credentials[2]
+    return None
+
+
 def run_checks(model: str | None = None) -> list[tuple[str, bool, str]]:
     model = model or client.DEFAULT_MODEL
     try:
@@ -39,16 +70,10 @@ def run_checks(model: str | None = None) -> list[tuple[str, bool, str]]:
         return cli_providers.get(provider).doctor(model)
 
     checks = []
-    required = {
-        providers.GATEWAY: (client.ENV_BASE_URL, client.ENV_AUTH_TOKEN),
-        providers.ANTHROPIC: (client.ENV_ANTHROPIC_KEY,),
-        providers.OPENROUTER: (client.ENV_OPENROUTER_KEY,),
-    }.get(provider, ())
-    if required:
-        missing = [name for name in required if not os.environ.get(name, "").strip()]
-        detail = f"{', '.join(missing)} not set" if missing else f"{', '.join(required)} set"
-        checks.append(("credentials", not missing, detail))
-        if missing:
+    credentials = _credential_check(provider)
+    if credentials is not None:
+        checks.append(credentials)
+        if not credentials[1]:
             return checks
     if provider == providers.ANTHROPIC:
         if not os.environ[client.ENV_ANTHROPIC_KEY].strip().startswith("sk-ant-"):

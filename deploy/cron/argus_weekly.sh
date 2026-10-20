@@ -20,11 +20,11 @@ flock -n 9 || exit 0
 WEEKLY_CONTAINER=argus-weekly
 docker rm -f argus-weekly >/dev/null 2>&1 || true
 mkdir -p "$OUT"
-docker build -q -t "$IMAGE" -f "$DIR/Dockerfile.eval" "$DIR"
+docker build -q --build-arg "BASE_IMAGE=$API_IMAGE" -t "$IMAGE" -f "$DIR/Dockerfile.eval" "$DIR"
 build_environment
 MODEL=$(docker exec "$API_CONTAINER" python -m argus.evalkit.cron model)
 [ -n "$MODEL" ] || { echo 'Review model is missing'; exit 1; }
-IMAGE_ID=$(docker image inspect --format '{{.Id}}' argus-api:latest)
+IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$API_IMAGE")
 timeout --signal=TERM --kill-after=300 11h docker run --rm --no-healthcheck --name argus-weekly \
     --user 1000:1000 --network "$NETWORK" \
     --env-file "$ENV_FILE" -e HOME=/tmp -e ARGUS_PUBLISH=0 -e ARGUS_JUDGE_LIVE=0 \

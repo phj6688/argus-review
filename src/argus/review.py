@@ -24,6 +24,7 @@ from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from hashlib import sha256
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import ValidationError
@@ -35,7 +36,8 @@ from .context import (
     FileReader, RenderedContext, cached_reader, render_review_context,
 )
 from .diff import (
-    REMOVED_STATUS, FilePatch, added_lines, compress_diff, fetch_pr_files, split_lines, touched_lines,
+    REMOVED_STATUS, FilePatch, added_lines, change_stats, compress_diff, fetch_pr_files, split_lines,
+    touched_lines,
 )
 from .errors import HeadMoved
 from .schema import (
@@ -381,6 +383,47 @@ class ReviewResult:
     coverage: list[dict] = field(default_factory=list)
     head_committed_at: str | None = None
     head_sha: str | None = None
+    # PR header facts the run already fetched. None means the source did not
+    # supply them (a raw diff has no branch or author), and readers omit them.
+    branch: str | None = None
+    author: str | None = None
+    files_changed: int | None = None
+    lines_added: int | None = None
+    lines_removed: int | None = None
+
+
+ENV_FALLBACK_MODEL = "ARGUS_FALLBACK_MODEL"
+
+
+def fallback_for(
+    primary_model: str, make_runner: Callable[[str], Callable[[], ReviewResult]]
+) -> tuple[Callable[[], ReviewResult] | None, str | None]:
+    """Build the fallback runner if ARGUS_FALLBACK_MODEL is set and differs from
+    the primary (else None). Opt-in: unset means fail-hard. The model choice stays
+    the operator's; the fallback is explicit and recorded."""
+    fallback = os.environ.get(ENV_FALLBACK_MODEL, "").strip()
+    if fallback and fallback != primary_model:
+        return make_runner(fallback), fallback
+    return None, None
+
+
+def _from_github(error: Exception) -> bool:
+    """True when an httpx error came from a request to the GitHub API."""
+    if not isinstance(error, httpx.HTTPError):
+        return False
+    try:
+        return error.request.url.host == urlparse(github.GITHUB_API).hostname
+    except RuntimeError:  # a transport error raised before any request was attached
+        return False
+
+
+def fallback_eligible(error: Exception) -> bool:
+    """A second model cannot fix a GitHub-side failure (an auth, quota or HTTP
+    error from the GitHub API) or a moved head. A failure of the model provider
+    stays eligible."""
+    return not (isinstance(error, (HeadMoved, github.GitHubRateLimited,
+                                   github.GitHubDenied, github.GitHubAuthError))
+                or _from_github(error))
 
 
 def run_review(
@@ -435,6 +478,7 @@ def run_review(
     det_nits = [i for i in deterministic if i.finding.severity not in BUG_SEVERITIES]
     _stamp_fingerprints(verified + probe_bugs + probe_nits + deterministic, patches)
     judge_record = _judge_lane(bugs, patches, model)
+    files_changed, lines_added, lines_removed = change_stats(files)
     return ReviewResult(
         # raw_count/dropped stay scoped to the merged LLM findings; the
         # deterministic lanes are additive sources.
@@ -444,6 +488,8 @@ def run_review(
         all_findings=verified,
         head_committed_at=meta.get("head_committed_at"),
         head_sha=head_sha,
+        branch=meta.get("branch"), author=meta.get("author"),
+        files_changed=files_changed, lines_added=lines_added, lines_removed=lines_removed,
         coverage=[probe_record, ruff_record, config_record,
                   llm_record, judge_record],
     )
@@ -495,9 +541,10 @@ def run_diff_review(
         det_nits = [i for i in deterministic
                     if i.finding.severity not in BUG_SEVERITIES]
         _stamp_fingerprints(probe_verified + deterministic, patches)
+        changed, added, removed = change_stats(files)
         return ReviewResult(
             raw_count=0, bugs=probe_bugs + det_bugs, nits=probe_nits + det_nits,
-            dropped=0,
+            dropped=0, files_changed=changed, lines_added=added, lines_removed=removed,
             # The judge lane is listed even though it obviously cannot run here.
             # A reader must not have to already know the full set of lanes to
             # notice that one is missing from the document.
@@ -529,11 +576,13 @@ def run_diff_review(
     det_nits = [i for i in deterministic if i.finding.severity not in BUG_SEVERITIES]
     _stamp_fingerprints(verified + probe_verified + deterministic, patches)
     judge_record = _judge_lane(bugs, patches, model)
+    changed, added, removed = change_stats(files)
     return ReviewResult(
         raw_count=len(review.findings),
         bugs=bugs + probe_bugs + det_bugs, nits=nits + probe_nits + det_nits,
         dropped=len(review.findings) - len(bugs) - len(nits),
         all_findings=verified,
+        files_changed=changed, lines_added=added, lines_removed=removed,
         coverage=[probe_record, ruff_record, config_record,
                   llm_record, judge_record],
     )

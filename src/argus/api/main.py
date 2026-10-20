@@ -24,11 +24,14 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from .. import acceptance, diff, github, providers, publish, rules, verdict
+from .. import acceptance, diff, doctor, github, providers, publish, rules, verdict
 from ..client import DEFAULT_MODEL, ping
 from ..errors import HeadMoved
 from ..diff import FilePatch, parse_unified_diff
-from ..review import DEFAULT_BUG_CAP, ReviewResult, run_diff_review, run_review
+from ..review import (
+    DEFAULT_BUG_CAP, ENV_FALLBACK_MODEL, ReviewResult, fallback_eligible, fallback_for, run_diff_review,
+    run_review,
+)
 from ..repo_policy import RepoDenied, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
 
@@ -54,7 +57,7 @@ CR_THREADS_PATH = _resolve_cr_threads_path()
 MIN_CONFIDENCE = 0.55
 
 # Public API base; deployments override the local development default.
-API_BASE_URL = os.environ.get("ARGUS_PUBLIC_API_URL", "http://localhost:8000")
+API_BASE_URL = os.environ.get("ARGUS_PUBLIC_API_URL", "http://127.0.0.1:8350")
 
 _REPORT_WINDOWS = {"daily": 1, "weekly": 7, "monthly": 30}
 
@@ -213,19 +216,8 @@ class MarkRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-ENV_FALLBACK_MODEL = "ARGUS_FALLBACK_MODEL"
-
-
-def _fallback_for(
-    primary_model: str, make_runner: Callable[[str], Callable[[], ReviewResult]]
-) -> tuple[Callable[[], ReviewResult] | None, str | None]:
-    """Build the fallback runner if ARGUS_FALLBACK_MODEL is set and differs from
-    the primary (else None). Opt-in: unset means today's fail-hard behavior. The
-    model choice stays the operator's; the fallback is explicit and recorded."""
-    fallback = os.environ.get(ENV_FALLBACK_MODEL, "").strip()
-    if fallback and fallback != primary_model:
-        return make_runner(fallback), fallback
-    return None, None
+# Kept as a module attribute: the watcher and tests reach the shared rule through here.
+_fallback_for = fallback_for
 
 
 def run_one_review(
@@ -256,8 +248,7 @@ def run_one_review(
         return exc
     except Exception as exc:  # noqa: BLE001 - any engine/transport failure -> error status
         reason = f"{type(exc).__name__}: {exc}"
-        if fallback_runner is not None and not isinstance(
-                exc, (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError)):
+        if fallback_runner is not None and fallback_eligible(exc):
             log.warning("review %s: primary model %s failed (%s); trying fallback %s",
                         review_id, primary_model, reason, fallback_model)
             try:
@@ -269,8 +260,11 @@ def run_one_review(
                 return fb_exc
             except Exception as fb_exc:  # noqa: BLE001 - fallback also failed -> error
                 log.exception("review %s failed on the fallback model too", review_id)
-                db.set_error(path, review_id, f"{type(fb_exc).__name__}: {fb_exc}",
-                             type(fb_exc).__name__)
+                db.set_error(
+                    path, review_id,
+                    f"{type(fb_exc).__name__}: {fb_exc} "
+                    f"(fallback {fallback_model}; primary {primary_model} failed: {reason})",
+                    type(fb_exc).__name__)
                 return fb_exc
             db.set_fallback(path, review_id, fallback_model, primary_model, reason)
             db.save_result(path, review_id, result)
@@ -324,13 +318,19 @@ def _deep_allowed(request: Request) -> bool:
 @app.get("/health")
 def health(request: Request, deep: int = 0) -> dict:
     """Shallow: report the model reviews will use (stored config, else the env
-    default), no network. deep=1 pings that backend, but only from loopback or
-    with the ARGUS_HEALTH_TOKEN header, after any required API authentication."""
+    default) and whether a model provider is configured, with no network call.
+    The status stays ok when no provider is set, so a liveness probe does not
+    flap; read provider_configured for that. deep=1 pings the backend, but only
+    from loopback or with the ARGUS_HEALTH_TOKEN header, after any required API
+    authentication."""
     stored = db.get_config(db.db_path())
     model = stored["model"] if stored else DEFAULT_MODEL
+    provider = _provider_name(model)
     # Additive, public: shallow /health now says whether the review lane is
     # healthy, so a probe pointed here sees lane death instead of a static "ok".
-    body: dict = {"status": "ok", "model": model, "reviews": metrics.review_health()}
+    body: dict = {"status": "ok", "model": model, "provider": provider,
+                  "provider_configured": doctor.configuration_problem(model) is None,
+                  "reviews": metrics.review_health()}
     if deep and _deep_allowed(request):
         try:
             body["ping"] = ping(model)
@@ -341,6 +341,23 @@ def health(request: Request, deep: int = 0) -> dict:
     return body
 
 
+def require_provider(model: str, *, allow_fallback: bool = False) -> None:
+    """Refuse to start a model run that cannot work. A review created without a
+    provider only errors later, in the background, where nobody is looking.
+
+    With allow_fallback, a primary that cannot start is accepted when the
+    configured ARGUS_FALLBACK_MODEL can, because the run then switches to it and
+    records the switch."""
+    problem = doctor.configuration_problem(model)
+    if not problem:
+        return
+    fallback = os.environ.get(ENV_FALLBACK_MODEL, "").strip()
+    if (allow_fallback and fallback and fallback != model
+            and doctor.configuration_problem(fallback) is None):
+        return
+    raise HTTPException(status_code=503, detail=problem)
+
+
 @app.post("/reviews", response_model=ReviewCreated, status_code=201)
 def create_review(request: ReviewRequest, background: BackgroundTasks) -> ReviewCreated:
     from ..jarvis import live
@@ -348,6 +365,7 @@ def create_review(request: ReviewRequest, background: BackgroundTasks) -> Review
     path = db.db_path()
     stored = db.get_config(path)
     model = stored["model"] if stored else DEFAULT_MODEL
+    require_provider(model, allow_fallback=True)
     bug_cap = stored["bug_cap"] if stored else DEFAULT_BUG_CAP
     head_sha = None
     try:
@@ -437,6 +455,8 @@ def review_diff(request: DiffReviewRequest, background: BackgroundTasks) -> dict
     path = db.db_path()
     stored = db.get_config(path)
     model = stored["model"] if stored else DEFAULT_MODEL
+    if request.mode == "full":
+        require_provider(model)
     bug_cap = stored["bug_cap"] if stored else DEFAULT_BUG_CAP
     diff_hash = hashlib.sha256(
         (request.diff or f"{request.base_sha}..{request.head_sha}").encode()
@@ -506,8 +526,10 @@ def list_reviews() -> dict:
 @app.get("/reviews/{review_id}")
 def get_review(review_id: int) -> dict:
     """One review as a ReviewDetail: findings split into bugs/nits (by is_bug),
-    each a VerifiedFinding. Fields the engine does not persist (branch, author,
-    diff stats, decision, thread) are documented defaults; see web/lib/types.ts."""
+    each a VerifiedFinding. branch, author and the diff stats appear when the run
+    recorded them. model_used, fallback_from and fallback_reason say which model
+    answered, and error carries the failure text of an errored run. The comment
+    thread is not mirrored; see web/lib/types.ts."""
     path = db.db_path()
     review = db.get_review(path, review_id)
     if review is None:
@@ -583,6 +605,14 @@ def _verified_finding(row: dict, mark: dict | None = None) -> dict:
     }
 
 
+def _run_truth(row: dict) -> dict:
+    """The model that ran and any fallback note. `model` on a row is what was
+    configured; these fields say what happened, so a failed run never reads as if
+    the configured model had answered."""
+    facts = verdict.run_facts(row)
+    return {key: facts[key] for key in ("model_used", "fallback_from", "fallback_reason")}
+
+
 def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
     """reviews row -> ReviewSummary. counts is the severity tally for this row."""
     zero = {s: 0 for s in metrics.SEVERITIES}
@@ -593,6 +623,8 @@ def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
         # The engine has no PR title; fall back to a repo#pr label.
         "title": f"{row['repo']} #{row['pr']}",
         "model": row["model"],
+        "status": row["status"],
+        **_run_truth(row),
         "counts": {**zero, **counts},
         # No GitHub acted/merged signal is wired, so every row reads as pending.
         "action": "pending",
@@ -622,25 +654,30 @@ def _to_review_detail(
     bugs = [_verified_finding(f, marks.get(f["id"])) for f in findings if f["is_bug"]]
     nits = [_verified_finding(f, marks.get(f["id"])) for f in findings if not f["is_bug"]]
     now = datetime.now(timezone.utc)
+    facts = verdict.run_facts(review)
+    # Header facts the run recorded. A value the source never supplied (rows from
+    # before the columns existed, raw diffs) is left out, not shown as zero.
+    header = {key: review[column] for key, column in (
+        ("branch", "branch"), ("author", "author"), ("filesChanged", "files_changed"),
+        ("added", "lines_added"), ("removed", "lines_removed"),
+    ) if review.get(column) is not None}
     return {
         "id": str(review["id"]),
         "repo": review["repo"],
         "pr": review["pr"],
         "title": f"{review['repo']} #{review['pr']}",
-        # branch/author come from the PR head; the engine does not store them.
-        "branch": "—",
-        "author": "—",
+        **header,
         "model": review["model"],
+        "model_used": facts["model_used"],
+        "fallback_from": facts["fallback_from"],
+        "fallback_reason": facts["fallback_reason"],
+        "error": facts["error"] if review["status"] == db.STATUS_ERROR else None,
         # The run's own lifecycle, independent of what it concluded. A poller must
         # be able to tell "finished" from "still going" without recognising the
         # decision vocabulary, or every value added to that vocabulary reads as
         # unfinished to any consumer that has not been taught the new value.
         "status": review["status"],
         "time": f"{_relative_age(review.get('created_at'), now)} ago",
-        # Diff stats are not persisted with the run.
-        "filesChanged": 0,
-        "added": 0,
-        "removed": 0,
         "decision": _decision_for(review, findings),
         "bugs": bugs,
         "nits": nits,
@@ -932,15 +969,22 @@ def get_integrations() -> dict:
             # is imported from the server module so this page cannot drift from
             # what it exposes.
             "status": "stdio",
-            "config": (
-                '{\n  "mcpServers": {\n    "argus": {\n      "command": "docker",\n'
-                '      "args": ["exec", "-i", "-e", "ARGUS_API=http://127.0.0.1:8000",\n'
-                '               "argus-api", "/opt/venv/bin/argus-mcp"]\n    }\n  }\n}'
-            ),
+            "config": MCP_CONTAINER_CONFIG,
             "tools": list(_mcp_tool_names()),
             "resources": [],
         },
     }
+
+
+# The server runs inside the API container, so the client starts it through
+# compose by service name. That works for any project name or container name.
+# -T drops the TTY and keeps stdin attached, which a stdio MCP server needs.
+MCP_CONTAINER_CONFIG = (
+    '{\n  "mcpServers": {\n    "argus": {\n      "command": "docker",\n'
+    '      "args": ["compose", "-f", "/path/to/argus/docker-compose.yml",\n'
+    '               "exec", "-T", "-e", "ARGUS_API=http://127.0.0.1:8000",\n'
+    '               "argus-api", "/opt/venv/bin/argus-mcp"]\n    }\n  }\n}'
+)
 
 
 def _auth_mode() -> str:

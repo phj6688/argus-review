@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeMark } from "@/components/ui/icons";
-import { createReview, getRunState } from "@/lib/api";
+import { createReview, getRunState, ReviewRefused } from "@/lib/api";
 import { ScreenHeader } from "./screen-header";
 
 const POLL_MS = 2000;
@@ -92,10 +92,15 @@ export function TriggerScreen() {
       try {
         const created = await createReview(target);
         id = created.id;
-      } catch {
+      } catch (error) {
         if (!mountedRef.current) return;
         setPhase("error");
-        write(`request failed · could not reach the review API`);
+        // The API explains a refusal (for example, no model provider set). Show it.
+        write(
+          error instanceof ReviewRefused && error.detail
+            ? `review not started · ${error.detail}`
+            : `request failed · could not reach the review API`,
+        );
         return;
       }
       if (!mountedRef.current) return; // unmounted during POST: do not arm the poll

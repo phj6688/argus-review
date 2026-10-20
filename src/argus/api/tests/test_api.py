@@ -130,8 +130,8 @@ def test_background_task_marks_error_when_run_review_raises(db_path):
 _SUMMARY_KEYS = {"id", "repo", "pr", "title", "model", "counts", "action", "age"}
 _LIVE_KEYS = {"repo", "pr", "title", "model", "stage", "elapsed"}
 _DETAIL_KEYS = {
-    "id", "repo", "pr", "title", "branch", "author", "model", "time",
-    "filesChanged", "added", "removed", "decision", "bugs", "nits", "thread",
+    "id", "repo", "pr", "title", "model", "time", "model_used", "fallback_from",
+    "fallback_reason", "decision", "bugs", "nits", "thread",
 }
 
 
