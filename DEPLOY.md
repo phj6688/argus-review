@@ -29,8 +29,10 @@ should reach them except your own reverse proxy. Set `ARGUS_API_PORT` and
 `ARGUS_WEB_PORT` in `.env` when those ports are taken.
 
 The compose file sets no project, container or image names, so the names follow
-the folder (or `-p NAME`). Two copies on one host need different folders or
-project names, and different ports. If you rely on fixed names, for example for a
+the folder (or `-p NAME`). Two copies on one host need different project names
+(set `COMPOSE_PROJECT_NAME` in `.env`, which sticks, or pass `docker compose -p NAME` on every command), because two folders
+with the same name share one project and its `argus-data` volume. They also need
+different ports. If you rely on fixed names, for example for a
 script that addresses a container by name, add them in `docker-compose.override.yml`:
 
 ```yaml

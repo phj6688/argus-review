@@ -11,7 +11,7 @@ from . import doctor, github, providers, publish, verdict
 from .client import DEFAULT_MODEL
 from .diff import compress_diff, fetch_pr_files
 from .redact import redact
-from .review import fallback_eligible, fallback_for, run_review
+from .review import fallback_eligible, fallback_for, from_github, run_review
 from .repo_policy import validate_repo
 from .schema import VerifiedFinding
 from .tokens import HeuristicEstimator
@@ -62,7 +62,8 @@ def _failure_line(error: Exception) -> str:
     if isinstance(error, github.GitHubRateLimited):
         return f"error: {error}. Try again after the reset."
     if isinstance(error, httpx.HTTPStatusError):
-        return f"error: GitHub answered {error.response.status_code} for {error.request.url.path}"
+        source = "GitHub" if from_github(error) else error.request.url.host
+        return f"error: {source} answered {error.response.status_code} for {error.request.url.path}"
     return f"error: {redact(str(error))}"
 
 

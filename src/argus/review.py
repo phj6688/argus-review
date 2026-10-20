@@ -407,7 +407,7 @@ def fallback_for(
     return None, None
 
 
-def _from_github(error: Exception) -> bool:
+def from_github(error: Exception) -> bool:
     """True when an httpx error came from a request to the GitHub API."""
     if not isinstance(error, httpx.HTTPError):
         return False
@@ -423,7 +423,7 @@ def fallback_eligible(error: Exception) -> bool:
     stays eligible."""
     return not (isinstance(error, (HeadMoved, github.GitHubRateLimited,
                                    github.GitHubDenied, github.GitHubAuthError))
-                or _from_github(error))
+                or from_github(error))
 
 
 def run_review(

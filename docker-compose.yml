@@ -8,10 +8,11 @@
 # belong in a docker-compose.override.yml that stays out of git.
 #
 # Nothing here is pinned to a fixed name: no `name:`, no container_name and no
-# image tags, so compose names the project after this folder and a second copy
-# (or another project called argus) does not collide. The host ports are the only
-# shared resource: set ARGUS_API_PORT and ARGUS_WEB_PORT in .env when 8350 or
-# 3350 is taken. An install that needs fixed names adds them in its override.
+# image tags, so compose names the project after this folder. A second copy needs
+# its own project name (COMPOSE_PROJECT_NAME in .env, or -p NAME on every command),
+# because folders with the same name share one project and its argus-data volume.
+# The host ports are the other shared resource: set ARGUS_API_PORT and
+# ARGUS_WEB_PORT in .env when 8350 or 3350 is taken. An install that needs fixed names adds them in its override.
 
 services:
   argus-api:

@@ -439,3 +439,12 @@ def test_cron_stops_when_the_given_compose_file_has_no_running_api(tmp_path):
 def test_cron_replay_stops_on_the_same_condition():
     text = (ROOT / "deploy/cron/argus_replay.sh").read_text()
     assert "No running argus-api service" in text and "exit 1" in text
+
+
+def test_cli_names_the_provider_not_github_for_a_provider_http_error(monkeypatch):
+    error = _http_status_error("https://router.example/v1/messages", 529)
+    monkeypatch.setattr(cli, "run_review", Mock(side_effect=error))
+    monkeypatch.delenv("ARGUS_FALLBACK_MODEL", raising=False)
+    code = _run_cli(monkeypatch, "review", "o/r", "1")
+    assert code.startswith("error: router.example answered 529")
+    assert "GitHub" not in code

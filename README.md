@@ -75,9 +75,10 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
 
 If the API container stops at startup, read `docker compose logs argus-api`. A missing or short `ARGUS_API_TOKEN` is the usual cause, and the message says so. If no model provider is set, `POST /reviews` answers `503` with the same message that `argus doctor` prints, and the console Trigger screen shows it. Run `docker compose exec argus-api argus doctor` to see what Argus found.
 
-**Ports and a second copy.** Compose binds the API to `127.0.0.1:${ARGUS_API_PORT}` (8350) and the console to `127.0.0.1:${ARGUS_WEB_PORT}` (3350). Compose sets no fixed project, container or image names, so the project name comes from the folder. To run a second copy, clone the repository to another folder and give that folder's `.env` free ports:
+**Ports and a second copy.** Compose binds the API to `127.0.0.1:${ARGUS_API_PORT}` (8350) and the console to `127.0.0.1:${ARGUS_WEB_PORT}` (3350). Compose sets no fixed project, container or image names, so the project name comes from the folder name. Two folders with the same name share one project, so they would share containers and the `argus-data` volume. To run a second copy, give it its own project name and free ports in its `.env`. `COMPOSE_PROJECT_NAME` in `.env` sticks for every later command. With `docker compose -p NAME` you must repeat `-p NAME` on every command:
 
 ```bash
+COMPOSE_PROJECT_NAME=argus-second
 ARGUS_API_PORT=18350
 ARGUS_WEB_PORT=13350
 ```
@@ -161,6 +162,8 @@ Run `argus doctor` after every change. It checks the credentials, calls the mode
 OPENROUTER_API_KEY=sk-or-...
 ARGUS_MODEL=openai/gpt-6.1-sol
 ```
+
+An alternative reviewer model that works the same way is `ARGUS_MODEL=anthropic/claude-sonnet-5-5`. Any OpenRouter model id with tool support works: see <https://openrouter.ai/models>.
 
 Any OpenRouter model that supports tool calls works. Pick the model id from the model page on openrouter.ai and keep the vendor prefix. Without `ARGUS_MODEL`, Argus uses the default in the table. If `ARGUS_MODEL` has no slash and OpenRouter is your only provider, Argus stops with an error that asks for a `vendor/model` id.
 
@@ -340,7 +343,7 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 }
 ```
 
-`-T` turns the terminal off and keeps standard input open, which a stdio server needs. If you started the stack with `-p NAME`, add `"-p", "NAME"` before `"-f"`.
+`-T` turns the terminal off and keeps standard input open, which a stdio server needs. If you started the stack with `-p NAME` instead of `COMPOSE_PROJECT_NAME`, add `"-p", "NAME"` before `"-f"`.
 
 ## Configuration reference
 
