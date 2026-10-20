@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/assets/argus-hero.gif" alt="Argus" width="360"></p>
+<p align="center"><img src="docs/assets/argus-hero.png" alt="Argus: a self-hosted code reviewer for GitHub pull requests" width="360"></p>
 
 # Argus
 
@@ -7,6 +7,8 @@ Argus is a self-hosted code reviewer for GitHub pull requests. It reads a PR, as
 You run it on your own machine and bring your own model: an API key, a local OpenAI-compatible server, or a Claude or ChatGPT subscription. Your code goes to the model you choose and nowhere else.
 
 ## How a review runs
+
+<p align="center"><img src="docs/assets/argus-demo.gif" alt="Argus reviewing a pull request: a planted bug is found, verified and posted as one comment" width="420"></p>
 
 1. Argus fetches the PR and renders each changed file with its post-change line numbers. Files up to 600 lines appear in full. Larger files appear as windows around the changes. The PR title, description and commit subjects come first.
 2. The reviewer pass reports every candidate issue as structured JSON, with a category, severity, confidence, a verbatim evidence line and a suggested fix. `ARGUS_REVIEW_PASSES=2` or `3` adds gap-filling passes. They are off by default because they add many findings and few real ones.
