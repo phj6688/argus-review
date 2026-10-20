@@ -4,7 +4,6 @@
 WEEKLY_ROOT="${ARGUS_EVAL_OUTPUT:?Set ARGUS_EVAL_OUTPUT}"
 MONTHLY_ROOT="${ARGUS_MONTHLY_OUTPUT:?Set ARGUS_MONTHLY_OUTPUT}"
 NETWORK="${ARGUS_EVAL_NETWORK:-bridge}"
-IMAGE="argus-api:latest"
 LOG="${ARGUS_CRON_LOG_DIR:-$HOME/.local/state/argus}/argus_monthly.log"
 JOB=monthly
 MONTH="${ARGUS_MONTH:-$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m)}"
@@ -13,6 +12,7 @@ SINCE="$MONTH-01"
 UNTIL=$(date -u -d "$SINCE +1 month" +%Y-%m-01)
 OUT="$MONTHLY_ROOT/$MONTH"
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+IMAGE="$API_IMAGE"
 
 mkdir -p "$MONTHLY_ROOT"
 chmod 700 "$MONTHLY_ROOT"

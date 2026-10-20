@@ -5,12 +5,11 @@
 import {
   benchmark,
   config,
+  demoDetails,
   integrations,
   liveReview,
   reports,
-  reviewDetail,
   reviews,
-  SHOWCASE_ID,
   stats,
 } from "./fixtures";
 import type {
@@ -69,8 +68,8 @@ export async function getReviews(): Promise<{
 export async function getReview(id: string): Promise<ReviewDetail | null> {
   const remote = await live<ReviewDetail>(`/reviews/${id}`, true);
   if (remote) return remote;
-  // Demo: the detail screen showcases one fully-authored PR.
-  return id === SHOWCASE_ID ? reviewDetail : null;
+  // Demo: the detail screen showcases one fully-authored PR and its run-truth variants.
+  return demoDetails[id] ?? null;
 }
 
 /* The trigger flow talks to the run lifecycle directly from the browser.
@@ -91,6 +90,16 @@ export interface RunState {
   error?: string;
 }
 
+/** The API refused to start a review. detail is its own explanation, when it gave one. */
+export class ReviewRefused extends Error {
+  constructor(
+    readonly status: number,
+    readonly detail: string | null,
+  ) {
+    super(detail ?? `argus api /reviews: ${status}`);
+  }
+}
+
 export async function createReview(input: {
   repo: string;
   pr: number;
@@ -101,7 +110,17 @@ export async function createReview(input: {
     cache: "no-store",
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error(`argus api /reviews: ${res.status}`);
+  if (!res.ok) {
+    let detail: string | null = null;
+    try {
+      const refusal = (await res.json()) as { detail?: unknown; error?: unknown };
+      const text = refusal.detail ?? refusal.error;
+      if (typeof text === "string" && text) detail = text;
+    } catch {
+      // No JSON body: the status is all there is to report.
+    }
+    throw new ReviewRefused(res.status, detail);
+  }
   const body = (await res.json()) as { id: string | number; status: RunStatus };
   return { id: String(body.id), status: body.status };
 }

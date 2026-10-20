@@ -1,4 +1,6 @@
-FROM argus-api:latest
+# The weekly wrapper passes the image the API container runs.
+ARG BASE_IMAGE=argus-api:latest
+FROM ${BASE_IMAGE}
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \

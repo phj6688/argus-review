@@ -49,7 +49,7 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
    curl -fsS http://127.0.0.1:8350/health
    ```
 
-   The health call returns `{"status":"ok", ...}` with the model Argus will use.
+   The health call returns `{"status":"ok", ...}` with the model Argus will use. It also returns `provider` (the model provider Argus resolved, or `null`) and `provider_configured`. When `provider_configured` is `false`, no provider variable is set yet. `status` stays `ok` in that case, so a liveness probe does not flap. The call makes no model request.
 
 5. Open <http://127.0.0.1:3350> and sign in with `ARGUS_API_TOKEN`.
 
@@ -62,13 +62,28 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
      -d '{"repo": "owner/repo", "pr": 123}'
    ```
 
-   The response holds a review `id`. A review takes a few minutes. Read the result with the verdict route:
+   The response holds a review `id`. A review takes about 1 to 2 minutes. Poll the review until its `status` is `done`. Set `ID` to the id from the response:
 
    ```bash
-   curl -fsS http://127.0.0.1:8350/reviews/1/verdict -H "Authorization: Bearer $TOKEN"
+   ID=1
+   until curl -fsS http://127.0.0.1:8350/reviews/$ID -H "Authorization: Bearer $TOKEN" \
+       | grep -o '"status":"[a-z]*"' | head -n 1 | grep -qv running; do sleep 5; done
+   curl -fsS http://127.0.0.1:8350/reviews/$ID/verdict -H "Authorization: Bearer $TOKEN"
    ```
 
-If the API container stops at startup, read `docker compose logs argus-api`. A missing or short `ARGUS_API_TOKEN` is the usual cause, and the message says so. If a review fails with "No model provider configured", no provider variable is set. Run `docker compose exec argus-api argus doctor` to see what Argus found.
+   The status is `running`, `done` or `error`. An `error` review carries the reason in its `error` field. The review also records `model_used`, which can differ from the configured `model` when the fallback ran.
+
+If the API container stops at startup, read `docker compose logs argus-api`. A missing or short `ARGUS_API_TOKEN` is the usual cause, and the message says so. If no model provider is set, `POST /reviews` answers `503` with the same message that `argus doctor` prints, and the console Trigger screen shows it. Run `docker compose exec argus-api argus doctor` to see what Argus found.
+
+**Ports and a second copy.** Compose binds the API to `127.0.0.1:${ARGUS_API_PORT}` (8350) and the console to `127.0.0.1:${ARGUS_WEB_PORT}` (3350). Compose sets no fixed project, container or image names, so the project name comes from the folder name. Two folders with the same name share one project, so they would share containers and the `argus-data` volume. To run a second copy, give it its own project name and free ports in its `.env`. `COMPOSE_PROJECT_NAME` in `.env` sticks for every later command. With `docker compose -p NAME` you must repeat `-p NAME` on every command:
+
+```bash
+COMPOSE_PROJECT_NAME=argus-second
+ARGUS_API_PORT=18350
+ARGUS_WEB_PORT=13350
+```
+
+Commands that name a container, such as the MCP snippet below, use the service name `argus-api` through `docker compose` from that folder. Compose sets `ARGUS_PUBLIC_API_URL` to `http://127.0.0.1:$ARGUS_API_PORT` when you leave it unset.
 
 Data lives in the `argus-data` volume. `docker compose down` keeps it. `docker compose down -v` deletes it.
 
@@ -82,6 +97,8 @@ cd argus-review
 uv sync
 cp .env.example .env     # then edit it, and export the values in your shell
 ```
+
+Edit `.env` as in steps 2 and 3 of the Docker quickstart. Generate a token with `openssl rand -hex 32` and set it as `ARGUS_API_TOKEN`. Set `GITHUB_TOKEN` and one provider. The API refuses to start without a token of 32 characters or more.
 
 Load the settings into your shell. This reads `.env` as plain `KEY=value` lines:
 
@@ -101,7 +118,7 @@ The CLI has these commands:
 | Command | What it does |
 | --- | --- |
 | `argus doctor` | Checks the configured provider and makes one small model call. |
-| `argus review OWNER/REPO PR` | Runs the full pipeline and prints the findings. |
+| `argus review OWNER/REPO PR` | Runs the full pipeline and prints the model that ran, then the findings. Honours `ARGUS_FALLBACK_MODEL`. Without `GITHUB_TOKEN` it prints one line and exits with status 1. |
 | `argus compress OWNER/REPO PR` | Fetches a PR diff and shows how it fits the token budget. |
 | `argus publish-preview REVIEW_ID` | Renders a stored review as the GitHub payload, without posting. |
 | `argus publish-placement REVIEW_ID` | Lists where each finding would go and whether the line can take a comment. |
@@ -109,8 +126,10 @@ The CLI has these commands:
 To run the API and the console on the host:
 
 ```bash
-ARGUS_DB_PATH=./data/argus.db uv run uvicorn argus.api.main:app --host 127.0.0.1 --port 8350
+uv run uvicorn argus.api.main:app --host 127.0.0.1 --port 8350
 ```
+
+The database defaults to `./.argus/argus.db`. Git ignores that folder, and Argus creates it. Set `ARGUS_DB_PATH` to use another file.
 
 ```bash
 cd web
@@ -143,6 +162,8 @@ Run `argus doctor` after every change. It checks the credentials, calls the mode
 OPENROUTER_API_KEY=sk-or-...
 ARGUS_MODEL=openai/gpt-6.1-sol
 ```
+
+An alternative reviewer model that works the same way is `ARGUS_MODEL=anthropic/claude-sonnet-5-5`. Any OpenRouter model id with tool support works: see <https://openrouter.ai/models>.
 
 Any OpenRouter model that supports tool calls works. Pick the model id from the model page on openrouter.ai and keep the vendor prefix. Without `ARGUS_MODEL`, Argus uses the default in the table. If `ARGUS_MODEL` has no slash and OpenRouter is your only provider, Argus stops with an error that asks for a `vendor/model` id.
 
@@ -221,7 +242,7 @@ Use subscription mode for personal use on your own repositories. Use an API key 
 
 ### Fallback, model list and judges
 
-- `ARGUS_FALLBACK_MODEL` runs a second attempt when a review fails on the primary model. The switch is recorded on the review. It covers `POST /reviews` and the watcher. Choose a model from a different provider, or both fail together.
+- `ARGUS_FALLBACK_MODEL` runs a second attempt when a review fails on the primary model. The switch is recorded on the review: `model_used` names the model that answered, and `fallback_from` and `fallback_reason` say why it changed. The API (`GET /reviews` and `GET /reviews/{id}`), the verdict document and the console review page show them. It covers `POST /reviews`, the watcher and `argus review`. A GitHub failure, such as a bad token or a rate limit, never triggers it. Choose a model from a different provider, or both fail together.
 - `ARGUS_MODEL_OPTIONS` is a comma-separated list of models that the console config screen offers. `PUT /config` rejects any model that is not in the list, the default, or the stored model. Once you save the config screen, the stored model wins over `ARGUS_MODEL`.
 - Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. Judges use a chat completions URL. An OpenRouter example:
 
@@ -247,7 +268,7 @@ Argus needs a read token. It can also post reviews, and then it needs a second t
 1. Create a separate GitHub account for the bot, or a GitHub App. A review written by the PR author's own account reads as self-review.
 2. Give its token Pull requests:write on the allowlisted repositories. Set it as `ARGUS_PUBLISH_TOKEN`. Argus never uses `GITHUB_TOKEN` to write.
 3. Set `ARGUS_PUBLISH_REPOS=owner/repo,owner/other`. Empty means no posting, dry-run included.
-4. Set `ARGUS_PUBLISH=dry-run`. Complete a review. Read it with `argus publish-preview REVIEW_ID`, or read the stored `publish_payload`.
+4. Set `ARGUS_PUBLISH=dry-run`. Run a new review. Read it with `argus publish-preview REVIEW_ID`, or read the stored `publish_payload`. Dry-run stores a payload only for reviews that complete after you switch it on. Earlier reviews have none.
 5. Set `ARGUS_PUBLISH=1` when the output looks right.
 
 Argus posts with `event=COMMENT`. The verdict appears in the summary. `ARGUS_PUBLISH_MIN_SEVERITY` (default `minor`) and `ARGUS_PUBLISH_MAX_COMMENTS` (default `4`) limit the noise. Findings over the cap go into the review body. Fingerprint markers stop duplicate comments across commits. Set `ARGUS_PUBLISH_BOT_LOGIN` to the bot's login, or leave it empty to read it from the token.
@@ -272,7 +293,7 @@ Read [SECURITY.md](SECURITY.md) for the full policy and a hardening checklist.
 
 - **Token auth by default.** `ARGUS_AUTH_MODE=token` needs `ARGUS_API_TOKEN` of 32 characters or more. The API refuses to start without it. The console has a login page that uses the same token.
 - **Proxy mode** (`ARGUS_AUTH_MODE=proxy`) turns the token check off. Use it only behind a reverse proxy that authenticates every request. See [DEPLOY.md](DEPLOY.md).
-- **Loopback ports.** Compose binds the API to `127.0.0.1:8350` and the console to `127.0.0.1:3350`.
+- **Loopback ports.** Compose binds the API to `127.0.0.1:$ARGUS_API_PORT` (8350) and the console to `127.0.0.1:$ARGUS_WEB_PORT` (3350). Keep the `127.0.0.1` prefix.
 - **PR content is untrusted.** A PR can contain text that tries to steer the model. Comment output is escaped. The CLI providers run with no tools. Tokens never enter prompts.
 - **Trusted authors.** The watcher skips PRs from outsiders by default.
 - **Hard exclusions.** `ARGUS_DENY_OWNERS` lists owners or `owner/repo` entries that Argus never reviews or watches. The console cannot remove them.
@@ -307,7 +328,22 @@ Register it with an MCP client. `uv sync` installs the `argus-mcp` command:
 }
 ```
 
-With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<token> -- /path/to/argus-review/.venv/bin/argus-mcp`. To run the server inside the API container instead, use `docker exec -i -e ARGUS_API=http://127.0.0.1:8000 argus-api /opt/venv/bin/argus-mcp` as the command. The container already holds the token.
+With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<token> -- /path/to/argus-review/.venv/bin/argus-mcp`. To run the server inside the API container instead, start it through compose. This works whatever the project name is. The container already holds the token.
+
+```json
+{
+  "mcpServers": {
+    "argus": {
+      "command": "docker",
+      "args": ["compose", "-f", "/path/to/argus-review/docker-compose.yml",
+               "exec", "-T", "-e", "ARGUS_API=http://127.0.0.1:8000",
+               "argus-api", "/opt/venv/bin/argus-mcp"]
+    }
+  }
+}
+```
+
+`-T` turns the terminal off and keeps standard input open, which a stdio server needs. If you started the stack with `-p NAME` instead of `COMPOSE_PROJECT_NAME`, add `"-p", "NAME"` before `"-f"`.
 
 ## Configuration reference
 
@@ -330,8 +366,10 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_PUBLISH_REPOS` | none | Repositories Argus may post to. |
 | `ARGUS_PUBLISH_TOKEN` | none | Write token of the bot account. |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. |
-| `ARGUS_DB_PATH` | `./data/argus.db` | SQLite file. |
-| `ARGUS_PUBLIC_API_URL` | `http://localhost:8000` | Public URL of the API. |
+| `ARGUS_DB_PATH` | `./.argus/argus.db` | SQLite file. Compose sets `/data/argus.db`. |
+| `ARGUS_PUBLIC_API_URL` | `http://127.0.0.1:8350` | Public URL of the API. Compose uses `ARGUS_API_PORT`. |
+| `ARGUS_API_PORT` | `8350` | Host port of the API in Docker. |
+| `ARGUS_WEB_PORT` | `3350` | Host port of the console in Docker. |
 
 ## Development
 

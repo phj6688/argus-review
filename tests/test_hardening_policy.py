@@ -260,7 +260,7 @@ def test_explicit_repo_can_be_watched_without_owner_scope(path, monkeypatch):
 
 
 @pytest.mark.parametrize("overrides,expected", [
-    ({}, ["http://localhost:8000", ["http://localhost:3000"]]),
+    ({}, ["http://127.0.0.1:8350", ["http://localhost:3000"]]),
     ({"ARGUS_PUBLIC_API_URL": "https://api.example.com",
       "ARGUS_CORS_ORIGINS": "https://example.com, https://console.example.com"},
      ["https://api.example.com", ["https://example.com", "https://console.example.com"]]),
@@ -280,6 +280,8 @@ def test_env_example_documents_safe_defaults():
     lines = Path(".env.example").read_text().splitlines()
     for entry in ("ARGUS_WATCH_TRUSTED_ONLY=1", "ARGUS_LINEAR_REPOS=",
                   "ARGUS_LINEAR_KEY_PREFIX=", "ARGUS_DENY_OWNERS=", "ARGUS_WATCH_OWNERS=",
-                  "ARGUS_PUBLIC_API_URL=http://localhost:8000",
-                  "ARGUS_CORS_ORIGINS=http://localhost:3000"):
+                  "ARGUS_API_PORT=8350", "ARGUS_WEB_PORT=3350"):
         assert entry in lines
+    # Set here, these two would override the port-aware compose defaults.
+    assert "ARGUS_PUBLIC_API_URL=http://localhost:8000" not in lines
+    assert "ARGUS_CORS_ORIGINS=http://localhost:3000" not in lines

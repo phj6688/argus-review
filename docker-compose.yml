@@ -6,16 +6,19 @@
 # Compose creates its own network and the named volume `argus-data`.
 # Site-specific changes (external networks, an existing volume, extra mounts)
 # belong in a docker-compose.override.yml that stays out of git.
-
-name: argus
+#
+# Nothing here is pinned to a fixed name: no `name:`, no container_name and no
+# image tags, so compose names the project after this folder. A second copy needs
+# its own project name (COMPOSE_PROJECT_NAME in .env, or -p NAME on every command),
+# because folders with the same name share one project and its argus-data volume.
+# The host ports are the other shared resource: set ARGUS_API_PORT and
+# ARGUS_WEB_PORT in .env when 8350 or 3350 is taken. An install that needs fixed names adds them in its override.
 
 services:
   argus-api:
     build:
       context: .
       dockerfile: Dockerfile.api
-    image: argus-api:latest
-    container_name: argus-api
     restart: unless-stopped
     environment:
       # Gateway pair (optional): an Anthropic-compatible endpoint plus its bearer
@@ -31,14 +34,15 @@ services:
       ARGUS_MODEL: "${ARGUS_MODEL:-}"
       # Opt-in second attempt when a review fails on the primary. Unset means
       # fail-hard. The switch is recorded on the review row, never silent.
-      # Covers POST /reviews and the watcher, not POST /review-diff. A model id
+      # Covers POST /reviews, the watcher and `argus review`, not POST /review-diff. A model id
       # with a slash runs on OpenRouter.
       ARGUS_FALLBACK_MODEL: "${ARGUS_FALLBACK_MODEL:-}"
-      # Public base URL the API advertises. Set it when a reverse proxy fronts the API.
-      ARGUS_PUBLIC_API_URL: "${ARGUS_PUBLIC_API_URL:-http://localhost:8000}"
+      # Public base URL the API advertises. The default is the host address of the
+      # published port. Set it when a reverse proxy fronts the API.
+      ARGUS_PUBLIC_API_URL: "${ARGUS_PUBLIC_API_URL:-http://127.0.0.1:${ARGUS_API_PORT:-8350}}"
       # Browser-origin CORS allowlist. Console fetches happen server side and
       # need no CORS; this covers browser-side calls to the API.
-      ARGUS_CORS_ORIGINS: "${ARGUS_CORS_ORIGINS:-http://localhost:3000}"
+      ARGUS_CORS_ORIGINS: "${ARGUS_CORS_ORIGINS:-http://127.0.0.1:${ARGUS_WEB_PORT:-3350},http://localhost:${ARGUS_WEB_PORT:-3350}}"
       ARGUS_DB_PATH: "/data/argus.db"
       # GitHub read token (Contents:read, Pull requests:read) for fetching PR
       # diffs and house rules. Optional at boot so the console still serves;
@@ -124,7 +128,7 @@ services:
       - argus-data:/data
     ports:
       # Loopback only. Put a reverse proxy in front before you expose it.
-      - "127.0.0.1:8350:8000"
+      - "127.0.0.1:${ARGUS_API_PORT:-8350}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).status==200 else 1)"]
       interval: 30s
@@ -143,15 +147,13 @@ services:
     environment:
       ARGUS_AUTH_MODE: "${ARGUS_AUTH_MODE:-token}"
       ARGUS_API_TOKEN: "${ARGUS_API_TOKEN:-}"
-    image: argus-web:latest
-    container_name: argus-web
     restart: unless-stopped
     depends_on:
       argus-api:
         condition: service_healthy
     ports:
       # Loopback only. Put a reverse proxy in front before you expose it.
-      - "127.0.0.1:3350:3000"
+      - "127.0.0.1:${ARGUS_WEB_PORT:-3350}:3000"
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s

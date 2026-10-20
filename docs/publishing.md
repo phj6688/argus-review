@@ -73,9 +73,9 @@ Rates divide by all posted inline findings, including unconfirmed ones, with Wil
 For an offline report, make a consistent snapshot of the database and run the scripts against the snapshot. The database runs in WAL mode, so a plain file copy of a live database can miss recent writes or be unreadable. `VACUUM INTO` writes a clean snapshot without stopping the API:
 
 ```bash
-docker exec argus-api python -m sqlite3 /data/argus.db "VACUUM INTO '/tmp/argus-copy.db'"
-docker cp argus-api:/tmp/argus-copy.db /tmp/argus-copy.db
-docker exec argus-api rm /tmp/argus-copy.db
+docker compose exec -T argus-api python -m sqlite3 /data/argus.db "VACUUM INTO '/tmp/argus-copy.db'"
+docker compose cp argus-api:/tmp/argus-copy.db /tmp/argus-copy.db
+docker compose exec -T argus-api rm /tmp/argus-copy.db
 .venv/bin/python scripts/acceptance_report.py /tmp/argus-copy.db --since 2026-10-14
 .venv/bin/python scripts/export_known_fps.py /tmp/argus-copy.db > known_fps.jsonl
 rm /tmp/argus-copy.db

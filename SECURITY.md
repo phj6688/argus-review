@@ -43,7 +43,7 @@ Argus has no versioned releases yet. Only the latest commit on `master` receives
 
 1. Keep `ARGUS_AUTH_MODE=token` unless an authenticating reverse proxy is the only way to reach the containers.
 2. Generate `ARGUS_API_TOKEN` with `openssl rand -hex 32`. Rotate it if it leaks.
-3. Never publish ports 8350 or 3350 on a public interface. Keep the `127.0.0.1` bindings and put a reverse proxy with TLS and authentication in front.
+3. Never publish the API and console ports (8350 and 3350 by default, `ARGUS_API_PORT` and `ARGUS_WEB_PORT`) on a public interface. Keep the `127.0.0.1` bindings and put a reverse proxy with TLS and authentication in front.
 4. Use fine-grained GitHub tokens. `GITHUB_TOKEN` needs Contents:read and Pull requests:read on the repositories you review, nothing more.
 5. Use a separate bot account for posting, with Pull requests:write on the allowlisted repositories only.
 6. Start with `ARGUS_PUBLISH=dry-run` and read the stored payloads before you set `ARGUS_PUBLISH=1`.
