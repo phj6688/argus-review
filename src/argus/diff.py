@@ -90,6 +90,9 @@ class FilePatch:
     filename: str
     status: str
     patch: str | None
+    # Line counts GitHub reports per file. Unset for patches parsed from raw text.
+    additions: int | None = None
+    deletions: int | None = None
 
     @property
     def language(self) -> str:
@@ -105,6 +108,33 @@ class CompressedDiff:
     estimated_tokens: int = 0
 
 
+def _count_or_none(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def change_stats(files: list[FilePatch]) -> tuple[int, int, int]:
+    """(files changed, lines added, lines removed) for a change.
+
+    Uses the per-file counts GitHub reports. A patch without them (raw diff text,
+    or a file whose patch GitHub left out) is counted from its hunk lines.
+    """
+    added = removed = 0
+    for item in files:
+        if item.additions is not None and item.deletions is not None:
+            added += item.additions
+            removed += item.deletions
+            continue
+        in_hunk = False
+        for line in (item.patch or "").splitlines():
+            if line.startswith("@@"):
+                in_hunk = True
+            elif in_hunk and line.startswith("+"):
+                added += 1
+            elif in_hunk and line.startswith("-"):
+                removed += 1
+    return len(files), added, removed
+
+
 def fetch_pr_files(repo: str, pr: int) -> list[FilePatch]:
     # Page through all changed files (100/page) so large PRs are reviewed whole,
     # never silently truncated; downstream compression trims to the token budget.
@@ -117,7 +147,9 @@ def fetch_pr_files(repo: str, pr: int) -> list[FilePatch]:
         response.raise_for_status()
         batch = response.json()
         files.extend(
-            FilePatch(filename=f["filename"], status=f["status"], patch=f.get("patch"))
+            FilePatch(filename=f["filename"], status=f["status"], patch=f.get("patch"),
+                      additions=_count_or_none(f.get("additions")),
+                      deletions=_count_or_none(f.get("deletions")))
             for f in batch
             if _safe_path(f["filename"])
             and (not f.get("previous_filename") or _safe_path(f["previous_filename"]))

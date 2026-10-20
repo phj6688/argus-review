@@ -12,7 +12,26 @@ WEEKLY_CONTAINER=''
 # a container (ARGUS_NTFY_CONTAINER + ARGUS_NTFY_TOPIC, optional ARGUS_NTFY_URL)
 # and/or a command (ARGUS_NOTIFY_CMD) that receives "title: body" and a level
 # (info|warn). With none set, notify is a no-op and the log is the only record.
-API_CONTAINER="${ARGUS_API_CONTAINER:-argus-api}"
+#
+# The API container is found in this order: ARGUS_API_CONTAINER (a name or id), then
+# the argus-api service of the compose file in ARGUS_COMPOSE_FILE, then a container
+# named argus-api (only when ARGUS_COMPOSE_FILE is unset: a compose file with no
+# running API stops the run). A stock compose install names its containers after the project,
+# so set ARGUS_COMPOSE_FILE to the docker-compose.yml you started it with.
+# API_IMAGE is the image that container runs; ARGUS_API_IMAGE overrides it.
+API_CONTAINER="${ARGUS_API_CONTAINER:-}"
+if [ -z "$API_CONTAINER" ] && [ -n "${ARGUS_COMPOSE_FILE:-}" ]; then
+    API_CONTAINER=$(docker compose -f "$ARGUS_COMPOSE_FILE" ps -q argus-api 2>/dev/null | head -n 1 || true)
+    # An explicit compose file that has no running API must stop the run. Falling
+    # back to a container named argus-api could read another install's data.
+    if [ -z "$API_CONTAINER" ]; then
+        echo "No running argus-api service for ARGUS_COMPOSE_FILE=$ARGUS_COMPOSE_FILE" >&2
+        exit 1
+    fi
+fi
+API_CONTAINER="${API_CONTAINER:-argus-api}"
+API_IMAGE="${ARGUS_API_IMAGE:-$(docker inspect --format '{{.Config.Image}}' "$API_CONTAINER" 2>/dev/null || true)}"
+API_IMAGE="${API_IMAGE:-argus-api:latest}"
 notify() {
     local title="$1" body="$2" priority="${3:-high}" level=warn
     [ "$priority" != low ] || level=info

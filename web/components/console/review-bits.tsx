@@ -8,16 +8,45 @@ const ACTION = {
   pending: { label: "pending", color: "var(--color-dim)", tip: "PR is still open — not yet resolved or merged." },
 } as const;
 
-export function ModelChip({ model }: { model: string }) {
+export function ModelChip({
+  model,
+  tip = "The deep-review model that produced this review.",
+}: {
+  model: string;
+  tip?: string;
+}) {
   return (
     <span
-      data-tip="The deep-review model that produced this review."
+      data-tip={tip}
       className="inline-block whitespace-nowrap rounded-[6px] px-[9px] py-[3px] text-[11px]"
       style={modelChipStyle(model)}
     >
       {model}
     </span>
   );
+}
+
+/** The model that answered, not the one configured. A run that errored shows "not run";
+ *  a run that fell back shows the fallback model and says so in the tooltip. */
+function RowModel({ review }: { review: ReviewSummary }) {
+  if (review.model_used) {
+    return (
+      <ModelChip
+        model={review.model_used}
+        tip={
+          review.fallback_from
+            ? `Fell back from ${review.fallback_from}. This model produced the review.`
+            : undefined
+        }
+      />
+    );
+  }
+  if (review.status === "error") {
+    return (
+      <ModelChip model="not run" tip={`The review failed. Configured model: ${review.model}.`} />
+    );
+  }
+  return <ModelChip model={review.model} />;
 }
 
 export function ActionLabel({ action }: { action: ReviewSummary["action"] }) {
@@ -78,10 +107,20 @@ export function ReviewRow({
       </div>
       <div className="min-w-0 flex-1 truncate text-sm text-text">{review.title}</div>
       <div className="shrink-0 md:w-[76px]">
-        <ModelChip model={review.model} />
+        <RowModel review={review} />
       </div>
       <div className="hidden w-[150px] shrink-0 gap-2 md:flex">
-        <Tally counts={review.counts} />
+        {review.status === "error" ? (
+          <span
+            data-testid="row-failed"
+            data-tip="The review failed, so nothing was checked. This is not a clean result."
+            className="text-xs text-critical"
+          >
+            failed
+          </span>
+        ) : (
+          <Tally counts={review.counts} />
+        )}
       </div>
       {list ? (
         <>

@@ -15,3 +15,4 @@ design
 *.md
 !README.md
 DEPLOY.md
+.argus

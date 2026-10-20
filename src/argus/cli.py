@@ -2,16 +2,25 @@
 
 import argparse
 import json
+import os
+import sys
 
-from . import doctor, providers, publish, verdict
+import httpx
+
+from . import doctor, github, providers, publish, verdict
 from .client import DEFAULT_MODEL
 from .diff import compress_diff, fetch_pr_files
-from .review import run_review
+from .redact import redact
+from .review import fallback_eligible, fallback_for, from_github, run_review
 from .repo_policy import validate_repo
 from .schema import VerifiedFinding
 from .tokens import HeuristicEstimator
 
 DEFAULT_BUDGET_TOKENS = 8000
+
+
+class RepoRejected(Exception):
+    """The repo argument failed validation or the deny policy."""
 
 
 def main() -> None:
@@ -38,8 +47,32 @@ def main() -> None:
     placement.add_argument("--db", metavar="PATH", help="Review database path (default: ARGUS_DB_PATH)")
 
     args = parser.parse_args()
+    try:
+        _dispatch(args)
+    except (github.GitHubAuthError, github.GitHubDenied, github.GitHubRateLimited,
+            providers.BackendNotConfigured, httpx.HTTPError, RepoRejected) as error:
+        raise SystemExit(_failure_line(error)) from None
+
+
+def _failure_line(error: Exception) -> str:
+    """One line for an expected failure, so a missing setting never prints a traceback."""
+    if isinstance(error, github.GitHubAuthError) and not os.environ.get("GITHUB_TOKEN", "").strip():
+        return ("error: GITHUB_TOKEN is not set. Export a GitHub token with Contents:read "
+                "and Pull requests:read, then run the command again.")
+    if isinstance(error, github.GitHubRateLimited):
+        return f"error: {error}. Try again after the reset."
+    if isinstance(error, httpx.HTTPStatusError):
+        source = "GitHub" if from_github(error) else error.request.url.host
+        return f"error: {source} answered {error.response.status_code} for {error.request.url.path}"
+    return f"error: {redact(str(error))}"
+
+
+def _dispatch(args: argparse.Namespace) -> None:
     if hasattr(args, "repo"):
-        validate_repo(args.repo)
+        try:
+            validate_repo(args.repo)
+        except ValueError as error:
+            raise RepoRejected(str(error)) from error
     if args.command == "compress":
         _run_compress(args.repo, args.pr, args.budget)
     elif args.command == "doctor":
@@ -123,17 +156,37 @@ def _run_doctor() -> None:
     for name, ok, detail in doctor.run_checks(DEFAULT_MODEL):
         print(f"{'ok  ' if ok else 'FAIL'} {name}: {detail}")
         if not ok:
-            raise SystemExit(detail)
+            raise SystemExit(1)
 
 
 def _run_review(repo: str, pr: int) -> None:
-    result = run_review(repo, pr)
+    result, model_used = _review_with_fallback(repo, pr)
+    print(f"model used: {model_used}")
     print(
         f"raw findings: {result.raw_count} | confirmed: {len(result.bugs)} bug-class, "
         f"{len(result.nits)} nit | dropped by verification: {result.dropped}"
     )
     for item in result.bugs + result.nits:
         _print_finding(item)
+
+
+def _review_with_fallback(repo: str, pr: int):
+    """Review on the default model; on failure, once more on ARGUS_FALLBACK_MODEL.
+
+    Same rule as POST /reviews and the watcher: opt-in, never for a GitHub-side
+    failure, and the switch is printed, not silent. Returns (result, model that ran).
+    """
+    fallback_runner, fallback_model = fallback_for(
+        DEFAULT_MODEL, lambda m: lambda: run_review(repo, pr, m))
+    try:
+        return run_review(repo, pr, DEFAULT_MODEL), DEFAULT_MODEL
+    except Exception as error:  # noqa: BLE001 - any engine or transport failure may fall back
+        if fallback_runner is None or not fallback_eligible(error):
+            raise
+        reason = redact(f"{type(error).__name__}: {error}")
+        print(f"primary model {DEFAULT_MODEL} failed ({reason}); "
+              f"trying fallback {fallback_model}", file=sys.stderr)
+        return fallback_runner(), fallback_model
 
 
 def _print_finding(item: VerifiedFinding) -> None:

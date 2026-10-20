@@ -14,12 +14,18 @@ from pathlib import Path
 
 from .. import verdict
 from ..publish import PublishOutcome
+from ..redact import redact
 from ..repo_policy import valid_catalogue_name
 from ..review import ReviewResult
 from ..schema import VerifiedFinding
 
 ENV_DB_PATH = "ARGUS_DB_PATH"
-_DEFAULT_DB = Path(__file__).resolve().parents[3] / "data" / "argus.db"
+_ROOT = Path(__file__).resolve().parents[3]
+# Local default: a gitignored folder, so a source checkout never writes the
+# database into the tracked data/ tree. Docker and prod set ARGUS_DB_PATH.
+_DEFAULT_DB = _ROOT / ".argus" / "argus.db"
+# Older checkouts kept the file in data/. Keep using it until the new one exists.
+_LEGACY_DB = _ROOT / "data" / "argus.db"
 
 STATUS_RUNNING = "running"
 STATUS_DONE = "done"
@@ -209,7 +215,12 @@ def _parse_created_at(value: str) -> datetime:
 
 
 def db_path() -> str:
-    return os.environ.get(ENV_DB_PATH, str(_DEFAULT_DB))
+    configured = os.environ.get(ENV_DB_PATH)
+    if configured:
+        return configured
+    if _LEGACY_DB.is_file() and not _DEFAULT_DB.exists():
+        return str(_LEGACY_DB)
+    return str(_DEFAULT_DB)
 
 
 def connect(path: str | None = None) -> sqlite3.Connection:
@@ -246,6 +257,10 @@ def init_db(path: str | None = None) -> None:
                      "model_used", "fallback_from", "fallback_reason",
                      "coverage_json"):
             _ensure_column(conn, "reviews", name)
+        for name, decl in (("branch", "TEXT"), ("author", "TEXT"),
+                           ("files_changed", "INTEGER"), ("lines_added", "INTEGER"),
+                           ("lines_removed", "INTEGER")):
+            _ensure_column(conn, "reviews", name, decl)
         for name, decl in (("publish_status", "TEXT"), ("published_at", "TEXT"),
                            ("publish_error", "TEXT"), ("published_comments", "INTEGER"),
                            ("publish_payload", "TEXT")):
@@ -469,7 +484,8 @@ def set_error(
         conn.execute(
             "UPDATE reviews SET status = ?, error = ?, error_class = ?, "
             "completed_at = ? WHERE id = ?",
-            (STATUS_ERROR, reason[:_ERROR_REASON_MAX], error_class, _now_iso(), review_id),
+            (STATUS_ERROR, (redact(reason) or "")[:_ERROR_REASON_MAX], error_class,
+             _now_iso(), review_id),
         )
         conn.commit()
     finally:
@@ -529,7 +545,7 @@ def set_fallback(path: str | None, review_id: int, model_used: str,
         conn.execute(
             "UPDATE reviews SET model_used = ?, fallback_from = ?, "
             "fallback_reason = ? WHERE id = ?",
-            (model_used, fallback_from, reason[:_ERROR_REASON_MAX], review_id),
+            (model_used, fallback_from, (redact(reason) or "")[:_ERROR_REASON_MAX], review_id),
         )
         conn.commit()
     finally:
@@ -568,9 +584,11 @@ def save_result(path: str | None, review_id: int, result: ReviewResult) -> None:
         # A head resolved after fetching files cannot identify the reviewed snapshot.
         conn.execute(
             "UPDATE reviews SET status = ?, raw_count = ?, dropped = ?, "
-            "completed_at = ?, coverage_json = ? WHERE id = ?",
+            "completed_at = ?, coverage_json = ?, branch = ?, author = ?, "
+            "files_changed = ?, lines_added = ?, lines_removed = ? WHERE id = ?",
             (STATUS_DONE, result.raw_count, result.dropped, _now_iso(),
-             _coverage_json(result), review_id),
+             _coverage_json(result), result.branch, result.author,
+             result.files_changed, result.lines_added, result.lines_removed, review_id),
         )
         if result.head_sha:
             row = conn.execute("SELECT head_sha FROM reviews WHERE id = ?", (review_id,)).fetchone()

@@ -83,19 +83,19 @@ def test_common_disables_inherited_healthcheck():
 def test_eval_image_and_wrappers():
     directory = Path('deploy/cron')
     image = (directory / 'Dockerfile.eval').read_text()
-    assert image.startswith('FROM argus-api:latest\n')
+    assert 'ARG BASE_IMAGE=argus-api:latest\nFROM ${BASE_IMAGE}\n' in image
     assert 'USER root' in image
     assert 'apt-get install -y --no-install-recommends git' in image
     assert 'rm -rf /var/lib/apt/lists/*' in image
     assert image.rstrip().endswith('USER argus')
     weekly = (directory / 'argus_weekly.sh').read_text()
     assert 'IMAGE="argus-eval:latest"' in weekly
-    assert 'docker build -q -t "$IMAGE" -f "$DIR/Dockerfile.eval" "$DIR"' in weekly
+    assert 'docker build -q --build-arg "BASE_IMAGE=$API_IMAGE" -t "$IMAGE" -f "$DIR/Dockerfile.eval" "$DIR"' in weekly
     assert 'DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' in weekly
     assert weekly.index('docker build ') < weekly.index('docker run ')
     assert '-e HOME=/tmp' in weekly
     monthly = (directory / 'argus_monthly.sh').read_text()
-    assert 'IMAGE="argus-api:latest"' in monthly
+    assert 'IMAGE="$API_IMAGE"' in monthly
     assert '--out-prs /output/reference_prs.jsonl' in monthly
     assert '--reference-prs /output/reference_prs.jsonl' in monthly
 
@@ -159,7 +159,7 @@ def test_wrapper_limits_and_private_inputs():
     directory = Path('deploy/cron')
     weekly = (directory / 'argus_weekly.sh').read_text()
     assert 'argus.evalkit.cron model' in weekly
-    assert 'docker image inspect' in weekly and 'argus-api:latest' in weekly
+    assert 'docker image inspect' in weekly and '"$API_IMAGE"' in weekly
     assert 'ARGUS_EVAL_IMAGE_ID=' in weekly and 'ARGUS_EVAL_CODE_SHA' not in weekly
     assert '--name argus-weekly' in weekly
     assert 'docker rm -f argus-weekly' in weekly

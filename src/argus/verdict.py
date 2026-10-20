@@ -19,6 +19,8 @@ found is evidence found, so a probe hit requests changes however thin the lane s
 
 import json
 
+from .redact import redact
+
 TIER_DETERMINISTIC = "deterministic"
 TIER_CONSENSUS = "consensus"
 TIER_SINGLE_CRITIC = "single_critic"
@@ -177,6 +179,7 @@ def document(review: dict, findings: list[dict], baseline: list[str] | None = No
         "engine": {
             "reviewer_model": _reviewer_model(review, coverage),
             "status": review.get("status"),
+            **run_facts(review, coverage),
         },
         "counts": {
             "confirmed": len(items),
@@ -186,6 +189,23 @@ def document(review: dict, findings: list[dict], baseline: list[str] | None = No
         "findings": items,
         **({"unverified": [_finding_item(f, base) for f in unverified]} if unverified is not None else {}),
         "resolved": sorted(base - current_prints) if base else [],
+    }
+
+
+def run_facts(review: dict, coverage: dict | None = None) -> dict:
+    """What the run did, as opposed to what it was configured to do.
+
+    model_used is the model that actually answered: the fallback model when the
+    primary failed, None when the run errored or no model read the change. The
+    stored `model` column is intent and stays out of this record. error is the
+    run's failure text with credentials removed.
+    """
+    coverage = coverage if coverage is not None else coverage_of(review)
+    return {
+        "model_used": review.get("model_used") or _reviewer_model(review, coverage),
+        "fallback_from": review.get("fallback_from"),
+        "fallback_reason": redact(review.get("fallback_reason")),
+        "error": redact(review.get("error")),
     }
 
 

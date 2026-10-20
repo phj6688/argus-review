@@ -303,6 +303,99 @@ function ThreadItem({ c }: { c: Comment }) {
   );
 }
 
+const CHIP_STYLE = {
+  background: "var(--accent-08)",
+  border: "1px solid var(--accent-18)",
+  color: "var(--color-accent-dim)",
+} as const;
+
+/** Which model answered. The configured model is shown only when nothing ran, so a
+ *  failed run never reads as if the configured model had produced it. */
+function ModelUsed({ detail }: { detail: ReviewDetail }) {
+  if (detail.model_used) {
+    return (
+      <span
+        data-testid="model-used"
+        data-tip="The model that actually answered this review."
+        className="rounded-[6px] px-[9px] py-[3px] text-[11px]"
+        style={CHIP_STYLE}
+      >
+        model used · {detail.model_used}
+      </span>
+    );
+  }
+  if (detail.status === "running") {
+    return (
+      <span data-testid="model-used" className="text-[11px]">
+        running · {detail.model}
+      </span>
+    );
+  }
+  if (detail.status !== "error") {
+    // A finished run whose record names no model (a row from before the field
+    // existed): show the configured model without claiming that it answered.
+    return (
+      <span
+        data-testid="model-used"
+        className="rounded-[6px] px-[9px] py-[3px] text-[11px]"
+        style={CHIP_STYLE}
+      >
+        model · {detail.model}
+      </span>
+    );
+  }
+  return (
+    <span
+      data-testid="model-used"
+      data-tip="No model produced this review. This is the model it was configured with."
+      className="rounded-[6px] px-[9px] py-[3px] text-[11px]"
+      style={{ ...CHIP_STYLE, opacity: 0.6 }}
+    >
+      no model ran · configured {detail.model}
+    </span>
+  );
+}
+
+function RunNotes({ detail }: { detail: ReviewDetail }) {
+  const fell = detail.fallback_from && detail.model_used;
+  if (!fell && !detail.error) return null;
+  return (
+    <div className="mb-2 mt-4 flex flex-col gap-[10px]">
+      {fell && (
+        <div
+          data-testid="fallback-note"
+          className="panel px-4 py-3 text-[12.5px] leading-[1.6] text-dim"
+        >
+          <span className="font-semibold text-text">Fallback model.</span>{" "}
+          <span className="font-mono">{detail.fallback_from}</span> failed, so{" "}
+          <span className="font-mono">{detail.model_used}</span> reviewed this change.
+          {detail.fallback_reason && (
+            <div className="mt-1 break-words font-mono text-[12px] text-faint">
+              {detail.fallback_reason}
+            </div>
+          )}
+        </div>
+      )}
+      {detail.error && (
+        <div
+          data-testid="run-error"
+          role="alert"
+          className="panel px-4 py-3 text-[12.5px] leading-[1.6]"
+          style={{ borderColor: "var(--crit-28)" }}
+        >
+          <span className="font-semibold" style={{ color: "var(--color-critical)" }}>
+            Review failed.
+          </span>{" "}
+          <span className="text-dim">No findings were produced, so this is not a pass.</span>
+          <div className="mt-1 whitespace-pre-wrap break-words font-mono text-[12px] text-faint">
+            {detail.error}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
   const [fstate, setFstate] = useState<Record<string, FState>>({});
   const onMark = (id: string, s: FState) =>
@@ -328,18 +421,21 @@ export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
         title={detail.title}
         subtitle={
           <div className="flex flex-wrap items-center gap-4 text-[12.5px] text-faint">
-            <span className="font-mono text-dim">{detail.branch}</span>
-            <span>by {detail.author}</span>
-            <span>
-              {detail.filesChanged} files · <span className="text-sage">+{detail.added}</span>{" "}
-              <span style={{ color: "var(--color-diff-del)" }}>−{detail.removed}</span>
-            </span>
-            <span
-              className="rounded-[6px] px-[9px] py-[3px] text-[11px]"
-              style={{ background: "var(--accent-08)", border: "1px solid var(--accent-18)", color: "var(--color-accent-dim)" }}
-            >
-              {detail.model}
-            </span>
+            {detail.branch && <span className="font-mono text-dim">{detail.branch}</span>}
+            {detail.author && <span>by {detail.author}</span>}
+            {detail.filesChanged !== undefined && (
+              <span>
+                {detail.filesChanged} {detail.filesChanged === 1 ? "file" : "files"}
+                {detail.added !== undefined && detail.removed !== undefined && (
+                  <>
+                    {" · "}
+                    <span className="text-sage">+{detail.added}</span>{" "}
+                    <span style={{ color: "var(--color-diff-del)" }}>−{detail.removed}</span>
+                  </>
+                )}
+              </span>
+            )}
+            <ModelUsed detail={detail} />
             <span>{detail.time}</span>
           </div>
         }
@@ -370,6 +466,7 @@ export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
       <div className="mb-2 font-mono text-[13px]">
         <span className="text-dim">{detail.repo}</span> <span className="text-faint">#{detail.pr}</span>
       </div>
+      <RunNotes detail={detail} />
 
       <div className="my-6 h-px bg-[var(--line)]" />
 

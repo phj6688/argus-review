@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Compose sets no project, container or image names, and the host ports come from `ARGUS_API_PORT` and `ARGUS_WEB_PORT`. A second copy no longer collides with the first. Add the old names in `docker-compose.override.yml` if a script needs them.
+- `POST /reviews` (and `POST /review-diff` in full mode) answers `503` with the `argus doctor` message when no model provider is configured. Before, it created a review that failed in the background.
+- `GET /reviews/{id}` returns the real branch, author and diff stats when the run recorded them, and leaves them out otherwise. It also returns `model_used`, `fallback_from`, `fallback_reason` and, for a failed run, a sanitised `error`. The console review page shows them.
+- `/health` adds `provider` and `provider_configured`. The status stays `ok`.
+- `argus review` honours `ARGUS_FALLBACK_MODEL`, prints the model that ran, and exits with one line and status 1 when `GITHUB_TOKEN` is missing. `argus doctor` prints each failure once.
+- The default database for a host install is `./.argus/argus.db`, outside the tracked `data/` folder. An existing `./data/argus.db` is still used.
+- The Docker default for `ARGUS_PUBLIC_API_URL` follows `ARGUS_API_PORT`.
+
 ## 0.1.0 - initial public release
 
 First public release of Argus, a self-hosted AI code reviewer for GitHub pull requests.
