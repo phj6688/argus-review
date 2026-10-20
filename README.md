@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/argus-hero.gif" alt="Argus" width="360"></p>
+
 # Argus
 
 Argus is a self-hosted code reviewer for GitHub pull requests. It reads a PR, asks a model for candidate bugs, and has a second skeptical pass try to refute each one. It then checks the survivors against your rules and posts only a few findings that held up.
