@@ -23,6 +23,13 @@ updates:
       interval: weekly
     target-branch: dev
     open-pull-requests-limit: 3
+    ignore:
+      # typescript 7 is rejected by typescript-eslint (bundled in eslint-config-next 16.4.2), so lint fails.
+      - dependency-name: typescript
+        versions: [">=7"]
+      # @types/node must match the Node major that runs (node 22 in Dockerfile.web and CI).
+      - dependency-name: "@types/node"
+        versions: [">=23"]
     groups:
       npm-minor-and-patch:
         patterns: ["*"]
