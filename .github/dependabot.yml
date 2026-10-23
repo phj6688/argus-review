@@ -10,6 +10,9 @@ updates:
       # mcp is capped below 2.0 on purpose (pyproject.toml); never take a major bump.
       - dependency-name: mcp
         update-types: ["version-update:semver-major"]
+      # anthropic 2.x sends api_key as a Bearer header; needs its own migration and a live check.
+      - dependency-name: anthropic
+        update-types: ["version-update:semver-major"]
     groups:
       python-minor-and-patch:
         patterns: ["*"]
