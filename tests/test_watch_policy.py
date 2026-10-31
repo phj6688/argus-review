@@ -72,6 +72,8 @@ def test_publish_rejects_denied_before_transport(monkeypatch):
 
     monkeypatch.setenv("ARGUS_PUBLISH", "1")
     monkeypatch.setenv("ARGUS_PUBLISH_REPOS", "acme-corp/secret-repo")
+    # The allowlist now screens denied owners itself; bypass it to keep exercising the transport guard.
+    monkeypatch.setattr(publish, "repo_allowlist", publish.env_repo_allowlist)
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("request sent"))
     before = github.refusal_count()
     outcome = publish.publish_review("acme-corp/secret-repo", 1, "a" * 40, 1, {}, [])

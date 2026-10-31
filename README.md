@@ -266,8 +266,8 @@ Argus needs a read token. It can also post reviews, and then it needs a second t
 **Posting.** Publishing is off by default. To turn it on:
 
 1. Create a separate GitHub account for the bot, or a GitHub App. A review written by the PR author's own account reads as self-review.
-2. Give its token Pull requests:write on the allowlisted repositories. Set it as `ARGUS_PUBLISH_TOKEN`. Argus never uses `GITHUB_TOKEN` to write.
-3. Set `ARGUS_PUBLISH_REPOS=owner/repo,owner/other`. Empty means no posting, dry-run included.
+2. Give its token Pull requests:write on the allowlisted repositories. Set it as `ARGUS_PUBLISH_TOKEN`. Argus never uses `GITHUB_TOKEN` to write, except for one opt-in: with `ARGUS_PUBLISH_AUTO_INVITE=1` the Config page may invite the bot as a collaborator using a `GITHUB_TOKEN` that has Administration:write. It is off by default.
+3. Set `ARGUS_PUBLISH_REPOS=owner/repo,owner/other` as the starting list, or add repositories on the Config page later. Empty means no posting, dry-run included. See [publishing](docs/publishing.md#choose-repositories-in-the-console).
 4. Set `ARGUS_PUBLISH=dry-run`. Run a new review. Read it with `argus publish-preview REVIEW_ID`, or read the stored `publish_payload`. Dry-run stores a payload only for reviews that complete after you switch it on. Earlier reviews have none.
 5. Set `ARGUS_PUBLISH=1` when the output looks right.
 
@@ -363,8 +363,9 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_WATCH_TRUSTED_ONLY` | `1` | Review only trusted authors. |
 | `ARGUS_DENY_OWNERS` | none | Owners or repos that are never reviewed. |
 | `ARGUS_PUBLISH` | `0` | `0`, `dry-run` or `1`. |
-| `ARGUS_PUBLISH_REPOS` | none | Repositories Argus may post to. |
+| `ARGUS_PUBLISH_REPOS` | none | Starting list of repositories Argus may post to. The Config page replaces it once saved. |
 | `ARGUS_PUBLISH_TOKEN` | none | Write token of the bot account. |
+| `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the Config page invite the bot with `GITHUB_TOKEN` (needs Administration:write). |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. |
 | `ARGUS_DB_PATH` | `./.argus/argus.db` | SQLite file. Compose sets `/data/argus.db`. |
 | `ARGUS_PUBLIC_API_URL` | `http://127.0.0.1:8350` | Public URL of the API. Compose uses `ARGUS_API_PORT`. |
