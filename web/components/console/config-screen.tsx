@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { putConfig } from "@/lib/api";
 import type { ConfigData } from "@/lib/types";
+import { PublishPanel } from "./publish-panel";
 import { ScreenHeader } from "./screen-header";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -224,6 +225,14 @@ export function ConfigScreen({ config }: { config: ConfigData }) {
           </div>
         </RevealItem>
       </Reveal>
+
+      {config.publish && (
+        <Reveal className="mt-[14px]">
+          <RevealItem>
+            <PublishPanel repos={config.repos} publish={config.publish} />
+          </RevealItem>
+        </Reveal>
+      )}
 
       <div className="mt-[18px] flex items-center justify-end gap-3">
         {saveState === "saved" && (

@@ -17,6 +17,7 @@ import type {
   ConfigData,
   Integrations,
   LiveReview,
+  PublishConfig,
   Report,
   ReportPeriod,
   ReviewDetail,
@@ -190,6 +191,49 @@ export async function putConfig(data: ConfigData): Promise<ConfigData> {
   });
   if (!res.ok) throw new Error(`argus api /config: ${res.status}`);
   return (await res.json()) as ConfigData;
+}
+
+export async function putPublishRepos(repos: string[]): Promise<PublishConfig> {
+  if (!API_BASE) {
+    await new Promise((r) => setTimeout(r, 120));
+    return {
+      ...config.publish,
+      source: "dashboard",
+      repos: repos.map((name) => ({
+        name,
+        access: config.publish.repos.find(
+          (repo) => repo.name.toLowerCase() === name.toLowerCase(),
+        )?.access ?? {
+          state: "ok",
+          detail: "bot can push",
+          settingsUrl: `https://github.com/${name}/settings/access`,
+          grant: null,
+        },
+      })),
+    };
+  }
+
+  const res = await fetch(`${CLIENT_API_BASE}/config/publish-repos`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repos }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    let message = `argus api /config/publish-repos: ${res.status}`;
+    try {
+      const body = (await res.json()) as { detail?: unknown } | null;
+      if (typeof body?.detail === "string") {
+        message = body.detail;
+      } else if (Array.isArray(body?.detail) && typeof body.detail[0]?.msg === "string") {
+        message = body.detail[0].msg;
+      }
+    } catch {
+      // Proxies may return a non-JSON error, so retain the status fallback.
+    }
+    throw new Error(message);
+  }
+  return (await res.json()) as PublishConfig;
 }
 
 export async function getIntegrations(): Promise<Integrations> {

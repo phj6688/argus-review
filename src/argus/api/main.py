@@ -15,6 +15,7 @@ import os
 import re
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,7 +25,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from .. import acceptance, diff, doctor, github, providers, publish, rules, verdict
+from .. import acceptance, diff, doctor, github, providers, publish, publish_access, rules, verdict
 from ..client import DEFAULT_MODEL, ping
 from ..errors import HeadMoved
 from ..diff import FilePatch, parse_unified_diff
@@ -204,6 +205,13 @@ class ConfigUpdate(BaseModel):
 class ReviewCreated(BaseModel):
     id: int
     status: str
+
+
+_MAX_GRANTS_PER_REQUEST = 10
+
+
+class PublishReposUpdate(BaseModel):
+    repos: list[str] = Field(max_length=500)
 
 
 class MarkRequest(BaseModel):
@@ -879,6 +887,22 @@ def _config_payload(
     }
 
 
+def _publish_payload(access_overrides: dict[str, dict] | None = None) -> dict:
+    repos = sorted(publish.repo_allowlist())
+    access = dict(access_overrides or {})
+    unchecked = [name for name in repos if name not in access]
+    if unchecked:
+        with ThreadPoolExecutor(max_workers=min(8, len(unchecked))) as pool:
+            access.update(zip(unchecked, pool.map(publish_access.check_access, unchecked)))
+    return {
+        "mode": publish.mode(),
+        "source": publish.repo_allowlist_source(),
+        "botLogin": os.environ.get("ARGUS_PUBLISH_BOT_LOGIN", "").strip() or None,
+        "tokenConfigured": bool(os.environ.get("ARGUS_PUBLISH_TOKEN", "").strip()),
+        "repos": [{"name": name, "access": access[name]} for name in repos],
+    }
+
+
 @app.get("/config")
 def get_config() -> dict:
     """Return stored operator config when set, else the engine defaults
@@ -890,7 +914,39 @@ def get_config() -> dict:
     return {**_config_payload(
         repos=watch_config.public_repos(stored), model=stored["model"],
         bug_cap=stored["bug_cap"], min_confidence=stored["min_confidence"],
-    ), **watch_config.policy_payload(stored)}
+    ), **watch_config.policy_payload(stored), "publish": _publish_payload()}
+
+
+@app.put("/config/publish-repos")
+def put_publish_repos(update: PublishReposUpdate) -> dict:
+    """Replace the set of repositories Argus may post reviews to."""
+    path = db.db_path()
+    stored = db.get_config(path)
+    deny = stored.get("deny", []) if stored else []
+    repos = list(dict.fromkeys(name.strip().casefold() for name in update.repos))
+    for name in repos:
+        try:
+            validate_repo(name, deny)
+        except RepoDenied:
+            raise HTTPException(status_code=422, detail=f"repository denied: {name}") from None
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"invalid repository name: {name}") from None
+    old = publish.repo_allowlist()
+    source = publish.repo_allowlist_source()
+    if stored is None:
+        db.save_config(path, repos=[], model=DEFAULT_MODEL, bug_cap=DEFAULT_BUG_CAP,
+                       min_confidence=MIN_CONFIDENCE)
+    db.set_publish_repos(path, repos)
+    log.info("publish repos changed: %s -> %s (source %s->dashboard)", sorted(old), repos, source)
+    added = [repo for repo in repos if repo not in old]
+    # Bounded and parallel: each grant is up to four GitHub calls, and a request can carry
+    # hundreds of names. Beyond the cap the repo is saved and only checked (cached, no invite).
+    granted: dict[str, dict] = {}
+    if added:
+        with ThreadPoolExecutor(max_workers=min(8, len(added))) as pool:
+            granted.update(zip(added[:_MAX_GRANTS_PER_REQUEST],
+                               pool.map(publish_access.ensure_access, added[:_MAX_GRANTS_PER_REQUEST])))
+    return _publish_payload(granted)
 
 
 @app.put("/config")
@@ -937,6 +993,8 @@ def get_integrations() -> dict:
         "mode": publish.mode(),
         "repoCount": len(publish.repo_allowlist()),
         "tokenConfigured": bool(os.environ.get("ARGUS_PUBLISH_TOKEN", "").strip()),
+        "source": publish.repo_allowlist_source(),
+        "autoInvite": publish_access.auto_invite_enabled(),
     }
     return {
         "health": [

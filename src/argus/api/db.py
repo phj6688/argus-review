@@ -294,6 +294,7 @@ def init_db(path: str | None = None) -> None:
         _ensure_column(conn, "config", "deny", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(conn, "config", "watch_mode")
         _ensure_column(conn, "config", "owned_repos", "TEXT NOT NULL DEFAULT '[]'")
+        _ensure_column(conn, "config", "publish_repos")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_reviews_head ON reviews(repo, pr, head_sha)")
         row = conn.execute("SELECT repo_allowlist FROM config WHERE watch_mode IS NULL").fetchone()
         if row:
@@ -857,7 +858,99 @@ def get_config(path: str | None = None) -> dict | None:
     data["repos"] = json.loads(data.pop("repo_allowlist"))
     data["deny"] = json.loads(data.get("deny") or "[]")
     data["owned_repos"] = json.loads(data.get("owned_repos") or "[]")
+    data["publish_repos"] = _parse_publish_repos(data.get("publish_repos"))
     return data
+
+
+def _parse_publish_repos(value) -> list[str] | None:
+    if value is None:
+        return None
+    try:
+        repos = json.loads(value)
+    except (ValueError, TypeError):
+        return None
+    return repos if isinstance(repos, list) and all(isinstance(repo, str) for repo in repos) else None
+
+
+class PublishReposUnreadable(RuntimeError):
+    """The stored publish list exists but cannot be trusted (locked DB, corrupt value)."""
+
+
+def _strict_publish_repos(value) -> list[str] | None:
+    if value is None:
+        return None
+    try:
+        repos = json.loads(value)
+    except (ValueError, TypeError) as error:
+        raise PublishReposUnreadable("stored publish list is not valid JSON") from error
+    if not isinstance(repos, list) or not all(isinstance(repo, str) for repo in repos):
+        raise PublishReposUnreadable("stored publish list is not a list of names")
+    return repos
+
+
+def _read_publish_row(conn: sqlite3.Connection):
+    """(publish_repos, deny) for the singleton row, or None. A database from before the
+    publish column keeps its deny policy: the deny column is read on its own, and only a
+    schema that has no deny column either reads as an empty policy."""
+    try:
+        return conn.execute("SELECT publish_repos, deny FROM config WHERE id = 1").fetchone()
+    except sqlite3.OperationalError as error:
+        if "no such column" not in str(error):
+            raise
+    try:
+        row = conn.execute("SELECT deny FROM config WHERE id = 1").fetchone()
+    except sqlite3.OperationalError as error:
+        if "no such column" not in str(error):
+            raise
+        row = conn.execute("SELECT 1 FROM config WHERE id = 1").fetchone()
+        return None if row is None else (None, None)
+    return None if row is None else (None, row[0])
+
+
+def get_publish_state(path: str | None = None) -> tuple[list[str] | None, list[str]]:
+    """Return (dashboard publish list or None, config deny list) from one read-only query.
+
+    None means the list was never set (no file, table, column, row or a NULL value), so the
+    caller may fall back to the environment. Anything else that stops the read raises
+    PublishReposUnreadable: falling back then could re-enable posting an operator turned off."""
+    target = Path(path or db_path())
+    if not target.is_file():
+        return None, []
+    try:
+        # Read-only mode also prevents creation if the file disappears after the check.
+        conn = sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True, timeout=2.0)
+        try:
+            row = _read_publish_row(conn)
+        finally:
+            conn.close()
+    except sqlite3.OperationalError as error:
+        if "no such table" in str(error):
+            return None, []
+        raise PublishReposUnreadable("publish list could not be read") from error
+    if row is None:
+        return None, []
+    repos = _strict_publish_repos(row[0])
+    # An unreadable deny list would silently lift exclusions, on the stored list and on the env one.
+    try:
+        deny = json.loads(row[1] or "[]")
+    except (ValueError, TypeError) as error:
+        raise PublishReposUnreadable("stored deny list is not valid JSON") from error
+    if not isinstance(deny, list) or not all(isinstance(entry, str) for entry in deny):
+        raise PublishReposUnreadable("stored deny list is not a list of names")
+    return repos, deny
+
+
+def get_publish_repos(path: str | None = None) -> list[str] | None:
+    return get_publish_state(path)[0]
+
+
+def set_publish_repos(path: str | None, repos: list[str]) -> None:
+    conn = connect(path)
+    try:
+        conn.execute("UPDATE config SET publish_repos = ? WHERE id = 1", (json.dumps(repos),))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def save_config(

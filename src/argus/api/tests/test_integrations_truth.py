@@ -44,7 +44,7 @@ SECRETS = {
 CLEARED = (
     "ARGUS_PROVIDER", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY", "OPENAI_BASE_URL", "ARGUS_WATCH_ENABLED", "ARGUS_WATCH_OWNERS",
-    "ARGUS_WATCH_INTERVAL", "ARGUS_PUBLISH", "ARGUS_PUBLISH_REPOS", "ARGUS_PUBLISH_TOKEN",
+    "ARGUS_WATCH_INTERVAL", "ARGUS_PUBLISH", "ARGUS_PUBLISH_REPOS", "ARGUS_PUBLISH_TOKEN", "ARGUS_PUBLISH_AUTO_INVITE",
     "GITHUB_TOKEN", "OPENROUTER_API_KEY",
 )
 
@@ -113,7 +113,9 @@ def test_publishing_modes(client, clean_env):
     clean_env.setenv("ARGUS_PUBLISH_REPOS", "acme/one, acme/two")
     body = client.get("/integrations").json()
     assert _health(body)["Publishing"]["status"] == "dry-run · 2 repos"
-    assert body["github"]["publishing"] == {"mode": "dry-run", "repoCount": 2, "tokenConfigured": False}
+    assert body["github"]["publishing"] == {
+        "mode": "dry-run", "repoCount": 2, "tokenConfigured": False, "source": "env", "autoInvite": False,
+    }
     clean_env.setenv("ARGUS_PUBLISH", "1")
     assert _health(client.get("/integrations").json())["Publishing"]["state"] == "warn"
     clean_env.setenv("ARGUS_PUBLISH_TOKEN", SECRETS["ARGUS_PUBLISH_TOKEN"])

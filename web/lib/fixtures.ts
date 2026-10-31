@@ -490,6 +490,32 @@ const baseRepos = [
 
 export const config: ConfigData = {
   repos: baseRepos.map((name) => ({ name, watched: name !== "acme/archive" })),
+  publish: {
+    mode: "dry-run",
+    source: "env",
+    botLogin: "argus-review-bot",
+    tokenConfigured: true,
+    repos: [
+      {
+        name: "acme/api",
+        access: {
+          state: "ok",
+          detail: "bot can push",
+          settingsUrl: "https://github.com/acme/api/settings/access",
+          grant: null,
+        },
+      },
+      {
+        name: "acme/auth",
+        access: {
+          state: "missing",
+          detail: "bot has no write access",
+          settingsUrl: "https://github.com/acme/auth/settings/access",
+          grant: "failed",
+        },
+      },
+    ],
+  },
   hiddenCount: 10,
   totalRepos: 20,
   models: [
@@ -514,7 +540,7 @@ export const integrations: Integrations = {
   github: {
     token: "configured",
     watcher: { enabled: true, owners: ["acme"], intervalSeconds: 60, watchedRepos: 20 },
-    publishing: { mode: "dry-run", repoCount: 2, tokenConfigured: true },
+    publishing: { mode: "dry-run", repoCount: 2, tokenConfigured: true, source: "env", autoInvite: false },
   },
   api: {
     baseUrl: "https://argus.example.com/api/v1",

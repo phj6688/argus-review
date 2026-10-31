@@ -6,7 +6,7 @@ import time
 import httpx
 import pytest
 
-from argus import acceptance, client, github, replies
+from argus import acceptance, client, github, publish, replies
 from argus.api import db
 import test_acceptance as fixtures
 from test_acceptance import rows, seed
@@ -60,6 +60,8 @@ def test_denied_before_request(live, monkeypatch, operation):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp")
     owner = "acme-corp"
     monkeypatch.setenv("ARGUS_PUBLISH_REPOS", f"owner/repo,{owner}/repo")
+    # The allowlist now screens denied owners itself; bypass it to keep exercising the transport guard.
+    monkeypatch.setattr(publish, "repo_allowlist", publish.env_repo_allowlist)
     before = github.refusal_count()
     with pytest.raises(github.GitHubDenied):
         if operation == "reply":

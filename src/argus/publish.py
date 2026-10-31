@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 
+from . import repo_policy
 from .diff import LANGUAGE_BY_EXTENSION, FilePatch, split_lines
 from .github import API_VERSION, GITHUB_API, guard_url, observe_response
 from .markdown import code_span, escape_block, escape_inline
@@ -92,6 +93,46 @@ def enabled_for(repo: str) -> bool:
 
 
 def repo_allowlist() -> set[str]:
+    repos, deny = _dashboard_state()
+    if repos is not None:
+        return {name.casefold() for name in repos}
+    # Env entries get the same screening as stored ones, so a denied or malformed name is
+    # never shown, never sent to GitHub, and cannot make the first dashboard save fail.
+    return {name for name in env_repo_allowlist() if _well_formed_and_allowed(name, deny)}
+
+
+def _well_formed_and_allowed(name: str, deny) -> bool:
+    try:
+        repo_policy.validate_repo(name, deny)
+    except ValueError:  # RepoDenied is a ValueError
+        return False
+    return True
+
+
+def _dashboard_state() -> tuple[list[str] | None, list[str]]:
+    try:
+        from .api import db
+
+        repos, deny = db.get_publish_state()
+    except Exception:
+        # Fail closed: an unreadable dashboard list must not fall back to the env list, which
+        # could re-enable posting that the operator removed from the dashboard.
+        log.warning("publish: dashboard repo list is unreadable, posting is blocked until it is")
+        return [], []
+    if repos is None:
+        return None, deny
+    return [name for name in repos if _well_formed_and_allowed(name, deny)], deny
+
+
+def _dashboard_repos() -> list[str] | None:
+    return _dashboard_state()[0]
+
+
+def repo_allowlist_source() -> str:
+    return "dashboard" if _dashboard_repos() is not None else "env"
+
+
+def env_repo_allowlist() -> set[str]:
     return {name.strip().casefold() for name in os.environ.get("ARGUS_PUBLISH_REPOS", "").split(",")
             if name.strip()}
 
