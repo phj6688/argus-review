@@ -215,10 +215,34 @@ export interface ModelStage {
 export interface RepoWatch {
   name: string;
   watched: boolean;
+  effective_watched?: boolean;
+}
+
+export type PublishAccessState = "ok" | "missing" | "unknown" | "unconfigured";
+
+export interface PublishAccess {
+  state: PublishAccessState;
+  detail: string;
+  settingsUrl: string;
+  grant: "granted" | "failed" | "skipped" | null;
+}
+
+export interface PublishRepo {
+  name: string;
+  access: PublishAccess;
+}
+
+export interface PublishConfig {
+  mode: "off" | "dry-run" | "on";
+  source: "env" | "dashboard";
+  botLogin: string | null;
+  tokenConfigured: boolean;
+  repos: PublishRepo[];
 }
 
 export interface ConfigData {
   repos: RepoWatch[];
+  publish: PublishConfig;
   hiddenCount: number;
   totalRepos: number;
   models: ModelStage[];
@@ -249,6 +273,8 @@ export interface Integrations {
       mode: "off" | "dry-run" | "on";
       repoCount: number;
       tokenConfigured: boolean;
+      source?: "env" | "dashboard";
+      autoInvite?: boolean;
     };
   };
   api: {

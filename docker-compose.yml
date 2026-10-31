@@ -117,6 +117,8 @@ services:
       ARGUS_PUBLISH_TOKEN: "${ARGUS_PUBLISH_TOKEN:-}"
       # Login of the publishing account. Empty resolves it from the token via GET /user.
       ARGUS_PUBLISH_BOT_LOGIN: "${ARGUS_PUBLISH_BOT_LOGIN:-}"
+      # 1 lets the console invite the bot to a repo with GITHUB_TOKEN (needs Administration:write). Default off.
+      ARGUS_PUBLISH_AUTO_INVITE: "${ARGUS_PUBLISH_AUTO_INVITE:-0}"
       ARGUS_PUBLISH_MIN_SEVERITY: "${ARGUS_PUBLISH_MIN_SEVERITY:-minor}"
       ARGUS_PUBLISH_MAX_COMMENTS: "${ARGUS_PUBLISH_MAX_COMMENTS:-4}"
       ARGUS_REPLY_LOOP: "${ARGUS_REPLY_LOOP:-1}"

@@ -7,9 +7,10 @@ This page explains what Argus posts to GitHub and how it tracks what happens nex
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `ARGUS_PUBLISH` | `0` | `0` is off. `dry-run` renders and stores the payload without posting. `1` posts. |
-| `ARGUS_PUBLISH_REPOS` | empty | Comma-separated `owner/name` allowlist. Empty means no publishing, dry-run included. |
+| `ARGUS_PUBLISH_REPOS` | empty | Comma-separated `owner/name` seed list. The console list replaces it once you save from the dashboard. Empty means no publishing, dry-run included. |
 | `ARGUS_PUBLISH_TOKEN` | empty | Write token of a separate bot account. Never falls back to `GITHUB_TOKEN`. |
 | `ARGUS_PUBLISH_BOT_LOGIN` | empty | Login of the posting account. Empty reads it from the token. |
+| `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the console invite the bot to a repository with `GITHUB_TOKEN` when the bot cannot push. Needs Administration:write on that token. |
 | `ARGUS_PUBLISH_MIN_SEVERITY` | `minor` | Lowest severity that gets an inline comment. Nits are only counted in the summary. |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. Extra findings go in the review body. |
 | `ARGUS_REPLY_LOOP` | `1` | Reply to authors and resolve fixed threads. Needs `ARGUS_PUBLISH=1`. |
@@ -18,6 +19,28 @@ This page explains what Argus posts to GitHub and how it tracks what happens nex
 | `ARGUS_OUTCOME_INTERVAL_TICKS` | `10` | Collect outcomes every N watcher polls. |
 
 A publishing failure never changes the status of a completed review.
+
+## Choose repositories in the console
+
+The Config page has a "GitHub posting" section with two lists: "Review only" and "Review and post to GitHub". Drag a repository from one list to the other, or press the arrow button on its row. Each move saves at once.
+
+- The dashboard is the primary way to manage the list. `ARGUS_PUBLISH_REPOS` is only the starting value. Until you save from the dashboard, the console shows `Source: ARGUS_PUBLISH_REPOS`. After the first save the stored list wins and the environment value is ignored for the list.
+- `ARGUS_PUBLISH` stays an environment setting. The console shows the mode as read-only text. With the mode `off`, a repository you add gets no GitHub posts until the operator sets `ARGUS_PUBLISH` to `1`. Use `dry-run` to render and store payloads without posting.
+- The console lists repositories that Argus watches. The API also accepts any well-formed `owner/name`.
+- A repository can never be added when its owner is in `ARGUS_DENY_OWNERS`, or when it or its owner is in the config deny list. The API answers `422` and saves nothing, whatever the console shows. Entries stored earlier are dropped at read time if their owner or repository later becomes denied. If the stored list cannot be read, nothing is posted until it can.
+- The API is `PUT /config/publish-repos` with `{"repos": ["owner/name"]}`. It replaces the whole list and returns the `publish` object that `GET /config` also carries. Each change writes one INFO log line with the old and new list.
+
+### Bot access
+
+Posting needs the bot account to have write access to the repository. When you add a repository, Argus:
+
+1. Checks the access of the bot with `ARGUS_PUBLISH_TOKEN` (`permissions.push` on the repository). The result is cached, 10 minutes when the bot can push and 1 minute otherwise.
+2. If the bot cannot push, `ARGUS_PUBLISH_AUTO_INVITE=1` is set, and the owner is in `ARGUS_WATCH_OWNERS`, invites the bot as a collaborator with `GITHUB_TOKEN`, then accepts the invitation with `ARGUS_PUBLISH_TOKEN`.
+3. If the invite is off or any step fails, saves the repository anyway. The row shows a "no bot access" badge, the reason, and a link to `https://github.com/<owner>/<repo>/settings/access`. Add the bot there by hand.
+
+The auto-invite is off by default, so `GITHUB_TOKEN` stays a read-only token and Argus makes no write call with it. `ARGUS_PUBLISH_AUTO_INVITE=1` is the one opt-in exception. It needs a `GITHUB_TOKEN` with the Administration repository permission set to write (a classic token needs the `repo` scope and admin rights on the repository). Without that permission the invite fails and step 3 applies. `GET /integrations` reports the setting as `github.publishing.autoInvite`.
+
+One request grants access to at most 10 newly added repositories. Repositories beyond that are saved and only checked, with no invite, so add the bot to them by hand or save them in smaller batches. The console adds one repository per move, so it never reaches the cap. Token values are never logged or returned.
 
 ## What a review post contains
 

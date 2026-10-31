@@ -81,7 +81,7 @@ def test_put_config_persists_model_and_bugcap(db_path, monkeypatch):
         # response is the same shape GET returns
         assert set(echoed) == {
             "repos", "hiddenCount", "totalRepos", "models", "modelOptions",
-            "bugCap", "minConfidence", "deny", "hard_denied_owners", "watch_mode",
+            "bugCap", "minConfidence", "deny", "hard_denied_owners", "watch_mode", "publish",
         }
         assert echoed["bugCap"] == 3
         assert all(m["model"] == "claude-sonnet-5-5" for m in echoed["models"])
