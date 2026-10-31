@@ -491,6 +491,8 @@ def publish_review(
         if not (payload["comments"] or new_confirmed or new_unverified):
             if any(review_marker(review.get("body") or "") for review in reviews):
                 return PublishOutcome("skipped", already_posted=already, reason="nothing new", payload=payload)
+        if not enabled_for(repo):
+            return PublishOutcome("skipped", already_posted=already, reason="repository left the posting list", payload=payload)
         guard_url(f"{url}/reviews")
         response = transport.post(f"{url}/reviews", json=payload, headers=headers, timeout=15.0)
         observe_response(response, record_quota=False)
@@ -499,6 +501,8 @@ def publish_review(
                                     outside_only=True, **options)
             reason = "GitHub returned 422; moved inline comments to Outside the diff"
             log.info("review %s: %s", review_id, reason)
+            if not enabled_for(repo):
+                return PublishOutcome("skipped", already_posted=already, reason="repository left the posting list", payload=payload)
             guard_url(f"{url}/reviews")
             response = transport.post(f"{url}/reviews", json=payload, headers=headers, timeout=15.0)
             observe_response(response, record_quota=False)

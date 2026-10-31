@@ -224,3 +224,21 @@ def test_init_migrates_legacy_config_without_resetting_publish_list(tmp_path):
     db.set_publish_repos(path, [])
     db.init_db(path)
     assert db.get_publish_state(path) == ([], ["blocked/repo"])
+
+
+def test_grant_skips_a_repo_denied_after_the_access_check(monkeypatch):
+    from argus import publish_access, repo_policy
+
+    monkeypatch.setenv("ARGUS_PUBLISH_AUTO_INVITE", "1")
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setattr(repo_policy, "watch_owners", lambda: {"example"})
+    monkeypatch.setattr(publish_access.publish, "_bot_login", lambda: "test-bot")
+
+    def denied(name, extra_deny=None):
+        raise repo_policy.RepoDenied(name)
+
+    monkeypatch.setattr(repo_policy, "validate_repo", denied)
+    monkeypatch.setattr(publish_access, "_request",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not write")))
+    out = publish_access._grant_access("example/repo", {"state": "missing"})
+    assert out["grant"] == "skipped"
