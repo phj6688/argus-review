@@ -43,7 +43,7 @@ def seed(database, **updates):
         cols = ",".join(data)
         cursor = conn.execute(f"INSERT INTO published_findings ({cols}) VALUES ({','.join('?' for _ in data)})",
                               tuple(data.values()))
-        conn.execute("INSERT OR IGNORE INTO publishing_identities VALUES ('owner/repo', 'publisher', '2026-01-01')")
+        conn.execute("INSERT OR IGNORE INTO publishing_identities (repo, bot_login, first_seen_at) VALUES ('owner/repo', 'publisher', '2026-01-01')")
         return cursor.lastrowid
 
 
@@ -489,7 +489,7 @@ def test_second_identity_and_typed_accounts_are_excluded(database, monkeypatch):
     seed(database)
     now = db._now_iso()
     with sqlite3.connect(database) as conn:
-        conn.execute("INSERT INTO publishing_identities VALUES (?, ?, ?)", ("owner/repo", "second", now))
+        conn.execute("INSERT INTO publishing_identities (repo, bot_login, first_seen_at) VALUES (?, ?, ?)", ("owner/repo", "second", now))
     monkeypatch.setattr(github, "list_cached", lambda *a, **k: [
         {"id": i, "in_reply_to_id": 101, "body": "fixed", "user": user, "created_at": now, "updated_at": now}
         for i, user in enumerate([{"login": "SECOND"}, {"login": "other", "type": "Bot"}], 1)])
@@ -646,7 +646,7 @@ def test_query_pause_keeps_later_repo_replies(database, monkeypatch):
     seed(database)
     seed(database, repo="owner/second")
     with db.connect(database) as conn:
-        conn.execute("INSERT INTO publishing_identities VALUES ('owner/second','publisher',?)", (db._now_iso(),))
+        conn.execute("INSERT INTO publishing_identities (repo, bot_login, first_seen_at) VALUES ('owner/second','publisher',?)", (db._now_iso(),))
     stamp = db._now_iso()
     calls = collector_http(monkeypatch, query_error=github.GraphQLRateLimited(time.time() + 60), replies=[
         {"id": 900, "in_reply_to_id": 102, "body": "fixed", "user": {"login": "author"}, "author_association": "MEMBER",
