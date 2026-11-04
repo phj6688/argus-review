@@ -124,7 +124,7 @@ def _next_page(response: httpx.Response) -> int | None:
 
 
 class GitLabClient:
-    __slots__ = ("_base", "_token", "_http", "_max_bytes", "_lock", "_pause", "_quota")
+    __slots__ = ("_base", "_token", "_http", "_max_bytes", "_lock", "_pause", "_quota", "pacing")
     retry_delay = 0.5
 
     def __init__(self, *, transport: httpx.BaseTransport | None = None):
@@ -134,6 +134,7 @@ class GitLabClient:
             raise GitLabAuthError("GitLab token is not set")
         self._max_bytes = config.max_response_bytes()
         self._lock = threading.Lock()
+        self.pacing = None
         self._pause = 0.0
         self._quota: dict[str, int | str] = {}
         self._http = httpx.Client(

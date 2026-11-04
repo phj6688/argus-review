@@ -5,6 +5,8 @@ import sqlite3
 import httpx
 import pytest
 
+from argus.publish import PublishOutcome
+
 from .harness import (
     Normalizer,
     Recorder,
@@ -14,6 +16,7 @@ from .harness import (
     UnexpectedRequest,
     assert_golden,
     dump_db,
+    to_json,
 )
 
 
@@ -27,6 +30,14 @@ def test_transport_rejects_unknown_and_exhausted_routes():
         assert client.get('https://api.github.com/registered').json() == {'ok': True}
         with pytest.raises(UnexpectedRequest, match=r'GET https://api.github.com/registered'):
             client.get('https://api.github.com/registered')
+
+
+def test_publish_outcome_preserves_github_shape_and_records_numeric_identity():
+    assert to_json(PublishOutcome("posted")) == {
+        "status": "posted", "comments_posted": 0, "already_posted": 0, "reason": None,
+        "payload": None, "items": [], "gh_review_id": None, "bot_login": None, "posted_at": None,
+    }
+    assert to_json(PublishOutcome("posted", bot_user_id=7))["bot_user_id"] == 7
 
 
 def test_transport_records_raw_body_query_headers_and_transport():

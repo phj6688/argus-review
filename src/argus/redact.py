@@ -39,8 +39,9 @@ def redact(text: str | None) -> str | None:
         value = os.environ.get(name, "").strip()
         if len(value) >= _MIN_SECRET_LENGTH:
             text = text.replace(value, REDACTED)
-    text = _USERINFO.sub(lambda m: f"{m.group('scheme')}{REDACTED}@", text)
-    text = _URL_QUERY.sub(lambda m: f"{m.group('url')}?{REDACTED}", text)
+    if "://" in text:
+        text = _USERINFO.sub(lambda m: f"{m.group('scheme')}{REDACTED}@", text)
+        text = _URL_QUERY.sub(lambda m: f"{m.group('url')}?{REDACTED}", text)
     text = _BEARER.sub(lambda m: f"{m.group(1)} {REDACTED}", text)
     text = _QUOTED_ASSIGNED.sub(lambda m: f"{m.group('key')}{m.group('quote')}{REDACTED}{m.group('quote')}", text)
     text = _ASSIGNED.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)

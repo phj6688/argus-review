@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added GitLab note pacing and a lock per merge request. Writes report posted, already_posted, failed or unknown. Partial posts record only confirmed findings. GitHub behavior is unchanged.
 - Added GitLab body helpers that neutralize quick actions and mentions, plus inline positions that preserve the correct old and new line numbers. Multi-line positions remain disabled by default.
 - Added GitLab reviews through the API, CLI and MCP with stable project keys, live deny checks and cached integration identity. GitHub entry points stay unchanged. GitHub only commands refuse GitLab keys before any request. GitLab path lookup failures from timeouts, upstream errors, rate limits and authentication return 502 with a safe classification, unknown, renamed and malformed paths return 422, and denied projects return 403. The API logs whether GitLab is configured at startup.
 - A golden snapshot suite under `tests/golden/` pins GitHub requests, prompts, return values and database rows before the forge refactor. `ARGUS_GOLDEN_UPDATE=1` regenerates it.

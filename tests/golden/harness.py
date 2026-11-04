@@ -17,6 +17,8 @@ from types import SimpleNamespace
 
 import httpx
 
+from argus.publish import PublishOutcome
+
 SNAPSHOT_ROOT = Path(__file__).parent / 'github'
 API = 'https://api.github.com'
 HEAD = 'a' * 40
@@ -33,7 +35,11 @@ def to_json(value):
     if hasattr(value, 'model_dump'):
         return value.model_dump(mode='json')
     if dataclasses.is_dataclass(value):
-        return to_json(dataclasses.asdict(value))
+        fields = dataclasses.asdict(value)
+        # The nullable GitLab identity does not change existing GitHub snapshots.
+        if isinstance(value, PublishOutcome) and value.bot_user_id is None:
+            fields.pop('bot_user_id')
+        return to_json(fields)
     if isinstance(value, dict):
         return {str(key): to_json(item) for key, item in value.items()}
     if isinstance(value, (set, frozenset)):
