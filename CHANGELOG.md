@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- GitLab reviews can now post inline discussions and one summary note, with partial posts recorded only where creation was confirmed. Retrying a partially posted review posts its own missing summary note even when another review of the same head already posted one. Attempts that write nothing preserve the partial state for a later retry. A new review of an unchanged head still posts nothing. GitHub publishing is unchanged.
 - Added GitLab note pacing and a lock per merge request. Writes report posted, already_posted, failed or unknown. Partial posts record only confirmed findings. GitHub behavior is unchanged.
 - Added GitLab body helpers that neutralize quick actions and mentions, plus inline positions that preserve the correct old and new line numbers. Multi-line positions remain disabled by default.
 - Added GitLab reviews through the API, CLI and MCP with stable project keys, live deny checks and cached integration identity. GitHub entry points stay unchanged. GitHub only commands refuse GitLab keys before any request. GitLab path lookup failures from timeouts, upstream errors, rate limits and authentication return 502 with a safe classification, unknown, renamed and malformed paths return 422, and denied projects return 403. The API logs whether GitLab is configured at startup.

@@ -1,7 +1,7 @@
 """Post safe bodies and reconcile writes whose responses cannot confirm creation."""
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from argus.forge.errors import ForgeError
 from argus.gitlab.body import assert_body_safe, parse_marker
@@ -16,6 +16,8 @@ class WriteResult:
     note_id: int | None = None
     discussion_id: str | None = None
     reason: str | None = None
+    status_code: int | None = None
+    first_note: dict | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self):
         object.__setattr__(self, "reason", redact(self.reason))
@@ -53,9 +55,10 @@ class GitLabWriter:
                     if exc.reason == "transport" or 500 <= (exc.status_code or 0) <= 599:
                         return self._reconcile(project_id, iid, body, str(exc),
                                                target_discussion_id=parts.get("discussion_id"),
-                                               transport_failure=exc.reason == "transport")
+                                               transport_failure=exc.reason == "transport",
+                                               status_code=exc.status_code)
                     return WriteResult("failed" if 400 <= (exc.status_code or 0) < 500 else "unknown",
-                                       reason=str(exc))
+                                       reason=str(exc), status_code=exc.status_code)
                 try:
                     data = response.json()
                     discussion_id = parts.get("discussion_id")
@@ -67,14 +70,16 @@ class GitLabWriter:
                         note_id = data["id"]
                     if not 200 <= response.status_code < 300 or type(note_id) is not int or note_id <= 0:
                         raise ValueError
-                    return WriteResult("posted", note_id, discussion_id)
+                    return WriteResult("posted", note_id, discussion_id,
+                                       first_note=data["notes"][0] if route == "mr_discussions" else data)
                 except (ValueError, KeyError, TypeError, IndexError):
                     return WriteResult("unknown", reason="unparseable_response")
 
-    def _reconcile(self, project_id, iid, body, reason, *, target_discussion_id, transport_failure) -> WriteResult:
+    def _reconcile(self, project_id, iid, body, reason, *, target_discussion_id, transport_failure,
+                   status_code=None) -> WriteResult:
         wanted = parse_marker(body)
         if wanted is None:
-            return WriteResult("unknown", reason=reason)
+            return WriteResult("unknown", reason=reason, status_code=status_code)
         try:
             for page in self.client.pages("mr_discussions", project_id=project_id, iid=iid,
                                           query={"per_page": 100}):
@@ -89,8 +94,9 @@ class GitLabWriter:
                             if (type(note["id"]) is not int or note["id"] <= 0
                                     or not isinstance(discussion["id"], str) or not discussion["id"]):
                                 raise ValueError
-                            return WriteResult("already_posted", note["id"], discussion["id"])
+                            return WriteResult("already_posted", note["id"], discussion["id"], first_note=note)
         except (ForgeError, ValueError, KeyError, TypeError, AttributeError):
-            return WriteResult("unknown", reason=reason)
-        # A timed out request can still commit after the completed read.
-        return WriteResult("unknown" if transport_failure else "failed", reason=reason)
+            return WriteResult("unknown", reason=reason, status_code=status_code)
+        # Transport and gateway failures can still commit after the completed read.
+        uncertain = transport_failure or status_code in {502, 503, 504}
+        return WriteResult("unknown" if uncertain else "failed", reason=reason, status_code=status_code)
