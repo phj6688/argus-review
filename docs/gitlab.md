@@ -174,6 +174,8 @@ With trusted-only enabled, a stored `author_trusted=1` passes. A value of `0` is
 
 The additive table `gitlab_poll_cursors` stores the update cursor, the last full reconcile, the last error and the last poll time for each project key.
 
+GitHub polls preserve queued GitLab heads. Workers check the expanded GitLab set and the live project policy before a review, and each forge keeps its own quota pause.
+
 ## Listing and trust
 
 Allow entries expand nested groups without shared or archived projects. Matching uses whole path segments from the live response. Every candidate, including numeric project ids, is checked again against live project policy. A renamed path is refused: use the current path or the numeric id.

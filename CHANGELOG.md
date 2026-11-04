@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- GitHub polling preserves queued GitLab reviews. Each forge checks its own watched set and quota pause. GitLab workers recheck live policy, retain denial reasons and retry temporary lookup failures.
 - GitLab listing expands permitted groups without shared projects, rechecks live project policy and reads every merge request page with a five minute cursor overlap. Membership determines author trust, unknown results stay skipped until a later sweep, and integrations show the unresolved count and a health warning. Unresolved lookups rotate so later heads can recover. Preparing heads hold the cursor and keep full listings incomplete to preserve queued work.
 - Added incremental GitLab watch storage, strict membership trust, separate forge pauses and persistent poll cursors. Overlapping polls track head shas because pushes may not move the update timestamp.
 - GitLab support is documented in `docs/gitlab.md` and the README: self-managed and gitlab.com setup, token choice and scopes, roles, minimum version, settings, limits and pacing, the hard-deny and fork rules and known limits. Merge request reviews post inline discussions and one summary note. Watching and replies for GitLab are not available yet. GitHub behaviour is unchanged.
