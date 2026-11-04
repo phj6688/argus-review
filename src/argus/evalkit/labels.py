@@ -2,15 +2,19 @@
 
 import argparse
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 
 from argus.acceptance import _signals
+from argus.forge.skips import count_skip, is_gitlab_key, log_skips
 
 from .reports import readonly
 
+log = logging.getLogger("argus.evalkit.labels")
 
-def labelled_findings(conn, since=None, until=None):
+
+def labelled_findings(conn, since=None, until=None, stats=None):
     outcomes, actions = defaultdict(list), defaultdict(list)
     has_reply_texts = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='reply_texts'").fetchone()
     outcome_query = (
@@ -23,12 +27,17 @@ def labelled_findings(conn, since=None, until=None):
     if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bot_actions'").fetchone():
         for row in conn.execute('SELECT * FROM bot_actions'):
             actions[row['finding_id']].append(row)
+    skipped = 0
     for finding in conn.execute(
         "SELECT * FROM published_findings WHERE mode='posted' "
         'AND (? IS NULL OR julianday(posted_at)>=julianday(?)) '
         'AND (? IS NULL OR julianday(posted_at)<julianday(?)) ORDER BY id',
         (since, since, until, until),
     ):
+        if is_gitlab_key(finding['repo']):
+            skipped += 1
+            count_skip(stats)
+            continue
         finding = dict(finding)
         signals, checks = outcomes[finding['id']], actions[finding['id']]
         if finding['placement'] != 'inline':
@@ -36,6 +45,8 @@ def labelled_findings(conn, since=None, until=None):
             checks = []
         label, loose, _ = _signals(signals, checks, finding['head_sha'])
         yield finding, label, loose
+    log_skips(log, "labels", skipped)
+    count_skip(stats, 0)
 
 
 def export(db, out, since=None, until=None):

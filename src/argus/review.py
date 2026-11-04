@@ -1,5 +1,7 @@
 """The review pipeline: deep review -> independent verification -> rank/cap.
 
+run_diff_review stays GitHub-only.
+
 Structured output comes from a single tool call (tool_choice auto, see
 client.complete_tool) instead of freeform JSON. The gateway lane requests a
 strict tool, but replies still need per-finding validation; the tool schemas close
@@ -528,6 +530,8 @@ def run_diff_review(
 ) -> ReviewResult:
     """Review a change that need not belong to any PR: agent worktree diffs,
     pre-PR branches, or a repo/sha pair fetched via the compare API.
+
+    run_diff_review stays GitHub-only.
 
     fast=True runs only the deterministic lanes (probes over the changed files),
     no LLM calls — the sub-10s gate an agent can block on mid-loop. The full mode

@@ -1,4 +1,4 @@
-"""Preserve the existing GitHub readers and their runtime patch points."""
+"""Preserve the existing GitHub readers, writers and their runtime patch points."""
 
 
 class GitHubForge:
@@ -13,6 +13,21 @@ class GitHubForge:
         import argus.diff as _diff
 
         return _diff.fetch_pr_files(repo, number)
+
+    def publish(self, repo, pr, head_sha, review_id, document, files, **kwargs):
+        import argus.publish as _publish
+
+        return _publish.publish_review(repo, pr, head_sha, review_id, document, files, **kwargs)
+
+    def bot_identity(self, *args, **kwargs):
+        import argus.publish as _publish
+
+        return _publish._bot_login(*args, **kwargs)
+
+    def check_access(self, repo, **kwargs):
+        import argus.publish_access as _access
+
+        return _access.check_access(repo, **kwargs)
 
     def pr_meta(self, repo: str, number: int) -> dict:
         """Return the pipeline's existing metadata dict.
