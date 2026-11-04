@@ -123,7 +123,7 @@ def test_acceptance_skips_before_validation_and_writes(database, configured, cou
                       "/api/v4/projects/12/merge_requests/3/discussions"] if configured and count else [])
 
 
-def test_replies_skip_before_gate_or_database(database, configured, monkeypatch, caplog):
+def test_disabled_gitlab_replies_return_before_database_without_counting_collector_skip(database, configured, monkeypatch, caplog):
     seed(database)
     enabled = Mock(side_effect=AssertionError("must skip before the gate"))
     monkeypatch.setattr(replies, "enabled_for", enabled)
@@ -135,8 +135,8 @@ def test_replies_skip_before_gate_or_database(database, configured, monkeypatch,
         replies.run(conn, REPO, findings, HEAD, {}, datetime.now(timezone.utc), counters)
     assert statements == []
     enabled.assert_not_called()
-    assert_counter(counters, configured, 1)
-    assert_skip_log(caplog, "replies", 1)
+    assert counters == {}
+    assert not any(r.getMessage().startswith("replies:") for r in caplog.records)
 
 
 def test_replies_gate_rejects_gitlab_before_publish_gate(monkeypatch):

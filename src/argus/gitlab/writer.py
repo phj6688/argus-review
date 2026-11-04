@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field
 
 from argus.forge.errors import ForgeError
-from argus.gitlab.body import assert_body_safe, parse_marker
+from argus.gitlab.body import assert_body_safe, parse_marker, parse_reply_marker
 from argus.gitlab.client import GitLabHTTPError, GitLabRateLimited
 from argus.gitlab.pacing import pacing_for
 from argus.redact import redact
@@ -77,7 +77,8 @@ class GitLabWriter:
 
     def _reconcile(self, project_id, iid, body, reason, *, target_discussion_id, transport_failure,
                    status_code=None) -> WriteResult:
-        wanted = parse_marker(body)
+        parse = parse_reply_marker if parse_reply_marker(body) is not None else parse_marker
+        wanted = parse(body)
         if wanted is None:
             return WriteResult("unknown", reason=reason, status_code=status_code)
         try:
@@ -90,11 +91,16 @@ class GitLabWriter:
                     if target_discussion_id is not None and discussion["id"] != target_discussion_id:
                         continue
                     for note in discussion["notes"]:
-                        if note["author"]["id"] == self.bot_user_id and parse_marker(note["body"]) == wanted:
+                        if note["author"]["id"] == self.bot_user_id and parse(note["body"]) == wanted:
                             if (type(note["id"]) is not int or note["id"] <= 0
                                     or not isinstance(discussion["id"], str) or not discussion["id"]):
                                 raise ValueError
                             return WriteResult("already_posted", note["id"], discussion["id"], first_note=note)
+        except GitLabRateLimited as error:
+            if parse is parse_reply_marker:
+                self.pacer.on_rate_limited(self.bot_user_id, max(0.0, error.reset_at - time.time()))
+                raise
+            return WriteResult("unknown", reason=reason, status_code=status_code)
         except (ForgeError, ValueError, KeyError, TypeError, AttributeError):
             return WriteResult("unknown", reason=reason, status_code=status_code)
         # Transport and gateway failures can still commit after the completed read.

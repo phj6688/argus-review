@@ -96,6 +96,12 @@ def publish_mode() -> str:
     return mode
 
 
+def effective_publish_mode() -> str:
+    modes = {"0": 0, "dry-run": 1, "1": 2}
+    general = os.environ.get("ARGUS_PUBLISH", "0")
+    return min(general if general in modes else "0", publish_mode(), key=modes.__getitem__)
+
+
 def publish_projects() -> tuple[str, ...]:
     projects = _list("ARGUS_GITLAB_PUBLISH_PROJECTS")
     if any(char in "*?[" or char.isspace() for project in projects for char in project):

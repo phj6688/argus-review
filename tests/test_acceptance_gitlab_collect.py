@@ -426,14 +426,15 @@ def test_resolution_requires_recent_mr_and_resolvable_thread(state, recent, reso
     assert sum(row["kind"] == "reply" for row in outcomes) == 1
 
 
-def test_gitlab_does_not_compare_reply_or_sync_rejections(state, monkeypatch):
+def test_disabled_gitlab_reply_loop_does_not_compare_write_or_sync_rejections(state, monkeypatch):
     seed(state)
 
     def unexpected(*args, **kwargs):
         pytest.fail("Unexpected GitHub outcome processing for GitLab")
 
     monkeypatch.setattr(acceptance, "_sync_rejections", unexpected)
-    monkeypatch.setattr(replies, "run", unexpected)
+    monkeypatch.setattr(replies, "reply", unexpected)
+    monkeypatch.setattr(acceptance, "_comparisons", unexpected)
     monkeypatch.setattr(github, "get", unexpected)
     collect(state)
     assert {row["kind"] for row in rows(state, "finding_outcomes")} == {"reply", "resolved"}

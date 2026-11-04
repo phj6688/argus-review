@@ -2,7 +2,6 @@
 
 import hashlib
 import logging
-import os
 import re
 import threading
 from collections import Counter
@@ -286,10 +285,8 @@ def _flow(forge, client, project_id, repo, pr, head, review_id, document, files,
 def publish(repo, pr, head_sha, review_id, document, files, *, client=None, prior=None) -> PublishOutcome:
     outcome = PublishOutcome("skipped")
     try:
-        modes = {"0": 0, "dry-run": 1, "1": 2}
-        general = os.environ.get("ARGUS_PUBLISH", "0")
-        mode = min(modes.get(general, 0), modes[config.publish_mode()])
-        if mode == 0:
+        mode = config.effective_publish_mode()
+        if mode == "0":
             return PublishOutcome("skipped", reason="publishing disabled")
         if repo not in config.publish_projects():
             return PublishOutcome("skipped", reason="repo not allowlisted")
@@ -313,7 +310,7 @@ def publish(repo, pr, head_sha, review_id, document, files, *, client=None, prio
                 outcome.reason = "repository denied"
                 return outcome
             return _flow(forge, client, ref.project_id, repo, pr, head_sha, review_id,
-                         document, files, "dry-run" if mode == 1 else "1", outcome, prior)
+                         document, files, mode, outcome, prior)
     except Exception as error:
         reason = redact(f"{type(error).__name__}: {error}")
         log.warning("GitLab publishing failed: %s", reason)

@@ -100,6 +100,18 @@ def parse_marker(body: str) -> str | None:
     return parsed[1] if parsed else None
 
 
+def reply_marker(kind: str, evidence: str) -> str:
+    if not re.fullmatch(r"[a-z]+", kind) or not re.fullmatch(r"[\w-]+", evidence):
+        raise ValueError("Invalid reply marker")
+    return f"<!-- argus:reply={kind} evidence={evidence} -->"
+
+
+def parse_reply_marker(body: str) -> tuple[str, str] | None:
+    match = re.fullmatch(r"<!-- argus:reply=([a-z]+) evidence=([\w-]+) -->",
+                         re.split(r"\r?\n", body.rstrip())[-1])
+    return (match[1], match[2]) if match else None
+
+
 def render_gitlab_comment(finding: dict) -> str:
     rendered = render_comment(finding)
     fingerprint = finding.get("fingerprint") or ""

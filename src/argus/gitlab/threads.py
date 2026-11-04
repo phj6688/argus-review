@@ -2,16 +2,79 @@
 
 import re
 import sqlite3
+import time
 from collections import Counter
 from dataclasses import dataclass
 
 from argus.api import db
 from argus.forge.keys import gitlab_key
-from argus.forge.types import ChangeRef
-from argus.gitlab.client import GitLabClient, GitLabHTTPError
+from argus.forge.types import ChangeRef, PostedComment
+from argus.gitlab import client as client_module, publisher
+from argus.gitlab.body import assert_body_safe, neutralize_mentions, neutralize_quick_actions, parse_reply_marker
+from argus.gitlab.client import GitLabClient, GitLabDenied, GitLabHTTPError, GitLabRateLimited
+from argus.gitlab.pacing import pacing_for
 from argus.gitlab.reader import GitLabForge
+from argus.gitlab.writer import GitLabWriter
 
 COUNTERS: Counter[str] = Counter()
+
+
+class ThreadMissing(Exception):
+    """The discussion no longer exists."""
+
+
+def reply(change: ChangeRef, thread: "GitLabThread", body: str, *, client=None) -> PostedComment:
+    if parse_reply_marker(body) is None:
+        raise ValueError("Missing reply marker")
+    prose, _, marker = body.rstrip().rpartition("\n")
+    body = neutralize_mentions(neutralize_quick_actions(prose)) + "\n" + marker
+    assert_body_safe(body)
+    client = client if client is not None else client_module.client()
+    bot_id = publisher.bot_identity(client)[0]
+    try:
+        result = GitLabWriter(client, bot_id).reply(change.repo.project_id, change.number, thread.id, body)
+    except GitLabDenied as error:
+        if error.reason != "not_found":
+            raise
+        COUNTERS["reply_discussion_missing"] += 1
+        raise ThreadMissing from error
+    if result.outcome in {"posted", "already_posted"}:
+        COUNTERS["reply_" + result.outcome] += 1
+        return PostedComment(result.note_id, thread.id, False, "reply")
+    if result.reason == "rate_limited":
+        raise GitLabRateLimited(client.pause_until())
+    raise GitLabHTTPError("GitLab reply was not confirmed", status_code=result.status_code,
+                          reason="unknown_outcome" if result.outcome == "unknown" else result.reason)
+
+
+def resolve(change: ChangeRef, thread: "GitLabThread", *, client=None) -> str:
+    client = client if client is not None else client_module.client()
+    bot_id = publisher.bot_identity(client)[0]
+    pacer = pacing_for(client)
+    with pacer.write_lock(bot_id, change.repo.project_id, change.number):
+        try:
+            response = client.request("PUT", "mr_discussion", json={"resolved": True},
+                                      project_id=change.repo.project_id, iid=change.number, discussion_id=thread.id)
+        except GitLabRateLimited as error:
+            pacer.on_rate_limited(bot_id, max(0.0, error.reset_at - time.time()))
+            raise
+        except GitLabDenied as error:
+            if error.reason == "forbidden":
+                COUNTERS["resolve_forbidden"] += 1
+                return "forbidden"
+            if error.reason == "not_found":
+                COUNTERS["resolve_discussion_missing"] += 1
+                raise ThreadMissing from error
+            raise
+        try:
+            data = response.json()
+            notes = [n for n in data["notes"] if n.get("resolvable") is True]
+            if data["id"] != thread.id or not notes or not all(n.get("resolved") is True for n in notes):
+                raise ValueError
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise GitLabHTTPError("GitLab resolution was not confirmed", reason="http") from None
+    COUNTERS["resolved"] += 1
+    return "resolved"
 
 
 @dataclass(frozen=True)

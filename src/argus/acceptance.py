@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import github, publish, replies
+from .forge.errors import ForgeRateLimited
 from .forge import forge_for
 from .forge.keys import github_key_sql
 from .forge.skips import count_skip, gitlab_configured, is_gitlab_key, log_skips
@@ -198,7 +199,7 @@ def _sync_rejections(conn, findings, now):
     for finding in findings:
         finding = dict(finding)
         outcomes = conn.execute(
-            "SELECT o.*,t.author_association,t.author_login FROM finding_outcomes o "
+            "SELECT o.*,t.author_association,t.author_trusted,t.author_login FROM finding_outcomes o "
             "LEFT JOIN reply_texts t ON o.kind='reply' AND o.finding_id=t.finding_id AND o.evidence_id=t.evidence_id "
             "WHERE o.finding_id=?", (finding["id"],),
         ).fetchall()
@@ -316,7 +317,7 @@ def _comparisons(conn, repo, pr, findings, head, comparisons, now, run):
                         changed = region_changed(finding, comparison["files"])
                     value = "unknown" if changed is None else str(changed).lower()
                     _record(conn, finding["id"], "addressed", value, head, now)
-        except github.GitHubRateLimited:
+        except ForgeRateLimited:
             raise
         except Exception as error:
             _failure(run, repo, error, pr)
@@ -468,7 +469,7 @@ def collect(path=None):
                         if gitlab_trust_cache is None:
                             gitlab_trust_cache = outcomes.TrustCache()
                         outcomes.collect_repo(conn, repo, items, now, since_default, run,
-                                              cache=gitlab_trust_cache, path=path)
+                                              cache=gitlab_trust_cache, path=path, comparisons=comparisons)
                     except github.GitHubRateLimited:
                         raise
                     except outcomes.GitLabRateLimited:

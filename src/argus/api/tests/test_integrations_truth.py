@@ -165,6 +165,7 @@ def test_gitlab_valid_policy_has_no_refusal(client, clean_env):
         "trustUnknown": 0,
         "watch": {"enabled": False, "projectCount": 0, "lastPolledAt": None,
                   "lastError": None, "trustUnknown": 0, "forkSourceDenied": 0},
+        "replyLoop": {"enabled": False, "resolveForbidden": 0},
     }
 
 
@@ -186,7 +187,7 @@ def test_gitlab_invalid_policy_reports_safe_refusal(client, clean_env):
     block = response.json()["gitlab"]
     assert block["refusal"] == "ARGUS_GITLAB_ALLOW: invalid entry"
     assert set(block) == {"host", "baseUrl", "token", "identity", "publish", "allowCount", "refusal",
-                          "trustUnknown", "watch"}
+                          "trustUnknown", "watch", "replyLoop"}
     assert block["token"] == "configured"
     assert block["identity"] == {"status": "failed", "reason": "gitlab_auth"}
     assert token not in response.text

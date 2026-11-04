@@ -4,7 +4,7 @@ Argus reviews GitLab merge requests the same way it reviews GitHub pull requests
 
 GitLab support is off until you set `ARGUS_GITLAB_URL`. One Argus process talks to one GitLab instance. A GitLab merge request never reads or changes GitHub data, and GitHub behaviour is unchanged.
 
-Argus can also poll allowed projects for open merge requests and queue them for review (see [Watcher](#watcher)). Replies to GitLab notes are not available yet: `ARGUS_GITLAB_REPLY_LOOP` is reserved and starts nothing.
+Argus can also poll allowed projects for open merge requests and queue them for review (see [Watcher](#watcher)). Replies to GitLab discussions are off by default: see [Reply loop](#reply-loop).
 
 ## Setup
 
@@ -34,7 +34,7 @@ Argus reads the token from the environment only and never prints it. `GET /integ
 
 ## Scopes and roles
 
-`read_api` is enough for every read Argus makes: merge request metadata, diffs, versions, files and membership. Posting a comment needs `api`. A `read_repository` token is not enough, because it cannot read merge requests. The bot needs Reporter access or higher on the target project.
+`read_api` is enough for every read Argus makes: merge request metadata, diffs, versions, files and membership. Posting a comment needs `api`. A `read_repository` token is not enough, because it cannot read merge requests. The bot needs Reporter access or higher on the target project. A Reporter can resolve only the threads it started. Resolving a thread that someone else started needs Developer access (see [Reply loop](#reply-loop)).
 
 Before it posts, Argus reads `members/all/:user_id` for the bot's numeric id. It requires an integer `access_level` of 20 or more. A lower or missing membership reports `Reporter access required`. This checks membership, not the token scopes.
 
@@ -62,7 +62,7 @@ Blank values use these defaults. GitLab stays disabled when the URL is unset.
 | `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust. Accepts 0, 5, 10, 15, 20, 30, 40 or 50. |
 | `ARGUS_GITLAB_WATCH` | off | Poll allowed projects into the shared review queue. Accepts `1`, `true`, `yes` or `on`. Needs a URL and a credential. |
 | `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of GitLab polling ticks between full open merge request listings. |
-| `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved. Accepts `1`, `true`, `yes` or `on`. |
+| `ARGUS_GITLAB_REPLY_LOOP` | off | Enable replies and resolution with `1`, `true`, `yes` or `on`. Needs both publish modes at `1`, an allowed publishing project and the global reply loop on. |
 
 GitLab publishing also uses these shared settings:
 
@@ -196,6 +196,23 @@ The allow set refreshes every `ARGUS_WATCH_DISCOVERY_TICKS` GitLab ticks. A temp
 
 Because projects are listed explicitly, `ARGUS_WATCH_ACTIVE_DAYS` filters open merge requests by staleness on both full and incremental listings. The draft, bot and trusted-author settings work as they do for GitHub. Merge requests from denied fork sources are skipped. A temporary failure while reading the source project leaves the merge request queued for the worker's live check. Each pass retries at most five heads with unknown membership while GitLab is not paused.
 
+## Reply loop
+
+Replies stay off until all of these hold:
+
+- `ARGUS_GITLAB_REPLY_LOOP` is enabled.
+- `ARGUS_PUBLISH` and `ARGUS_GITLAB_PUBLISH` are both `1`.
+- The project is in `ARGUS_GITLAB_PUBLISH_PROJECTS`.
+- `ARGUS_REPLY_LOOP` is not `0`. That global switch stops GitLab and GitHub replies.
+
+Each pass checks live project policy and the recorded numeric bot id before it compares code. The bot id must match the id of the token in use. A missing or different id skips the project and counts `bot_id_missing` or `bot_id_mismatch`.
+
+The loop works like the GitHub loop. When the flagged lines change at a new head, Argus re-checks the finding. A confirmed fix gets a reply and the thread is resolved. A trusted author can ask for a re-check in a thread, and each finding gets at most one request reply per head. An incomplete comparison never confirms a fix.
+
+Resolution goes through the API and also works for outdated threads. A thread is outdated when its position head differs from the current head, and a resolve of such a thread is counted as `resolved_outdated`. Replies share the publisher's note pacing. They carry their own evidence marker, so a write with an uncertain outcome is found again on the next pass instead of being posted twice. A discussion that no longer exists counts as `discussion_missing`.
+
+Roles: a Developer bot can resolve any thread. A Reporter bot can resolve only threads it started. When GitLab answers a resolve with 403, Argus degrades: the reply stays posted, the project gets no more resolve attempts for the rest of that run, `resolve_forbidden` is counted and `/integrations` shows the refusal with a hint to give the bot the Developer role.
+
 ## Thread reader
 
 `argus.gitlab.threads.list_threads` reads every discussion page of a merge request through the guarded client. The frozen `GitLabThread` and `ThreadNote` records keep the API order, leave out system notes and discussions that hold only system notes, and keep the resolution state, the numeric id of the user who resolved the thread and the `head_sha` of the first kept note's position.
@@ -229,7 +246,8 @@ Acceptance collection and the reply loop share these helpers, so GitHub and GitL
 - There is no automatic invitation. Add the bot to each project yourself.
 - Collapsed, too-large, generated and binary diffs lower coverage.
 - `POST /review-diff`, `publish-preview`, `publish-placement` and `doctor` are GitHub-only.
-- There is no reply loop for GitLab yet.
+- GitLab replies need their own opt-in flag and the live publishing gates listed under Reply loop.
+- On GitLab, a trusted author's rejection is answered with "will not be posted again", but the rejection is not yet stored in the live false-positive list. A finding with the same title can be posted again.
 - Post-merge reviews of GitLab merge requests do not follow `ARGUS_WATCH_FAST_MERGES`. That setting applies to GitHub only.
 - A full listing returns open merge requests only. With `ARGUS_GITLAB_RECONCILE_TICKS=1`, a merge request that is merged between two polls is closed without a post-merge review. Use a larger value to keep post-merge reviews.
 - Outcome collection recognises only the newest recorded bot user id for a project. After you switch the publishing account, discussions that the earlier account started are not matched, and their replies and resolutions are not collected.

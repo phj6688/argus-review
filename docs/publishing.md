@@ -73,6 +73,8 @@ Set `ARGUS_PUBLISH=1` after you check placement.
 
 The loop needs live publishing and an allowlisted repository.
 
+GitLab also requires `ARGUS_GITLAB_REPLY_LOOP` enabled, both `ARGUS_PUBLISH` and `ARGUS_GITLAB_PUBLISH` set to `1`, and the project in `ARGUS_GITLAB_PUBLISH_PROJECTS`. The global `ARGUS_REPLY_LOOP=0` switch stops both providers. Live project policy and the recorded bot user id must pass before a GitLab re-check. A Reporter bot can resolve its own threads. A 403 keeps the reply posted, stops further resolves for that project in the run and adds a warning in `/integrations`.
+
 - When the flagged lines change at a new head, Argus re-checks the finding. A confirmed fix gets a reply, and the thread is resolved.
 - A request in a thread triggers a re-check when its first non-empty line opens with "recheck", "re-check" or "check again", or when it mentions the bot login. Only the PR author and people with OWNER, MEMBER or COLLABORATOR association can ask. Each finding gets at most one request reply per head.
 - A request at the reviewed head gets `No change to this code since <sha>.` when the file is unchanged. Argus never claims a fix at that head.

@@ -186,6 +186,7 @@ def test_integrations_identity_cached_and_safe(api, gitlab_event, monkeypatch):
         "identity": {"status": "ok", "username": "review-bot", "bot": True},
         "publish": {"mode": "dry-run", "projectCount": 1}, "allowCount": 1, "refusal": None,
         "trustUnknown": 0,
+        "replyLoop": {"enabled": False, "resolveForbidden": 0},
         "watch": {"enabled": False, "projectCount": 0, "lastPolledAt": None,
                   "lastError": None, "trustUnknown": 0, "forkSourceDenied": 0},
     }
