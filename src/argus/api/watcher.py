@@ -27,7 +27,7 @@ ENV_ENABLED = "ARGUS_WATCH_ENABLED"
 ENV_INTERVAL = "ARGUS_WATCH_INTERVAL"
 ENV_AUTODISCOVER = "ARGUS_AUTODISCOVER"
 DEFAULT_INTERVAL_SECONDS = 60
-# Delay used when a lookup reports a rate limit but no future reset time is known.
+# Delay used when a rate limit error carries no future reset time.
 _RATE_LIMIT_RETRY_S = 60
 _PERMANENT_LOOKUP_FAILURES = frozenset({
     "forbidden", "not_found", "redirect_refused", "guard",
@@ -383,12 +383,11 @@ def _gitlab_head_allowed(path, head):
             if _transient_lookup(reason):
                 failure = reason.removeprefix("lookup failed: ")
                 if failure == "rate_limited":
-                    reset = gitlab_client.client().pause_until()
-                    if reset <= time.time():
-                        reset = time.time() + _RATE_LIMIT_RETRY_S
-                    raise GitLabRateLimited(reset)
+                    raise GitLabRateLimited(gitlab_client.client().pause_until())
                 raise RuntimeError("gitlab lookup failed")
         except Exception as exc:
+            if isinstance(exc, GitLabRateLimited) and exc.reset_at <= time.time():
+                exc = GitLabRateLimited(time.time() + _RATE_LIMIT_RETRY_S)
             watch_store.finish(path, head, None, exc)
             return False
     with _watched_repos_lock:
