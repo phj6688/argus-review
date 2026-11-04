@@ -98,6 +98,17 @@ class GitLabForge:
             "author": (data.get("author") or {}).get("username"),
         }
 
+    def outcome_meta(self, repo: str, number: int) -> dict:
+        data = self._mr(repo, number)
+        state = data.get("state")
+        if state not in ("opened", "locked", "closed", "merged") or not isinstance(data.get("sha"), str):
+            raise GitLabHTTPError("Invalid GitLab merge request outcome metadata", reason="http")
+        return {
+            "state": "open" if state in ("opened", "locked") else "closed",
+            "merged": state == "merged", "closed_at": data.get("closed_at") or data.get("merged_at"),
+            "head_sha": data["sha"],
+        }
+
     def head_sha(self, repo: str, number: int) -> str:
         return _head(self._mr(repo, number))
 

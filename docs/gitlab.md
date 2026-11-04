@@ -204,6 +204,16 @@ Because projects are listed explicitly, `ARGUS_WATCH_ACTIVE_DAYS` filters open m
 
 `is_outdated` compares the thread's position `head_sha` with the current head of the merge request. Read the merge request first and use its `diff_refs.head_sha`, or `sha`. GitLab provides no `outdated`, `original_position` or `line_code` field, so a note without a position head is never marked outdated.
 
+## Outcome collection
+
+Collection checks live project policy before it reads merge requests or discussions. A denied project records no outcomes. Only posted inline findings map to discussions: first by the stored discussion id, then by an exact trailing fingerprint marker on the first bot note. Recovery saves a missing id once. Bot identity uses the recorded numeric user id, so a username change cannot turn a bot note into a human reply.
+
+Human replies store membership trust as 1 for trusted, 0 for untrusted, or NULL when the lookup is unknown. A later unknown lookup keeps a known value. Membership results are cached for one collection run. A missing discussion records no replies or resolutions and adds one to `gitlab_threads_missing`.
+
+Each merge request stores its current state, merge flag, close time and head. Resolvable discussions record both resolved and unresolved states while the merge request is open or was closed within seven days. A stored request that closed more than seven days ago is skipped unless an open watched head exists. Each request commits on its own. GitLab does not use the repository reply cursor to filter discussions.
+
+GitLab request failures are counted and do not stop GitHub collection. A rate limit sets `gitlab_paused` and skips the remaining GitLab projects for that run, also when the rate limit occurs during a project or membership lookup. Projects are skipped as before when GitLab is not configured. Measurement reports stay GitHub-only.
+
 ## Known limits
 
 - The URL guard accepts only branch and tag names that start with a letter or digit and use only letters, digits, dot, underscore, slash and hyphen. A request that carries any other name is refused, for example a branch name with a plus sign or a non-ASCII letter.
@@ -214,6 +224,8 @@ Because projects are listed explicitly, `ARGUS_WATCH_ACTIVE_DAYS` filters open m
 - There is no reply loop for GitLab yet.
 - Post-merge reviews of GitLab merge requests do not follow `ARGUS_WATCH_FAST_MERGES`. That setting applies to GitHub only.
 - A full listing returns open merge requests only. With `ARGUS_GITLAB_RECONCILE_TICKS=1`, a merge request that is merged between two polls is closed without a post-merge review. Use a larger value to keep post-merge reviews.
+- Outcome collection recognises only the newest recorded bot user id for a project. After you switch the publishing account, discussions that the earlier account started are not matched, and their replies and resolutions are not collected.
+- Outcome collection does not filter other bot accounts. A bot with Developer access that writes a reply opening with a fixed verb counts as a trusted human reply.
 - The watcher reads one GitLab instance and only the projects in `ARGUS_GITLAB_ALLOW`. It never adds them to the GitHub owner list.
 - A merge request that was merged before the watcher saw it can be skipped as `trust_unknown`. The membership sweep retries open merge requests only, so that skip is not retried.
 - Quick-action behaviour, limits and token tiers can differ on other GitLab versions and on gitlab.com. Test a dry run on your instance first.
@@ -229,7 +241,8 @@ Operational readers stay forge-wide: the watcher queue, claims and worker health
 store operations and console lists, and the `reviews_window`, `top_error_class` and
 `review_health` functions used by the watchdog, health endpoint and stats operations block.
 Lookups by review id and suppression by repository keep their existing scope.
-Acceptance collection and reconciliation and per-repository replies already skip GitLab.
+Acceptance collection now reads GitLab outcomes. Reconciliation and per-repository
+replies still skip GitLab. Compare and re-check outcomes are not collected yet.
 
 Use `is_github_key` in Python and `github_key_sql` in SQL. A key with a colon never
 feeds a GitHub baseline number, including a future forge prefix.

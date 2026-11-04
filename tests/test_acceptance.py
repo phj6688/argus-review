@@ -173,6 +173,7 @@ def test_collector_replies_resolution_changes_and_cursor(database, monkeypatch):
     acceptance.collect(database)
     outcomes = rows(database, "finding_outcomes")
     assert len([o for o in outcomes if o["kind"] == "reply"]) == 2
+    assert [row["author_trusted"] for row in rows(database, "reply_texts")] == [None, None]
     assert len([o for o in outcomes if o["kind"] == "addressed"]) == 4
     assert len([o for o in outcomes if o["kind"] == "addressed" and o["value"] == "true"]) == 3
     assert len([o for o in outcomes if o["kind"] == "resolved"]) == 2

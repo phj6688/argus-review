@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Acceptance collection records GitLab merge request state, human replies with membership trust, and discussion resolution. Missing discussions record no outcomes, and GitLab failures or rate limits do not interrupt GitHub collection.
 - GitLab thread reader: reads every discussion page, drops system notes, and recognises bot notes by numeric user id, with a username fallback counted in `bot_id_missing` only when the id is not recorded. Nothing calls it yet; the reply loop for GitLab is not part of this change.
 - GitLab watching now feeds the shared review queue with incremental polling, periodic full reconciliation and retries for unknown membership. Only complete listings close missing requests. Discovery skips permanently unavailable groups and projects, stale requests stay excluded on incremental polls, and poll logs include push counts. GitHub and GitLab polling remain independent. Integrations report the watch state.
 - GitHub polling preserves queued GitLab reviews. Each forge checks its own watched set and quota pause. GitLab workers recheck live policy, retain denial reasons and retry temporary lookup failures.
