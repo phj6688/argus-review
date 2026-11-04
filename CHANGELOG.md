@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Four off-by-default settings add context blocks to the reviewer prompt for offline evaluation: `ARGUS_CONTEXT_PAIRING`, `ARGUS_CONTEXT_CALLEES`, `ARGUS_CONTEXT_CALLERS`, `ARGUS_CONTEXT_COCHANGE`. The three mirror blocks need a replay mirror and skip in production. `argus.evalkit.replay --reviewer-only` skips the verifier.
 - Every completed review carries a deterministic `safe` or `risky` path and size category in the console, verdict, MCP response and published body. The category is not a correctness verdict. `ARGUS_RISK_TRIPWIRES` and `ARGUS_RISK_MAX_LINES` configure the rule.
 - GitHub API calls reuse one HTTP client, so each call no longer opens a new TLS connection.
 - The `action` column of the reviews list shows the real GitHub posting state of each finished review: `posted` (with `posted_comments`), `dry_run`, `not_posted` or `post_failed`. A failed run has `action: null` and shows a dash. Before, every row said `pending`.

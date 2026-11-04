@@ -33,7 +33,7 @@ from . import fingerprint, github, risk_tier, rules, verdict
 from .client import DEFAULT_MODEL, ToolSpec, complete_tool, prompt_cache_scope
 from .context import (
     REVIEW_CONTEXT_BUDGET_TOKENS,
-    FileReader, RenderedContext, cached_reader, render_review_context,
+    FileReader, RenderedContext, cached_reader, mirror_context_enabled, render_review_context,
 )
 from .diff import (
     REMOVED_STATUS, FilePatch, added_lines, change_stats, compress_diff, fetch_pr_files, split_lines,
@@ -346,13 +346,16 @@ def _llm_file_counts(files: list[FilePatch], rendered: RenderedContext) -> dict:
     seen = set(rendered.full + rendered.windowed + rendered.hunks_only)
     changed = [f for f in files if f.status != REMOVED_STATUS]
     unread = [f for f in changed if f.filename not in seen]
-    return {"files_reviewed": len(seen),
+    counts = {"files_reviewed": len(seen),
             "files_full": len(rendered.full), "files_windowed": len(rendered.windowed),
             "files_hunks_only": len(rendered.hunks_only),
             "files_read_failed": rendered.files_read_failed,
             "context_tokens_estimated": rendered.estimated_tokens,
             "files_omitted": len(unread),
             "files_without_patch": sum(1 for f in unread if not f.patch)}
+    if rendered.context_blocks:
+        counts["context_blocks"] = rendered.context_blocks
+    return counts
 
 
 def _llm_ran(model: str, files: list[FilePatch], rendered: RenderedContext, stats: dict,
@@ -462,7 +465,9 @@ def run_review(
             raise HeadMoved("PR head changed after listing")
     read = _file_reader(repo, head_sha)
     pr_section = _pr_section(meta.get("title"), meta.get("body"), meta.get("commits"))
-    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator())
+    source = live.context_source(repo, head_sha) if mirror_context_enabled() else None
+    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator(),
+                                     source=source)
     if rendered.views:
         house_rules = fetch_house_rules(repo)
         intent = _intent_for_prompt(repo, pr, meta)
@@ -564,7 +569,10 @@ def run_diff_review(
                       _judge_skipped(FAST_MODE_JUDGE_REASON)])
 
     pr_section = _pr_section(pr_title, pr_body, commits)
-    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator())
+    source = (live.context_source(repo, head_sha)
+              if repo and head_sha and mirror_context_enabled() else None)
+    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator(),
+                                     source=source)
     if rendered.views:
         house_rules = fetch_house_rules(repo) if repo else None
         review = _deep_review(rendered.prompt, house_rules, model, None, pr_section)
