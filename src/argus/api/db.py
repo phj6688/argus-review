@@ -427,6 +427,15 @@ def bot_user_id(conn: sqlite3.Connection, repo: str) -> int | None:
     return row[0] if row is not None else None
 
 
+def bot_login(conn: sqlite3.Connection, repo: str) -> str | None:
+    row = conn.execute(
+        "SELECT bot_login FROM publishing_identities "
+        "WHERE repo=? ORDER BY first_seen_at DESC LIMIT 1",
+        (repo,),
+    ).fetchone()
+    return row[0] if row is not None else None
+
+
 def create_review(
     path: str | None, repo: str, pr: int, model: str, head_sha: str | None = None,
     *, source_kind: str = "pr", base_sha: str | None = None,

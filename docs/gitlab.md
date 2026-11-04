@@ -196,6 +196,14 @@ The allow set refreshes every `ARGUS_WATCH_DISCOVERY_TICKS` GitLab ticks. A temp
 
 Because projects are listed explicitly, `ARGUS_WATCH_ACTIVE_DAYS` filters open merge requests by staleness on both full and incremental listings. The draft, bot and trusted-author settings work as they do for GitHub. Merge requests from denied fork sources are skipped. A temporary failure while reading the source project leaves the merge request queued for the worker's live check. Each pass retries at most five heads with unknown membership while GitLab is not paused.
 
+## Thread reader
+
+`argus.gitlab.threads.list_threads` reads every discussion page of a merge request through the guarded client. The frozen `GitLabThread` and `ThreadNote` records keep the API order, leave out system notes and discussions that hold only system notes, and keep the resolution state, the numeric id of the user who resolved the thread and the `head_sha` of the first kept note's position.
+
+`is_bot_note` compares the author's numeric id with the recorded bot id. A rename cannot make the bot answer itself, and a human who takes over the bot's old username does not look like the bot. Only when no id is recorded does it fall back to the newest recorded login, compared with `casefold()`. Each fallback adds one to `COUNTERS["bot_id_missing"]`, even when no login exists.
+
+`is_outdated` compares the thread's position `head_sha` with the current head of the merge request. Read the merge request first and use its `diff_refs.head_sha`, or `sha`. GitLab provides no `outdated`, `original_position` or `line_code` field, so a note without a position head is never marked outdated.
+
 ## Known limits
 
 - The URL guard accepts only branch and tag names that start with a letter or digit and use only letters, digits, dot, underscore, slash and hyphen. A request that carries any other name is refused, for example a branch name with a plus sign or a non-ASCII letter.
