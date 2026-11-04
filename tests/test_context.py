@@ -2,7 +2,7 @@ from collections import Counter
 
 import pytest
 
-from argus import context
+from argus import context, github
 from argus.diff import FilePatch
 from argus.tokens import HeuristicEstimator
 
@@ -298,8 +298,8 @@ def test_pairing_opt_in_appends_without_changing_file_views(monkeypatch, value):
     assert preview['pairing'].text == after.prompt[len(before.prompt) + 2:]
 
 
-@pytest.mark.parametrize('error', [context.GitHubAuthError, context.GitHubDenied,
-                                  context.GitHubRateLimited])
+@pytest.mark.parametrize('error', [github.GitHubAuthError, github.GitHubDenied,
+                                  github.GitHubRateLimited])
 def test_changed_symbols_propagates_github_errors(error):
     def read(path):
         raise error('unavailable')
@@ -591,8 +591,8 @@ def test_review_source_hook_is_only_called_for_mirror_settings(monkeypatch, entr
 
 
 @pytest.mark.parametrize('name', ['callees', 'callers', 'cochange'])
-@pytest.mark.parametrize('error', [context.GitHubAuthError, context.GitHubDenied,
-                                  context.GitHubRateLimited])
+@pytest.mark.parametrize('error', [github.GitHubAuthError, github.GitHubDenied,
+                                  github.GitHubRateLimited])
 def test_mirror_blocks_propagate_github_errors(name, error):
     files = [FilePatch('a.py', 'added', '@@ -0,0 +1,2 @@\n+def load_data():\n+    helper_value()')]
     with pytest.raises(error):
