@@ -218,7 +218,9 @@ def test_monthly_skips_findings_and_posted_reviews(database, configured, count, 
     assert_counter(report, configured, count + int(posted))
     assert "skipped_gitlab" not in monthly.markdown(report)
     if count:
-        assert_skip_log(caplog, "monthly", count + int(posted))
+        assert_skip_log(caplog, "monthly findings", count)
+        if posted:
+            assert_skip_log(caplog, "monthly reviews", 1)
 
 
 def test_skip_helpers_follow_parsed_configuration(monkeypatch):

@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import github, publish, replies
+from .forge.keys import github_key_sql
 from .forge.skips import count_skip, is_gitlab_key, log_skips
 from .repo_policy import validate_repo
 
@@ -555,9 +556,10 @@ def report(conn, since=None):
     if since:
         since = _stamp(since).isoformat()
     findings = conn.execute(
-        "SELECT * FROM published_findings WHERE mode='posted' "
+        f"SELECT * FROM published_findings WHERE {github_key_sql('repo')} AND mode='posted' "  # nosec B608 - validated identifier
         "AND (? IS NULL OR julianday(posted_at)>=julianday(?))", (since, since),
     ).fetchall()
+    # Outcomes and actions only contribute through the selected finding ids.
     outcomes = defaultdict(list)
     has_reply_texts = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='reply_texts'").fetchone()
     outcome_query = (
@@ -580,7 +582,7 @@ def report(conn, since=None):
         else:
             bot["replies" if row["kind"] == "reply" else "resolutions"] += 1
     closed = {(row["repo"], row["pr"]) for row in conn.execute(
-        "SELECT repo, pr FROM outcome_prs WHERE state='closed'"
+        f"SELECT repo, pr FROM outcome_prs WHERE state='closed' AND {github_key_sql('repo')}"  # nosec B608 - validated identifier
     )}
 
     def grouped(selected):
@@ -607,9 +609,14 @@ def report(conn, since=None):
                 "unverified": _counts(unverified)}
 
     identities = defaultdict(list)
-    for repo, login in conn.execute("SELECT repo, bot_login FROM publishing_identities ORDER BY repo, bot_login"):
+    for repo, login in conn.execute(
+        f"SELECT repo, bot_login FROM publishing_identities WHERE {github_key_sql('repo')} "  # nosec B608 - validated identifier
+        "ORDER BY repo, bot_login"
+    ):
         identities[repo].append(login)
-    last = conn.execute("SELECT MAX(last_collected_at) FROM outcome_cursors").fetchone()[0]
+    last = conn.execute(
+        f"SELECT MAX(last_collected_at) FROM outcome_cursors WHERE {github_key_sql('repo')}"  # nosec B608 - validated identifier
+    ).fetchone()[0]
     return {**grouped(findings),
             "final": grouped(f for f in findings if (f["repo"], f["pr"]) in closed),
             "bot": bot, "bot_logins": dict(identities), "last_collection_at": last, "note": NOTE}

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Baseline eval for Jarvis increment 1: build v0, measure, write ONE eval_runs row.
 
+Argus database inputs come through CorpusLoader for GitHub repositories only.
+
 Honest by construction. The deterministic probe lane is precision-first and
 narrow (it catches the specific incident classes it was mined from), so its
 recall over the broad bug corpus is low BY DESIGN. The kill criterion's

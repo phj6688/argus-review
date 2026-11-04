@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..api import db as argus_db
+from ..forge.keys import github_key_sql
 
 ENV_DB_PATH = "JARVIS_DB_PATH"
 _DEFAULT_DB = Path(__file__).resolve().parents[3] / "data" / "jarvis.db"
@@ -160,7 +161,7 @@ class CorpusLoader:
         try:
             rows = conn.execute(
                 "SELECT f.id, r.repo, f.file, f.line, f.title FROM findings f "
-                "JOIN reviews r ON r.id = f.review_id"
+                f"JOIN reviews r ON r.id = f.review_id WHERE {github_key_sql('r.repo')}"  # nosec B608 - validated identifier
             ).fetchall()
         finally:
             conn.close()
@@ -179,7 +180,8 @@ class CorpusLoader:
                 "r.repo, f.file, f.line, f.title FROM marks m "
                 "JOIN findings f ON f.id = m.finding_id "
                 "JOIN reviews r ON r.id = f.review_id "
-                "WHERE m.marker IS NULL OR m.marker NOT LIKE '%:%' "
+                "WHERE (m.marker IS NULL OR m.marker NOT LIKE '%:%') "
+                f"AND {github_key_sql('r.repo')} "  # nosec B608 - validated identifier
                 "ORDER BY m.id"
             ).fetchall()
         finally:
