@@ -5,7 +5,7 @@ import math
 import os
 import re
 import sqlite3
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -13,8 +13,9 @@ from pathlib import Path
 from . import github, publish, replies
 from .forge.errors import ForgeRateLimited
 from .forge import forge_for
-from .forge.keys import github_key_sql
+from .forge.keys import github_key_sql, gitlab_key_sql
 from .forge.skips import count_skip, gitlab_configured, is_gitlab_key, log_skips
+from .forge.trust_sql import is_trusted
 from .repo_policy import validate_repo
 
 NOTE = (
@@ -42,6 +43,10 @@ NOTE = (
     "reference corpus does. Compare inline findings only. Summary findings have no "
     "reply thread. Unverified items are review-body items and are excluded from "
     "the inline comparison like other body items. The final group holds closed pull requests only."
+)
+GITLAB_NOTE = (
+    "The CodeRabbit comparison is GitHub-only. GitLab rates are not comparable with GitHub rates "
+    "without a note: resolve controls and outdated threads behave differently."
 )
 log = logging.getLogger("argus.acceptance")
 _last_runs = {}
@@ -179,8 +184,11 @@ def _record(conn, finding_id, kind, value, evidence_id, now, occurred_at=None, b
         )
 
 
-def _signals(outcomes, actions=(), original_head=None):
-    trusted_replies = sorted((o for o in outcomes if o["kind"] == "reply" and replies.trusted(o, {})),
+def _signals(outcomes, actions=(), original_head=None, *, repo=None):
+    trusted_replies = sorted((o for o in outcomes if o["kind"] == "reply" and (
+        is_trusted(repo, o["author_trusted"], o["author_association"])
+        if repo is not None and is_gitlab_key(repo) else replies.trusted(o, {})
+    )),
                      key=lambda o: (_stamp(o["occurred_at"] or o["observed_at"]), int(o["evidence_id"])))
     resolutions = sorted((o for o in outcomes if o["kind"] == "resolved"),
                          key=lambda o: _stamp(o["observed_at"]))
@@ -581,9 +589,9 @@ def report(conn, since=None):
     outcomes = defaultdict(list)
     has_reply_texts = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='reply_texts'").fetchone()
     outcome_query = (
-        "SELECT o.*,t.author_association FROM finding_outcomes o "
+        "SELECT o.*,t.author_association,t.author_trusted FROM finding_outcomes o "
         "LEFT JOIN reply_texts t ON o.kind='reply' AND o.finding_id=t.finding_id AND o.evidence_id=t.evidence_id"
-        if has_reply_texts else "SELECT *,NULL AS author_association FROM finding_outcomes"
+        if has_reply_texts else "SELECT *,NULL AS author_association,NULL AS author_trusted FROM finding_outcomes"
     )
     for row in conn.execute(outcome_query):
         outcomes[row["finding_id"]].append(row)
@@ -603,7 +611,7 @@ def report(conn, since=None):
         f"SELECT repo, pr FROM outcome_prs WHERE state='closed' AND {github_key_sql('repo')}"  # nosec B608 - validated identifier
     )}
 
-    def grouped(selected):
+    def grouped(selected, *, trust_repo=False, repo_labels=None):
         repos, severities = defaultdict(list), defaultdict(list)
         placements = {"inline": [], "summary": []}
         unverified = []
@@ -613,10 +621,12 @@ def report(conn, since=None):
             if finding["placement"] == "summary":
                 signals = [o for o in signals if o["kind"] == "addressed"]
             checks = actions[finding["id"]] if finding["placement"] == "inline" else []
-            label, loose, _ = _signals(signals, checks, finding["head_sha"])
+            label, loose, _ = _signals(signals, checks, finding["head_sha"],
+                                       repo=finding["repo"] if trust_repo else None)
             item = (label, loose)
             all_items.append(item)
-            repos[finding["repo"]].append(item)
+            repo = finding["repo"]
+            repos[repo_labels.get(repo, repo) if repo_labels else repo].append(item)
             severities[finding["severity"]].append(item)
             placements[finding["placement"]].append(item)
             if "unverified" in finding.keys() and finding["unverified"]:
@@ -635,9 +645,39 @@ def report(conn, since=None):
     last = conn.execute(
         f"SELECT MAX(last_collected_at) FROM outcome_cursors WHERE {github_key_sql('repo')}"  # nosec B608 - validated identifier
     ).fetchone()[0]
-    return {**grouped(findings),
-            "final": grouped(f for f in findings if (f["repo"], f["pr"]) in closed),
-            "bot": bot, "bot_logins": dict(identities), "last_collection_at": last, "note": NOTE}
+    result = {**grouped(findings),
+              "final": grouped(f for f in findings if (f["repo"], f["pr"]) in closed),
+              "bot": bot, "bot_logins": dict(identities), "last_collection_at": last, "note": NOTE}
+    if gitlab_configured() and conn.execute(
+        f"SELECT 1 FROM published_findings WHERE {gitlab_key_sql('repo')} AND mode='posted' LIMIT 1"  # nosec B608 - validated identifier
+    ).fetchone():
+        gitlab_findings = conn.execute(
+            f"SELECT * FROM published_findings WHERE {gitlab_key_sql('repo')} AND mode='posted' "  # nosec B608 - validated identifier
+            "AND placement='inline' AND anchor_status='anchored' "
+            "AND (? IS NULL OR julianday(posted_at)>=julianday(?))", (since, since),
+        ).fetchall()
+        failures = dict.fromkeys(("rejected_400", "rejected_500", "downgraded"), 0)
+        for status, count in conn.execute(
+            f"SELECT anchor_status, COUNT(*) FROM published_findings WHERE {gitlab_key_sql('repo')} "  # nosec B608 - validated identifier
+            "AND mode='posted' AND anchor_status IN ('rejected_400','rejected_500','downgraded') "
+            "AND (? IS NULL OR julianday(posted_at)>=julianday(?)) GROUP BY anchor_status", (since, since),
+        ):
+            failures[status] = count
+        gitlab_closed = {(row["repo"], row["pr"]) for row in conn.execute(
+            f"SELECT repo, pr FROM outcome_prs WHERE state='closed' AND {gitlab_key_sql('repo')}"  # nosec B608 - validated identifier
+        )}
+        projects = dict(conn.execute("SELECT repo_key, path_with_namespace FROM forge_projects"))
+        repo_labels = {f["repo"]: projects.get(f["repo"]) or f["repo"] for f in gitlab_findings}
+        label_counts = Counter(repo_labels.values())
+        repo_labels = {repo: label if label_counts[label] == 1 else repo for repo, label in repo_labels.items()}
+        result["gitlab"] = {
+            **grouped(gitlab_findings, trust_repo=True, repo_labels=repo_labels),
+            "final": grouped((f for f in gitlab_findings if (f["repo"], f["pr"]) in gitlab_closed),
+                             trust_repo=True, repo_labels=repo_labels),
+            **failures,
+        }
+        result["note"] = NOTE + " " + GITLAB_NOTE
+    return result
 
 
 def stats(path=None, since=None):

@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient
 from argus import acceptance
 from argus.api import benchmark, db, main, metrics, watch_metrics
 from argus.evalkit import monthly
+from argus.forge.keys import gitlab_key
 from argus.jarvis import corpus
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,7 +30,7 @@ EXPECTED = ROOT / "tests/fixtures/measurement_github_only.json"
 SINCE = "2026-10-01T00:00:00+00:00"
 UNTIL = "2026-10-20T12:00:00+00:00"
 MOMENT = datetime.fromisoformat(UNTIL)
-GITLAB = "gitlab:gitlab.example.com#12"
+GITLAB = gitlab_key("gitlab.example.com", 12)
 GITHUB = ("owner/re_po", "owner/re-po", "owner/re%po")
 
 
@@ -236,6 +237,12 @@ def test_gitlab_does_not_change_baseline(measurements, reader):
         assert after["skipped_gitlab"] == 72  # 54 findings plus 18 posted reviews.
         before = {key: value for key, value in before.items() if key != "skipped_gitlab"}
         after = {key: value for key, value in after.items() if key != "skipped_gitlab"}
+    if reader in {"acceptance", "acceptance.stats", "stats.acceptance"} and configured:
+        assert "gitlab" not in before
+        assert after["gitlab"]["totals"]["posted"] == 0  # Legacy rows have no confirmed anchor.
+        assert after["note"] == before["note"] + " " + acceptance.GITLAB_NOTE
+        before = {key: value for key, value in before.items() if key != "note"}
+        after = {key: value for key, value in after.items() if key not in {"gitlab", "note"}}
     assert after == before
 
 
@@ -314,7 +321,7 @@ def test_github_key_sql_rejects_invalid_columns(column):
 
 
 FILTERED = {
-    "src/argus/acceptance.py": "Reports are baseline; collection and reconciliation already skip GitLab.",
+    "src/argus/acceptance.py": "GitHub baseline and optional GitLab measurements stay separate.",
     "src/argus/api/metrics.py": "Baseline rollups are filtered; watchdog functions remain forge-wide.",
     "src/argus/api/watch_metrics.py": "Coverage measures the GitHub baseline.",
     "src/argus/evalkit/labels.py": "Acceptance labels measure GitHub findings.",

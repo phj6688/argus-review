@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Acceptance reports show GitLab separately, counting only confirmed inline diff notes and membership-trusted replies. Rejected and downgraded anchors stay outside the rates. GitHub baseline figures stay unchanged, and the precision and verified-finding metrics can select GitLab explicitly.
 - GitLab replies and confirmed fix resolution run behind their own opt-in flag, `ARGUS_GITLAB_REPLY_LOOP` (default off), and the live publishing gates. Replies share the publisher's pacing, recover uncertain writes by marker and keep GitHub limits separate. A refused resolution leaves the reply posted and appears in integrations.
 - GitLab comparisons supply finding re-checks and track ancestry. Incomplete comparisons stay unknown. Acceptance collection and the reply helpers now read comparisons and files through the forge adapter.
 - Acceptance collection records GitLab merge request state, human replies with membership trust, and discussion resolution. Missing discussions record no outcomes, and GitLab failures or rate limits do not interrupt GitHub collection.
