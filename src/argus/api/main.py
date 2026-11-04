@@ -35,6 +35,7 @@ from ..review import (
     DEFAULT_BUG_CAP, ENV_FALLBACK_MODEL, ReviewResult, fallback_eligible, fallback_for, run_diff_review,
     run_review,
 )
+from ..forge.keys import parse_entry
 from ..repo_policy import RepoDenied, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
 
@@ -194,6 +195,9 @@ class ConfigUpdate(BaseModel):
     def valid_deny(cls, values):
         if values is not None:
             for value in values:
+                if ":" in value:
+                    parse_entry(value)
+                    continue
                 try:
                     validate_repo(value if "/" in value else f"{value}/repo", [])
                 except RepoDenied:
