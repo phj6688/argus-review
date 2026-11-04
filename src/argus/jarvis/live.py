@@ -33,6 +33,11 @@ _LIVE_FP_CACHE: dict = {}
 PR_COMMITS_PAGE = 100
 
 
+def context_source(repo: str | None, head_sha: str | None):
+    """No repository copy exists in production, so the mirror-backed blocks skip here."""
+    return None
+
+
 def _fp_path() -> Path | None:
     """Return the optional file path set by ARGUS_KNOWN_FPS_PATH."""
     value = os.environ.get(ENV_KNOWN_FPS_PATH)
