@@ -1,0 +1,66 @@
+{
+  "derived": {
+    "accepted": true,
+    "has_position": false,
+    "line_range": null,
+    "new_line": null,
+    "old_line": null,
+    "position": {},
+    "resolvable": false,
+    "resolved": null,
+    "resolved_by": null,
+    "type": null
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "notes_zwsp",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "body": "Finding text.\n\n\u200b/label ~qa-notes-zwsp"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/78/notes"
+  },
+  "response": {
+    "body": {
+      "author": {
+        "avatar_url": "<AVATAR_URL>",
+        "id": 3,
+        "locked": false,
+        "name": "Argus Bot Developer",
+        "public_email": null,
+        "state": "active",
+        "username": "argus-bot-dev",
+        "web_url": "https://gitlab.example.test/argus-bot-dev"
+      },
+      "body": "Finding text.\n\n\u200b/label ~qa-notes-zwsp",
+      "commands_changes": {},
+      "confidential": false,
+      "created_at": "2026-11-02T22:17:23.328Z",
+      "id": 108,
+      "imported": false,
+      "imported_from": "none",
+      "internal": false,
+      "noteable_id": 83,
+      "noteable_iid": 78,
+      "noteable_type": "MergeRequest",
+      "project_id": 1,
+      "resolvable": false,
+      "system": false,
+      "type": null,
+      "updated_at": "2026-11-02T22:17:23.328Z"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"dd9ad37998ce198662c9b7ea34efa480\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

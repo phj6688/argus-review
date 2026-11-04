@@ -1,0 +1,418 @@
+{
+  "derived": {
+    "variants": [
+      {
+        "accepted": true,
+        "after": {
+          "discussions": 1,
+          "drafts": 0,
+          "notes": 1
+        },
+        "before": {
+          "discussions": 0,
+          "drafts": 0,
+          "notes": 0
+        },
+        "discussion_id": "bf66323dbd2fffa83abc55c56a08d95dc6134ea7",
+        "has_position": true,
+        "label": "b01_added_new",
+        "left_note_behind": {},
+        "line_range": null,
+        "new_line": 10,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {
+          "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+          "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+          "line_range": null,
+          "new_line": 10,
+          "new_path": "spike/pos.py",
+          "old_line": null,
+          "old_path": "spike/pos.py",
+          "position_type": "text",
+          "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+        },
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_line": 10,
+            "new_path": "spike/pos.py",
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": true,
+        "resolved": false,
+        "resolved_by": null,
+        "status": 201,
+        "type": "DiffNote"
+      },
+      {
+        "accepted": false,
+        "after": {
+          "discussions": 1,
+          "drafts": 0,
+          "notes": 1
+        },
+        "before": {
+          "discussions": 1,
+          "drafts": 0,
+          "notes": 1
+        },
+        "has_position": false,
+        "label": "b01_added_both",
+        "left_note_behind": {
+          "discussions": 0,
+          "drafts": 0,
+          "notes": 0
+        },
+        "line_range": null,
+        "new_line": null,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {},
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_line": 10,
+            "new_path": "spike/pos.py",
+            "old_line": 10,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": null,
+        "resolved": null,
+        "resolved_by": null,
+        "status": 400,
+        "type": null
+      },
+      {
+        "accepted": true,
+        "after": {
+          "discussions": 2,
+          "drafts": 0,
+          "notes": 2
+        },
+        "before": {
+          "discussions": 1,
+          "drafts": 0,
+          "notes": 1
+        },
+        "discussion_id": "26eca43d45b824924a6302e678abe95df6ae478c",
+        "has_position": true,
+        "label": "b01_removed_old",
+        "left_note_behind": {},
+        "line_range": null,
+        "new_line": null,
+        "old_line": 10,
+        "path": "/projects/1/merge_requests/76",
+        "position": {
+          "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+          "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+          "line_range": null,
+          "new_line": null,
+          "new_path": "spike/pos.py",
+          "old_line": 10,
+          "old_path": "spike/pos.py",
+          "position_type": "text",
+          "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+        },
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_path": "spike/pos.py",
+            "old_line": 10,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": true,
+        "resolved": false,
+        "resolved_by": null,
+        "status": 201,
+        "type": "DiffNote"
+      },
+      {
+        "accepted": false,
+        "after": {
+          "discussions": 2,
+          "drafts": 0,
+          "notes": 2
+        },
+        "before": {
+          "discussions": 2,
+          "drafts": 0,
+          "notes": 2
+        },
+        "has_position": false,
+        "label": "b01_removed_both",
+        "left_note_behind": {
+          "discussions": 0,
+          "drafts": 0,
+          "notes": 0
+        },
+        "line_range": null,
+        "new_line": null,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {},
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_line": 10,
+            "new_path": "spike/pos.py",
+            "old_line": 10,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": null,
+        "resolved": null,
+        "resolved_by": null,
+        "status": 400,
+        "type": null
+      },
+      {
+        "accepted": true,
+        "after": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "before": {
+          "discussions": 2,
+          "drafts": 0,
+          "notes": 2
+        },
+        "discussion_id": "f8cf6287a13a6331d73ab8ef5c903523ff032b4c",
+        "has_position": true,
+        "label": "b01_context_both",
+        "left_note_behind": {},
+        "line_range": null,
+        "new_line": 7,
+        "old_line": 7,
+        "path": "/projects/1/merge_requests/76",
+        "position": {
+          "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+          "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+          "line_range": null,
+          "new_line": 7,
+          "new_path": "spike/pos.py",
+          "old_line": 7,
+          "old_path": "spike/pos.py",
+          "position_type": "text",
+          "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+        },
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_line": 7,
+            "new_path": "spike/pos.py",
+            "old_line": 7,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": true,
+        "resolved": false,
+        "resolved_by": null,
+        "status": 201,
+        "type": "DiffNote"
+      },
+      {
+        "accepted": false,
+        "after": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "before": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "has_position": false,
+        "label": "b01_context_new",
+        "left_note_behind": {
+          "discussions": 0,
+          "drafts": 0,
+          "notes": 0
+        },
+        "line_range": null,
+        "new_line": null,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {},
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_line": 7,
+            "new_path": "spike/pos.py",
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": null,
+        "resolved": null,
+        "resolved_by": null,
+        "status": 400,
+        "type": null
+      },
+      {
+        "accepted": false,
+        "after": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "before": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "has_position": false,
+        "label": "b01_context_old",
+        "left_note_behind": {
+          "discussions": 0,
+          "drafts": 0,
+          "notes": 0
+        },
+        "line_range": null,
+        "new_line": null,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {},
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_path": "spike/pos.py",
+            "old_line": 7,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": null,
+        "resolved": null,
+        "resolved_by": null,
+        "status": 400,
+        "type": null
+      },
+      {
+        "accepted": false,
+        "after": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "before": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "has_position": false,
+        "label": "b01_context_wrong_old",
+        "left_note_behind": {
+          "discussions": 0,
+          "drafts": 0,
+          "notes": 0
+        },
+        "line_range": null,
+        "new_line": null,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {},
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_line": 7,
+            "new_path": "spike/pos.py",
+            "old_line": 8,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": null,
+        "resolved": null,
+        "resolved_by": null,
+        "status": 400,
+        "type": null
+      },
+      {
+        "accepted": true,
+        "after": {
+          "discussions": 4,
+          "drafts": 0,
+          "notes": 4
+        },
+        "before": {
+          "discussions": 3,
+          "drafts": 0,
+          "notes": 3
+        },
+        "discussion_id": "1c57df8591db8a89bb62099b1b8134d33ecb1bf1",
+        "has_position": true,
+        "label": "b01_file",
+        "left_note_behind": {},
+        "line_range": null,
+        "new_line": null,
+        "old_line": null,
+        "path": "/projects/1/merge_requests/76",
+        "position": {
+          "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+          "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+          "new_path": "spike/pos.py",
+          "old_path": "spike/pos.py",
+          "position_type": "file",
+          "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+        },
+        "request": {
+          "body": "Finding text.",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "bd5fb8c7efa80eae2b0a2d5ac78a5eea47473043",
+            "new_path": "spike/pos.py",
+            "old_path": "spike/pos.py",
+            "position_type": "file",
+            "start_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b"
+          }
+        },
+        "resolvable": true,
+        "resolved": false,
+        "resolved_by": null,
+        "status": 201,
+        "type": "DiffNote"
+      }
+    ]
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "summary",
+    "question": 1
+  },
+  "trimmed": {}
+}

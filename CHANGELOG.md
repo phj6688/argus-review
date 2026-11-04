@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added GitLab body helpers that neutralize quick actions and mentions, plus inline positions that preserve the correct old and new line numbers. Multi-line positions remain disabled by default.
 - Added GitLab reviews through the API, CLI and MCP with stable project keys, live deny checks and cached integration identity. GitHub entry points stay unchanged. GitHub only commands refuse GitLab keys before any request. GitLab path lookup failures from timeouts, upstream errors, rate limits and authentication return 502 with a safe classification, unknown, renamed and malformed paths return 422, and denied projects return 403. The API logs whether GitLab is configured at startup.
 - A golden snapshot suite under `tests/golden/` pins GitHub requests, prompts, return values and database rows before the forge refactor. `ARGUS_GOLDEN_UPDATE=1` regenerates it.
 - Added a GitLab reader with head checks, paginated diffs, explicit incomplete coverage, target project file reads and default branch house rules. GitLab failures no longer trigger a model fallback. GitLab auth, denial and rate-limit errors are no longer swallowed during context reads.
