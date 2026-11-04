@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import github, publish, replies
 from .forge.keys import github_key_sql
-from .forge.skips import count_skip, is_gitlab_key, log_skips
+from .forge.skips import count_skip, gitlab_configured, is_gitlab_key, log_skips
 from .repo_policy import validate_repo
 
 NOTE = (
@@ -159,7 +159,7 @@ def _stamp(value):
 
 
 def _record(conn, finding_id, kind, value, evidence_id, now, occurred_at=None, body=None,
-            author_association=None, author_login=None):
+            author_association=None, author_login=None, *, author_trusted=None):
     conn.execute(
         "INSERT INTO finding_outcomes(finding_id,kind,value,evidence_id,observed_at,occurred_at) "
         "VALUES (?, ?, ?, ?, ?, ?) "
@@ -169,10 +169,11 @@ def _record(conn, finding_id, kind, value, evidence_id, now, occurred_at=None, b
     )
     if kind == "reply" and body is not None:
         conn.execute(
-            "INSERT INTO reply_texts(finding_id,evidence_id,body,author_association,author_login) "
-            "VALUES (?,?,?,?,?) ON CONFLICT(finding_id,evidence_id) DO UPDATE SET "
-            "body=excluded.body,author_association=excluded.author_association,author_login=excluded.author_login",
-            (finding_id, str(evidence_id), body, author_association, author_login),
+            "INSERT INTO reply_texts(finding_id,evidence_id,body,author_association,author_login,author_trusted) "
+            "VALUES (?,?,?,?,?,?) ON CONFLICT(finding_id,evidence_id) DO UPDATE SET "
+            "body=excluded.body,author_association=excluded.author_association,author_login=excluded.author_login,"
+            "author_trusted=COALESCE(excluded.author_trusted, reply_texts.author_trusted)",
+            (finding_id, str(evidence_id), body, author_association, author_login, author_trusted),
         )
 
 
@@ -449,6 +450,7 @@ def collect(path=None):
     _last_runs[str(Path(path or db.db_path()).resolve())] = run
     comparisons = {}
     skipped = 0
+    gitlab_trust_cache = None
     try:
         with closing(db.connect(path)) as conn:
             _reconcile(conn, path, now, run)
@@ -457,8 +459,24 @@ def collect(path=None):
                 by_repo[row["repo"]].append(dict(row))
             for repo, items in by_repo.items():
                 if is_gitlab_key(repo):
-                    skipped += 1
-                    count_skip(run)
+                    if not gitlab_configured() or run.get("gitlab_paused"):
+                        skipped += 1
+                        count_skip(run)
+                        continue
+                    from .gitlab import outcomes
+
+                    try:
+                        if gitlab_trust_cache is None:
+                            gitlab_trust_cache = outcomes.TrustCache()
+                        outcomes.collect_repo(conn, repo, items, now, since_default, run,
+                                              cache=gitlab_trust_cache, path=path)
+                    except github.GitHubRateLimited:
+                        raise
+                    except outcomes.GitLabRateLimited:
+                        log.warning("outcomes: gitlab paused repo=%s", repo)
+                        run["gitlab_paused"] = True
+                    except Exception as error:
+                        _failure(run, repo, error)
                     continue
                 run["repos"] += 1
                 try:

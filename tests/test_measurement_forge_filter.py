@@ -330,6 +330,7 @@ OPERATIONAL = {
     "src/argus/cli.py": "Lookups select a specific review id.",
     "src/argus/jarvis/cli.py": "Lookups select a specific review id.",
     "src/argus/jarvis/live.py": "False-positive suppression is keyed by repository.",
+    "src/argus/gitlab/outcomes.py": "Collects outcomes for one GitLab repository key at a time.",
 }
 EXTRA = ()
 

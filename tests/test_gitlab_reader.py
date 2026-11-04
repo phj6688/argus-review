@@ -679,3 +679,35 @@ def test_change_files_auth_failure_cannot_fallback(make_reader, monkeypatch):
         review.run_review(KEY, 5)
     assert review.fallback_eligible(raised.value) is False
     assert requests[-1].url.path == MR + "/diffs"
+
+
+@pytest.mark.parametrize("state,closed_at,merged_at,expected_state,merged,expected_closed", [
+    ("opened", None, None, "open", False, None),
+    ("locked", None, None, "open", False, None),
+    ("closed", "2026-11-01T00:00:00Z", None, "closed", False, "2026-11-01T00:00:00Z"),
+    ("merged", None, "2026-11-02T00:00:00Z", "closed", True, "2026-11-02T00:00:00Z"),
+    ("merged", "2026-11-01T00:00:00Z", "2026-11-02T00:00:00Z",
+     "closed", True, "2026-11-01T00:00:00Z"),
+    ("closed", None, None, "closed", False, None),
+])
+def test_outcome_meta_normalizes_state_and_close_time(
+    make_reader, state, closed_at, merged_at, expected_state, merged, expected_closed,
+):
+    reader, requests, _, _ = make_reader(mr={
+        "state": state, "closed_at": closed_at, "merged_at": merged_at,
+    })
+    assert reader.outcome_meta(KEY, 5) == {
+        "state": expected_state, "merged": merged, "closed_at": expected_closed, "head_sha": HEAD,
+    }
+    assert [r.url.path for r in requests] == [MR]
+
+
+@pytest.mark.parametrize("fields", [
+    {"state": "unknown"}, {"state": None}, {"state": []},
+    {"sha": None}, {"sha": 123}, {"sha": []},
+])
+def test_outcome_meta_rejects_malformed_state_or_head(make_reader, fields):
+    reader, _, _, _ = make_reader(mr=fields)
+    with pytest.raises(GitLabHTTPError) as caught:
+        reader.outcome_meta(KEY, 5)
+    assert caught.value.reason == "http"

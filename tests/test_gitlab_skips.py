@@ -12,9 +12,11 @@ from conftest import stub_github_client
 from argus import acceptance, publish, replies
 from argus.api import db
 from argus.evalkit import labels, monthly
+from argus.forge.keys import gitlab_key
+from argus.gitlab import client as client_module
 from argus.jarvis import automark
 
-REPO = "gitlab:gitlab.example.com#12"
+REPO = gitlab_key("gitlab.example.com", 12)
 HEAD = "a" * 40
 STAMP = "2026-09-12T00:00:00+00:00"
 
@@ -78,26 +80,47 @@ def assert_skip_log(caplog, consumer, count):
 
 
 @pytest.mark.parametrize("count", [0, 1])
-def test_acceptance_skips_before_validation_and_writes(database, configured, count, monkeypatch, caplog):
+def test_acceptance_skips_before_validation_and_writes(database, configured, count, monkeypatch, caplog, request):
     if count:
         seed(database)
     validate = Mock(side_effect=AssertionError("must not validate GitLab"))
     monkeypatch.setattr(acceptance, "validate_repo", validate)
+    paths = []
+    if configured:
+        monkeypatch.setenv("ARGUS_GITLAB_TOKEN", "gl" + "pat-" + "x" * 20)
+        monkeypatch.setenv("ARGUS_GITLAB_ALLOW", REPO)
+
+        def handle(req):
+            paths.append(req.url.path)
+            responses = {
+                "/api/v4/projects/12": {"id": 12, "path_with_namespace": "allowed/app",
+                                        "archived": False, "default_branch": "main", "visibility": "private"},
+                "/api/v4/projects/12/merge_requests/3": {"state": "opened", "sha": HEAD},
+                "/api/v4/projects/12/merge_requests/3/discussions": [],
+            }
+            return httpx.Response(200, json=responses[req.url.path])
+
+        client = client_module.GitLabClient(transport=httpx.MockTransport(handle))
+        monkeypatch.setattr(client_module, "client", lambda: client)
+        request.addfinalizer(client.close)
 
     acceptance.collect(database)
 
     run = acceptance.stats(database)["last_run"]
     assert run["failures"] == 0
-    assert run["repos"] == 0
-    assert run["prs_checked"] == 0
+    assert run["repos"] == int(configured and count)
+    assert run["prs_checked"] == int(configured and count)
     assert run["finished_at"] is not None
-    assert_counter(run, configured, count)
+    assert_counter(run, configured, 0)
     validate.assert_not_called()
     with closing(db.connect(database)) as conn:
         for table in ("outcome_cursors", "outcome_prs", "finding_outcomes", "bot_actions"):
-            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
-    if count:
+            expected = int(configured and count and table in {"outcome_cursors", "outcome_prs"})
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == expected
+    if count and not configured:
         assert_skip_log(caplog, "outcomes", 1)
+    assert paths == (["/api/v4/projects/12", "/api/v4/projects/12/merge_requests/3",
+                      "/api/v4/projects/12/merge_requests/3/discussions"] if configured and count else [])
 
 
 def test_replies_skip_before_gate_or_database(database, configured, monkeypatch, caplog):
