@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `argus.forge` with neutral types and an error hierarchy. GitHub exceptions gain neutral bases with no behavior change.
 - The posting list is rechecked immediately before each review POST (and the 422 retry), and the deny policy is read strictly and revalidated before the auto-invite collaborator PUT. An unreadable deny list blocks the invite. A small window remains between the PUT and the invitation accept, which is not rechecked.
 - Four off-by-default settings add context blocks to the reviewer prompt for offline evaluation: `ARGUS_CONTEXT_PAIRING`, `ARGUS_CONTEXT_CALLEES`, `ARGUS_CONTEXT_CALLERS`, `ARGUS_CONTEXT_COCHANGE`. The three mirror blocks need a replay mirror and skip in production. `argus.evalkit.replay --reviewer-only` skips the verifier.
 - Every completed review carries a deterministic `safe` or `risky` path and size category in the console, verdict, MCP response and published body. The category is not a correctness verdict. `ARGUS_RISK_TRIPWIRES` and `ARGUS_RISK_MAX_LINES` configure the rule.

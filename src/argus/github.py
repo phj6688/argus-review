@@ -14,6 +14,7 @@ from urllib.parse import quote, unquote, urlsplit
 
 import httpx
 
+from .forge.errors import ForgeAuthError, ForgeDenied, ForgeRateLimited
 from .repo_policy import env_int, hard_deny_owners, is_denied
 
 GITHUB_API = "https://api.github.com"
@@ -49,18 +50,23 @@ def close_client() -> None:
             _http = None
 
 
-class GitHubAuthError(RuntimeError):
-    pass
+class GitHubAuthError(RuntimeError, ForgeAuthError):
+    forge = "github"
 
 
-class GitHubDenied(RuntimeError):
-    pass
+class GitHubDenied(RuntimeError, ForgeDenied):
+    forge = "github"
 
 
-class GitHubRateLimited(RuntimeError):
+class GitHubRateLimited(RuntimeError, ForgeRateLimited):
+    forge = "github"
+
     def __init__(self, reset_at: float):
         self.reset_at = reset_at
-        super().__init__(f"GitHub rate limited until {reset_at}")
+        RuntimeError.__init__(self, f"GitHub rate limited until {reset_at}")
+
+    def __reduce__(self):
+        return type(self), (self.reset_at,)
 
 
 class GraphQLRateLimited(GitHubRateLimited):
