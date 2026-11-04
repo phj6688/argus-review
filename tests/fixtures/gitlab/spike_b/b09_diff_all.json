@@ -1,0 +1,109 @@
+{
+  "derived": {
+    "accepted": true,
+    "has_position": true,
+    "line_range": null,
+    "new_line": 1,
+    "old_line": null,
+    "position": {
+      "base_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+      "head_sha": "9393dc22b744f18c005efd9ea77953f47fb84c7f",
+      "line_range": null,
+      "new_line": 1,
+      "new_path": "spike/mentions.txt",
+      "old_line": null,
+      "old_path": "spike/mentions.txt",
+      "position_type": "text",
+      "start_sha": "2cec1ccca628409c7927dedc5950057cc53ff638"
+    },
+    "resolvable": true,
+    "resolved": false,
+    "resolved_by": null,
+    "type": "DiffNote"
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diff_all",
+    "question": 9
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": {
+      "body": "@all",
+      "position": {
+        "base_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "head_sha": "9393dc22b744f18c005efd9ea77953f47fb84c7f",
+        "new_line": 1,
+        "new_path": "spike/mentions.txt",
+        "old_path": "spike/mentions.txt",
+        "position_type": "text",
+        "start_sha": "2cec1ccca628409c7927dedc5950057cc53ff638"
+      }
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/109/discussions"
+  },
+  "response": {
+    "body": {
+      "id": "5982c869029ccaad98d3b7520ec6891c729f320f",
+      "individual_note": false,
+      "notes": [
+        {
+          "author": {
+            "avatar_url": "<AVATAR_URL>",
+            "id": 2,
+            "locked": false,
+            "name": "Argus Bot",
+            "public_email": null,
+            "state": "active",
+            "username": "argus-bot",
+            "web_url": "https://gitlab.example.test/argus-bot"
+          },
+          "body": "@all",
+          "commands_changes": {},
+          "commit_id": null,
+          "confidential": false,
+          "created_at": "2026-11-02T22:48:08.985Z",
+          "id": 271,
+          "imported": false,
+          "imported_from": "none",
+          "internal": false,
+          "noteable_id": 114,
+          "noteable_iid": 109,
+          "noteable_type": "MergeRequest",
+          "position": {
+            "base_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+            "head_sha": "9393dc22b744f18c005efd9ea77953f47fb84c7f",
+            "line_range": null,
+            "new_line": 1,
+            "new_path": "spike/mentions.txt",
+            "old_line": null,
+            "old_path": "spike/mentions.txt",
+            "position_type": "text",
+            "start_sha": "2cec1ccca628409c7927dedc5950057cc53ff638"
+          },
+          "project_id": 1,
+          "resolvable": true,
+          "resolved": false,
+          "resolved_at": null,
+          "resolved_by": null,
+          "suggestions": [],
+          "system": false,
+          "type": "DiffNote",
+          "updated_at": "2026-11-02T22:48:08.985Z"
+        }
+      ],
+      "resolvable": true,
+      "resolved": false
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"3a9aa2000b072da98740e4c5ed68ef06\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}
