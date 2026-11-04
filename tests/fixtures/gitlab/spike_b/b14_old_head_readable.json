@@ -1,0 +1,52 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "old_head_readable",
+    "question": 14
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": null,
+    "method": "GET",
+    "params": {},
+    "path": "/projects/1/repository/commits/b0bf72360f4c833a1da99e75a48ac64746f75e7e"
+  },
+  "response": {
+    "body": {
+      "author_email": "<EMAIL>",
+      "author_name": "Argus Dev",
+      "authored_date": "2026-11-02T23:26:55.000+01:00",
+      "committed_date": "2026-11-02T23:26:55.000+01:00",
+      "committer_email": "<EMAIL>",
+      "committer_name": "Argus Dev",
+      "created_at": "2026-11-02T23:26:55.000+01:00",
+      "extended_trailers": {},
+      "id": "b0bf72360f4c833a1da99e75a48ac64746f75e7e",
+      "last_pipeline": null,
+      "message": "unrelated_push\n",
+      "parent_ids": [
+        "dc1021d39f033a89eff6fd6193f63466a5698e80"
+      ],
+      "project_id": 1,
+      "short_id": "b0bf7236",
+      "stats": {
+        "additions": 1,
+        "deletions": 0,
+        "total": 1
+      },
+      "status": null,
+      "title": "unrelated_push",
+      "trailers": {},
+      "web_url": "https://gitlab.example.test/argus-test/sub-a/sub-b/demo-app/-/commit/b0bf72360f4c833a1da99e75a48ac64746f75e7e"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"c4f47b18fc00b22bc713cd4e11072d3c\"",
+      "vary": "Accept-Encoding, Origin"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

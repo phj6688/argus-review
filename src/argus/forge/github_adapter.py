@@ -14,6 +14,13 @@ class GitHubForge:
 
         return _diff.fetch_pr_files(repo, number)
 
+    def compare(self, repo, old, head):
+        import argus.github as _github
+
+        response = _github.get(f"/repos/{repo}/compare/{old}...{head}")
+        response.raise_for_status()
+        return response.json()
+
     def publish(self, repo, pr, head_sha, review_id, document, files, **kwargs):
         import argus.publish as _publish
 

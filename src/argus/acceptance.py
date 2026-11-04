@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import github, publish, replies
+from .forge import forge_for
 from .forge.keys import github_key_sql
 from .forge.skips import count_skip, gitlab_configured, is_gitlab_key, log_skips
 from .repo_policy import validate_repo
@@ -302,9 +303,7 @@ def _comparisons(conn, repo, pr, findings, head, comparisons, now, run):
             if head != old:
                 key = (repo, old, head)
                 if key not in comparisons:
-                    response = github.get(f"/repos/{repo}/compare/{old}...{head}")
-                    response.raise_for_status()
-                    comparisons[key] = response.json()
+                    comparisons[key] = forge_for(repo).compare(repo, old, head)
                     if comparisons[key].get("status") in {"behind", "diverged"}:
                         run["compares_not_ancestor"] += 1
                 comparison = comparisons[key]
@@ -313,7 +312,7 @@ def _comparisons(conn, repo, pr, findings, head, comparisons, now, run):
                     changed = None
                     if comparison.get("status") == "identical":
                         changed = False
-                    elif comparison.get("status") == "ahead":
+                    elif comparison.get("status") == "ahead" and comparison.get("complete", True):
                         changed = region_changed(finding, comparison["files"])
                     value = "unknown" if changed is None else str(changed).lower()
                     _record(conn, finding["id"], "addressed", value, head, now)
