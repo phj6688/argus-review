@@ -269,3 +269,28 @@ def test_startup_sweep_retires_orphan_and_clears_live(db_path):
     row = db.get_review(db_path, rid)
     assert row["status"] == db.STATUS_ERROR
     assert row["error_class"] == "interrupted"
+
+
+def test_summary_action_reflects_publish_state(client, db_path):
+    ids = {
+        name: client.post("/reviews", json={"repo": f"example/{name}", "pr": n}).json()["id"]
+        for n, name in enumerate(("posted", "dry", "skipped", "never", "broken", "failed"), 1)
+    }
+    conn = db.connect(db_path)
+    try:
+        for name, status, comments in (("posted", "posted", 3), ("dry", "dry_run", 0),
+                                       ("skipped", "skipped", 0), ("broken", "error", 0)):
+            conn.execute("UPDATE reviews SET publish_status=?, published_comments=? WHERE id=?",
+                         (status, comments, ids[name]))
+        conn.execute("UPDATE reviews SET status='error' WHERE id=?", (ids["failed"],))
+        conn.commit()
+    finally:
+        conn.close()
+    by_repo = {s["repo"].split("/")[1]: s for s in client.get("/reviews").json()["reviews"]}
+    assert (by_repo["posted"]["action"], by_repo["posted"]["posted_comments"]) == ("posted", 3)
+    assert by_repo["dry"]["action"] == "dry_run"
+    assert by_repo["skipped"]["action"] == "not_posted"
+    assert by_repo["never"]["action"] == "not_posted"
+    assert by_repo["broken"]["action"] == "post_failed"
+    assert by_repo["failed"]["action"] is None
+    assert not any(s["action"] == "pending" for s in by_repo.values())
