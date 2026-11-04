@@ -90,7 +90,7 @@ def test_auth_and_denial_propagate(writer_factory, status, error):
     assert len(requests) == 1
 
 
-@pytest.mark.parametrize("failure", [500, 599, "transport"])
+@pytest.mark.parametrize("failure", [500, 502, 503, 504, 599, "transport"])
 @pytest.mark.parametrize("case,http_expected,transport_expected", [
     ("found", "already_posted", "already_posted"), ("absent", "failed", "unknown"),
     ("other_author", "failed", "unknown"), ("read_failed", "unknown", "unknown"),
@@ -114,7 +114,7 @@ def test_ambiguous_write_rereads_without_reposting(writer_factory, failure, case
 
     writer, requests, _ = writer_factory(handle)
     result = write(writer, "post_discussion", "No marker" if case == "no_marker" else BODY)
-    expected = transport_expected if failure == "transport" else http_expected
+    expected = transport_expected if failure in {"transport", 502, 503, 504} else http_expected
     assert result.outcome == expected
     assert sum(request.method == "POST" for request in requests) == 1
     assert SENTINEL not in (result.reason or "")
@@ -159,7 +159,8 @@ def test_reply_reconciliation_requires_marker_in_target_discussion(writer_factor
 
 
 @pytest.mark.parametrize("method", ["post_discussion", "post_note", "reply"])
-@pytest.mark.parametrize("failure,expected", [(500, "failed"), (599, "failed"), ("transport", "unknown")])
+@pytest.mark.parametrize("failure,expected", [(500, "failed"), (502, "unknown"), (503, "unknown"),
+                                             (504, "unknown"), (599, "failed"), ("transport", "unknown")])
 def test_complete_read_without_marker_preserves_write_uncertainty(writer_factory, method, failure, expected):
     def handle(request):
         if request.method == "POST":
@@ -171,6 +172,7 @@ def test_complete_read_without_marker_preserves_write_uncertainty(writer_factory
     writer, requests, _ = writer_factory(handle)
     result = write(writer, method)
     assert result.outcome == expected
+    assert result.status_code == (None if failure == "transport" else failure)
     assert (result.note_id, result.discussion_id) == (None, None)
     assert [request.method for request in requests] == ["POST", "GET"]
 

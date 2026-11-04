@@ -40,6 +40,7 @@ from ..forge.keys import is_gitlab_key, parse_entry
 from ..forge.skips import gitlab_configured
 from ..gitlab import config as gitlab_config
 from ..gitlab import entry as gitlab_entry, status as gitlab_status
+from ..redact import redact
 from ..repo_policy import RepoDenied, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
 
@@ -323,8 +324,17 @@ def run_one_review(
 
 
 def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: int) -> None:
-    if pr <= 0 or not publish.enabled_for(repo):
+    if pr <= 0:
         return
+    if is_gitlab_key(repo):
+        try:
+            if gitlab_config.publish_mode() == "0":
+                return
+        except gitlab_config.GitLabConfigError:
+            return
+    elif not publish.enabled_for(repo):
+        return
+    prior = None
     try:
         review = db.get_review(path, review_id)
         head = (review or {}).get("head_sha") or ""
@@ -332,14 +342,27 @@ def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: i
             log.info("review %s: publishing skipped for %s#%s: %s head SHA",
                      review_id, repo, pr, "invalid" if head else "missing")
             return
+        if is_gitlab_key(repo):
+            prior = {"status": review.get("publish_status"), "reason": review.get("publish_error")}
         forge = forge_for(repo)
         files = forge.change_files(repo, pr)
         document = verdict.document(review, db.get_findings(path, review_id),
                                     unverified=db.get_unverified_findings(path, review_id))
-        outcome = forge.publish(repo, pr, head, review_id, document, files)
+        if is_gitlab_key(repo):
+            outcome = forge.publish(repo, pr, head, review_id, document, files,
+                                    prior=prior)
+        else:
+            outcome = forge.publish(repo, pr, head, review_id, document, files)
     except Exception as error:  # noqa: BLE001 - publishing cannot invalidate a saved review
         outcome = publish.error_outcome(error)
     try:
+        if (prior and prior["status"] == "error" and prior["reason"] == "partial_post"
+                and outcome.status != "posted"
+                and not (outcome.status == "error" and outcome.reason == "partial_post")):
+            # An attempt without writes must not erase the missing summary obligation.
+            log.info("review %s: kept partial GitLab publish record after %s: %s",
+                     review_id, redact(outcome.status), redact(outcome.reason))
+            return
         db.save_publish_outcome(path, review_id, outcome)
     except Exception as error:  # noqa: BLE001 - storage failure must not escape either
         publish.error_outcome(error)

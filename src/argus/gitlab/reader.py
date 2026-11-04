@@ -208,5 +208,26 @@ class GitLabForge:
 
         return _errors.classify_error(exc)
 
+    def publish(self, repo, pr, head_sha, review_id, document, files, **kwargs):
+        from argus.gitlab import publisher
+
+        if self._client is not None:
+            kwargs.setdefault("client", self._client)
+        return publisher.publish(repo, pr, head_sha, review_id, document, files, **kwargs)
+
+    def bot_identity(self, *args, **kwargs):
+        from argus.gitlab import publisher
+
+        if self._client is not None:
+            kwargs.setdefault("client", self._client)
+        return publisher.bot_identity(*args, **kwargs)
+
+    def check_access(self, repo, **kwargs):
+        from argus.gitlab import publisher
+
+        if self._client is not None:
+            kwargs.setdefault("client", self._client)
+        return publisher.check_access(repo, **kwargs)
+
 
 gitlab_forge = GitLabForge()
