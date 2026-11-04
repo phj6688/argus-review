@@ -182,7 +182,7 @@ def test_integrations_identity_cached_and_safe(api, gitlab_event, monkeypatch):
     assert api.get("/integrations").content == first.content
     assert gitlab_event.token not in first.text
     assert first.json()["gitlab"] == {
-        "host": gitlab_event.host, "token": "configured",
+        "host": gitlab_event.host, "baseUrl": "https://gitlab.example.test:8443/gitlab", "token": "configured",
         "identity": {"status": "ok", "username": "review-bot", "bot": True},
         "publish": {"mode": "dry-run", "projectCount": 1}, "allowCount": 1, "refusal": None,
     }

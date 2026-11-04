@@ -53,7 +53,7 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
 
 5. Open <http://127.0.0.1:3350> and sign in with `ARGUS_API_TOKEN`.
 
-6. Run a first review. In the console, open Trigger and enter `owner/repo#123`. Or call the API:
+6. Run a first review. In the console, open Trigger and enter `owner/repo#123`. When GitLab is configured, Trigger also accepts project keys, project paths and merge request URLs, and Integrations shows its connection and policy status. Or call the API:
 
    ```bash
    TOKEN=$(grep '^ARGUS_API_TOKEN=' .env | cut -d= -f2)

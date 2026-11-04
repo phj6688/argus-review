@@ -159,7 +159,7 @@ def test_gitlab_valid_policy_has_no_refusal(client, clean_env):
     clean_env.setenv("ARGUS_GITLAB_ALLOW", "gitlab:gitlab.example.test/group")
     block = client.get("/integrations").json()["gitlab"]
     assert block == {
-        "host": "gitlab.example.test", "token": "missing",
+        "host": "gitlab.example.test", "baseUrl": "https://gitlab.example.test", "token": "missing",
         "identity": {"status": "skipped", "reason": "token_missing"},
         "publish": {"mode": "0", "projectCount": 0}, "allowCount": 1, "refusal": None,
     }
@@ -182,9 +182,16 @@ def test_gitlab_invalid_policy_reports_safe_refusal(client, clean_env):
         response = client.get("/integrations")
     block = response.json()["gitlab"]
     assert block["refusal"] == "ARGUS_GITLAB_ALLOW: invalid entry"
-    assert set(block) == {"host", "token", "identity", "publish", "allowCount", "refusal"}
+    assert set(block) == {"host", "baseUrl", "token", "identity", "publish", "allowCount", "refusal"}
     assert block["token"] == "configured"
     assert block["identity"] == {"status": "failed", "reason": "gitlab_auth"}
     assert token not in response.text
     assert "https://private.test/" not in response.text
-    assert "https://gitlab.example.test" not in response.text
+    assert block["baseUrl"] == "https://gitlab.example.test"
+
+
+def test_gitlab_base_url_preserves_prefix_and_port(client, clean_env):
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test:8443/gitlab/")
+    block = client.get("/integrations").json()["gitlab"]
+    assert block["host"] == "gitlab.example.test:8443"
+    assert block["baseUrl"] == "https://gitlab.example.test:8443/gitlab"

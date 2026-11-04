@@ -57,6 +57,7 @@ def integration_status() -> dict:
         project_count = 0
     return {
         "host": canonical_host(base.host, base.port),
+        "baseUrl": base.url,
         "token": "configured" if token else "missing",
         "identity": _identity(base, token),
         "publish": {"mode": mode, "projectCount": project_count},

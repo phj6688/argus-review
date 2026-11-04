@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added GitLab console trigger forms, project labels, merge request links and an integrations card. GitHub rows keep their existing presentation. The `/integrations` GitLab block now includes `baseUrl` so console links preserve the configured path prefix.
 - GitLab reviews can now post inline discussions and one summary note, with partial posts recorded only where creation was confirmed. Retrying a partially posted review posts its own missing summary note even when another review of the same head already posted one. Attempts that write nothing preserve the partial state for a later retry. A new review of an unchanged head still posts nothing. GitHub publishing is unchanged.
 - Added GitLab note pacing and a lock per merge request. Writes report posted, already_posted, failed or unknown. Partial posts record only confirmed findings. GitHub behavior is unchanged.
 - Added GitLab body helpers that neutralize quick actions and mentions, plus inline positions that preserve the correct old and new line numbers. Multi-line positions remain disabled by default.
