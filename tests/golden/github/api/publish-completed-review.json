@@ -1,0 +1,445 @@
+{
+  "case": "publish-completed-review",
+  "db_rows": {
+    "config": {
+      "columns": [
+        "id",
+        "repo_allowlist",
+        "model",
+        "bug_cap",
+        "min_confidence",
+        "deny",
+        "watch_mode",
+        "owned_repos",
+        "publish_repos"
+      ],
+      "rows": [
+        [
+          1,
+          [],
+          "model-a",
+          5,
+          0.55,
+          [],
+          "auto",
+          [],
+          null
+        ]
+      ]
+    },
+    "findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "src/app.py",
+          2,
+          "major",
+          0.92,
+          "Missing input check",
+          "The input is accepted without validation.",
+          "Validate the value before using it.",
+          null,
+          1,
+          1,
+          0.96,
+          "fp-api-input",
+          "llm",
+          null,
+          "input_handling",
+          "return accept(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "findings_raw": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "src/app.py",
+          2,
+          "major",
+          0.92,
+          "Missing input check",
+          "The input is accepted without validation.",
+          "Validate the value before using it.",
+          null,
+          1,
+          1,
+          0.96,
+          "fp-api-input",
+          "llm",
+          null,
+          "input_handling",
+          "return accept(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "published_findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "repo",
+        "pr",
+        "head_sha",
+        "fingerprint",
+        "severity",
+        "category",
+        "path",
+        "line",
+        "end_line",
+        "title",
+        "placement",
+        "mode",
+        "gh_review_id",
+        "gh_comment_id",
+        "posted_at",
+        "comment_lookups",
+        "unverified",
+        "gh_thread_id",
+        "anchor_status"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "example/app",
+          7,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-api-input",
+          "major",
+          "input_handling",
+          "src/app.py",
+          2,
+          2,
+          "Missing input check",
+          "inline",
+          "posted",
+          81,
+          91,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ]
+      ]
+    },
+    "publishing_identities": {
+      "columns": [
+        "repo",
+        "bot_login",
+        "first_seen_at",
+        "bot_user_id"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "review-bot",
+          "<ts>",
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          7,
+          "model-a",
+          "done",
+          "<ts>",
+          1,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "files_omitted": 0,
+                "files_reviewed": 1,
+                "lane": "llm",
+                "status": "ran"
+              }
+            ],
+            "level": "full"
+          },
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          1,
+          "posted",
+          "<ts>",
+          null,
+          1,
+          {
+            "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: full\n\nFiles reviewed: 1; omitted: 0\n\nSeverity counts: Critical: 0; Major: 1; Minor: 0; Nit: 0\n\nTier counts: deterministic: 0; consensus: 0; single_critic: 1; disputed: 0\n\nBelow posting threshold: 0\n\nAlready posted: 0\n\n<!-- argus:review=1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
+            "comments": [
+              {
+                "body": "_Input handling_ | _Major_ | _single_critic_\n\n**Missing input check**\n\nThe input is accepted without validation\\.\n\n```python\nreturn accept(value)\n```\n\n**Suggested fix:** Validate the value before using it\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 2: Missing input check. Validate the value before using it\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-api-input -->",
+                "line": 2,
+                "path": "src/app.py",
+                "side": "RIGHT"
+              }
+            ],
+            "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "event": "COMMENT"
+          }
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/7"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/7/comments"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/7/reviews"
+    },
+    {
+      "body": {
+        "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: full\n\nFiles reviewed: 1; omitted: 0\n\nSeverity counts: Critical: 0; Major: 1; Minor: 0; Nit: 0\n\nTier counts: deterministic: 0; consensus: 0; single_critic: 1; disputed: 0\n\nBelow posting threshold: 0\n\nAlready posted: 0\n\n<!-- argus:review=1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
+        "comments": [
+          {
+            "body": "_Input handling_ | _Major_ | _single_critic_\n\n**Missing input check**\n\nThe input is accepted without validation\\.\n\n```python\nreturn accept(value)\n```\n\n**Suggested fix:** Validate the value before using it\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 2: Missing input check. Validate the value before using it\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-api-input -->",
+            "line": 2,
+            "path": "src/app.py",
+            "side": "RIGHT"
+          }
+        ],
+        "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "event": "COMMENT"
+      },
+      "body_sha256": "b501dd5d37f4e853a9f5018e426d74aa2857160a55529e117d9a529efcc92cac",
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "content-type": "application/json",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "POST",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/7/reviews"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/7/reviews/81/comments"
+    }
+  ],
+  "result": {
+    "detail": {
+      "json": {
+        "added": 1,
+        "bugs": [
+          {
+            "finding": {
+              "confidence": 0.92,
+              "description": "The input is accepted without validation.",
+              "file": "src/app.py",
+              "line": 2,
+              "proposed_fix": "Validate the value before using it.",
+              "rule_id": null,
+              "severity": "major",
+              "title": "Missing input check"
+            },
+            "id": 1,
+            "mark": null,
+            "verdict": {
+              "confidence": 0.96,
+              "is_real": true,
+              "reasoning": ""
+            }
+          }
+        ],
+        "decision": "changes_requested",
+        "error": null,
+        "fallback_from": null,
+        "fallback_reason": null,
+        "filesChanged": 1,
+        "id": "1",
+        "model": "model-a",
+        "model_used": "model-a",
+        "nits": [],
+        "pr": 7,
+        "removed": 1,
+        "repo": "example/app",
+        "risk": null,
+        "status": "done",
+        "thread": [],
+        "time": "0m ago",
+        "title": "example/app #7"
+      },
+      "status": 200
+    },
+    "return": null
+  },
+  "scenario": "api"
+}
