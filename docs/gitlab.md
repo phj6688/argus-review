@@ -214,6 +214,14 @@ Each merge request stores its current state, merge flag, close time and head. Re
 
 GitLab request failures are counted and do not stop GitHub collection. A rate limit sets `gitlab_paused` and skips the remaining GitLab projects for that run, also when the rate limit occurs during a project or membership lookup. Projects are skipped as before when GitLab is not configured. Measurement reports stay GitHub-only.
 
+## Compare and re-check
+
+Comparisons use `repository/compare` and `merge_base`. The old head must be the common ancestor for the status `ahead`. A missing ref or ancestor gives an incomplete `diverged` result. A timeout, 1000 diffs or a hidden patch makes the coverage incomplete. Binary files alone keep the coverage complete, but a re-check needs a patch for every file.
+
+An incomplete comparison stays unknown and cannot prove that a file is unchanged. Re-checks read the old and the current file through the GitLab reader. Insertions above a finding shift its anchor without marking its region changed.
+
+Acceptance collection and the reply loop share these helpers, so GitHub and GitLab findings use the same re-check rules. The GitHub adapter now exposes `compare` too, and GitHub results are unchanged.
+
 ## Known limits
 
 - The URL guard accepts only branch and tag names that start with a letter or digit and use only letters, digits, dot, underscore, slash and hyphen. A request that carries any other name is refused, for example a branch name with a plus sign or a non-ASCII letter.
@@ -241,8 +249,8 @@ Operational readers stay forge-wide: the watcher queue, claims and worker health
 store operations and console lists, and the `reviews_window`, `top_error_class` and
 `review_health` functions used by the watchdog, health endpoint and stats operations block.
 Lookups by review id and suppression by repository keep their existing scope.
-Acceptance collection now reads GitLab outcomes. Reconciliation and per-repository
-replies still skip GitLab. Compare and re-check outcomes are not collected yet.
+Acceptance collection now reads GitLab outcomes, including compare and re-check
+inputs. Reconciliation and per-repository replies still skip GitLab.
 
 Use `is_github_key` in Python and `github_key_sql` in SQL. A key with a colon never
 feeds a GitHub baseline number, including a future forge prefix.

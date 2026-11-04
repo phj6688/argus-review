@@ -39,6 +39,37 @@ def _count_unseen(count, listed):
         return True
 
 
+def map_diff_entries(entries) -> tuple[list[FilePatch], bool, bool]:
+    files = []
+    unseen = hidden = False
+    for item in entries:
+        path = item.get("new_path") or item.get("old_path")
+        previous = item.get("old_path") if item.get("renamed_file") else None
+        if (not isinstance(path, str) or not _safe_path(path)
+                or (previous and not _safe_path(previous))):
+            unseen = hidden = True
+            continue
+        patch = item.get("diff") or ""
+        while patch.startswith(("--- ", "+++ ")):
+            patch = patch.partition("\n")[2]
+        binary = not re.search(r"(?m)^@@", patch) and re.search(r"(?m)^Binary files .+ differ\r?$", patch)
+        pure_mode_change = (not item.get("new_file") and not item.get("deleted_file")
+                            and item.get("a_mode") != "0" and item.get("b_mode") != "0"
+                            and item.get("a_mode") != item.get("b_mode"))
+        legacy_empty = ("collapsed" not in item and "too_large" not in item and not patch
+                        and not item.get("renamed_file") and not pure_mode_change)
+        omitted = any(item.get(flag) for flag in ("too_large", "collapsed", "generated_file"))
+        if omitted or legacy_empty:
+            hidden = True
+        if omitted or binary or legacy_empty:
+            unseen = True
+            patch = None
+        status = ("added" if item.get("new_file") else "removed" if item.get("deleted_file")
+                  else "renamed" if item.get("renamed_file") else "modified")
+        files.append(FilePatch(path, status, patch or None, previous_filename=previous))
+    return files, unseen, hidden
+
+
 class GitLabForge:
     forge = "gitlab"
     supports_review_submit = False
@@ -156,31 +187,14 @@ class GitLabForge:
         if any(latest[field] != version[field]
                for field in ("id", "base_commit_sha", "start_commit_sha", "head_commit_sha")):
             raise HeadMoved("GitLab merge request version changed while reading diffs")
-        files = FileList(unseen=_count_unseen(data.get("changes_count"), len(entries)))
-        for item in entries:
-            path = item.get("new_path") or item.get("old_path")
-            previous = item.get("old_path") if item.get("renamed_file") else None
-            if (not isinstance(path, str) or not _safe_path(path)
-                    or (previous and not _safe_path(previous))):
-                files.unseen = True
-                continue
-            patch = item.get("diff") or ""
-            while patch.startswith(("--- ", "+++ ")):
-                patch = patch.partition("\n")[2]
-            binary = not re.search(r"(?m)^@@", patch) and re.search(r"(?m)^Binary files .+ differ\r?$", patch)
-            pure_mode_change = (not item.get("new_file") and not item.get("deleted_file")
-                                and item.get("a_mode") != "0" and item.get("b_mode") != "0"
-                                and item.get("a_mode") != item.get("b_mode"))
-            legacy_empty = ("collapsed" not in item and "too_large" not in item and not patch
-                            and not item.get("renamed_file") and not pure_mode_change)
-            unseen = any(item.get(flag) for flag in ("too_large", "collapsed", "generated_file"))
-            if unseen or binary or legacy_empty:
-                files.unseen = True
-                patch = None
-            status = ("added" if item.get("new_file") else "removed" if item.get("deleted_file")
-                      else "renamed" if item.get("renamed_file") else "modified")
-            files.append(FilePatch(path, status, patch or None, previous_filename=previous))
-        return files
+        files, unseen, _ = map_diff_entries(entries)
+        return FileList(files, unseen=unseen or _count_unseen(data.get("changes_count"), len(entries)))
+
+    def compare(self, repo, old, head):
+        client, ref = self._connection(repo)
+        from argus.gitlab import compare
+
+        return compare.compare(client, ref, old, head)
 
     def read_file(self, repo: str, path: str, ref: str) -> str | None:
         client, project = self._connection(repo)

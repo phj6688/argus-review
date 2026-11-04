@@ -13,6 +13,7 @@ from itertools import chain
 import httpx
 
 from . import client, github, publish
+from .forge import forge_for
 from .forge.skips import count_skip, is_gitlab_key, log_skips
 from .repo_policy import env_int, validate_repo
 
@@ -92,6 +93,8 @@ def resolve_thread(repo, thread_id):
 
 
 def _read_file(repo, path, head):
+    if is_gitlab_key(repo):
+        return forge_for(repo).read_file(repo, path, head)
     response = github.get(f"/repos/{repo}/contents/{github.quote_file_path(path)}", {"ref": head})
     if response.status_code == 404:
         return None
@@ -304,9 +307,10 @@ def _veto(finding, comparison, deleted, lines, old_lines, span):
 
 
 def recheck(repo, finding, head_sha):
-    validate_repo(repo)
+    validate_repo(repo, allow_gitlab=True)
     comparison = finding.get("comparison") or {}
-    if comparison.get("status") != "ahead" or head_sha == finding.get("head_sha"):
+    if (comparison.get("status") != "ahead" or head_sha == finding.get("head_sha")
+            or comparison.get("complete") is False):
         return {"verdict": "unsure", "quote": ""}
     # Omitted files can hide a moved defect even when the finding file is listed.
     if len(comparison.get("files", [])) >= 300:
@@ -464,9 +468,8 @@ def _checked(conn, finding, head, now, run, *, requested=False):
     run["rechecks_attempted"] += 1
     # A prior collection may have recorded the region before a check could run.
     if finding.get("comparison") is None and head != finding["head_sha"]:
-        response = github.get(f"/repos/{finding['repo']}/compare/{finding['head_sha']}...{head}")
-        response.raise_for_status()
-        finding["comparison"] = response.json()
+        finding["comparison"] = forge_for(finding["repo"]).compare(
+            finding["repo"], finding["head_sha"], head)
     result = ({"verdict": "unsure", "quote": ""} if head == finding["head_sha"] else
               recheck(finding["repo"], finding, head))
     _record(conn, finding, "recheck", result["verdict"], head, now, run, quote=result["quote"], head=head)
@@ -504,14 +507,14 @@ def _unchanged(finding, head):
         return True
     # Cached verdicts survive runs, but their comparison bodies do not.
     if finding.get("comparison") is None:
-        response = github.get(f"/repos/{finding['repo']}/compare/{finding['head_sha']}...{head}")
-        response.raise_for_status()
-        finding["comparison"] = response.json()
+        finding["comparison"] = forge_for(finding["repo"]).compare(
+            finding["repo"], finding["head_sha"], head)
     comparison = finding.get("comparison") or {}
     if comparison.get("status") == "identical":
         return True
     # GitHub caps comparisons at 300 files, so absence can only prove no change below that cap.
-    return (comparison.get("status") == "ahead" and "files" in comparison
+    return (comparison.get("status") == "ahead" and comparison.get("complete") is not False
+            and "files" in comparison
             and len(comparison["files"]) < 300 and not any(
         finding["path"] in {file.get("filename"), file.get("previous_filename")}
         for file in comparison.get("files", [])
