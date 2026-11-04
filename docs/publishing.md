@@ -42,6 +42,10 @@ The auto-invite is off by default, so `GITHUB_TOKEN` stays a read-only token and
 
 One request grants access to at most 10 newly added repositories. Repositories beyond that are saved and only checked, with no invite, so add the bot to them by hand or save them in smaller batches. The console adds one repository per move, so it never reaches the cap. Token values are never logged or returned.
 
+When GitLab is configured, `GET /integrations` also reports `gitlab.refusal`.
+It is null when the GitLab allow policy is valid, otherwise it contains the
+policy refusal string. The key is absent when GitLab is unset.
+
 ## What a review post contains
 
 Argus posts one pull request review with `event=COMMENT`. The verdict is in the summary.
