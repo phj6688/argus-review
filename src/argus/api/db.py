@@ -169,6 +169,11 @@ CREATE TABLE IF NOT EXISTS forge_projects (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_forge_projects_host_id ON forge_projects(host, project_id);
 
+CREATE TABLE IF NOT EXISTS gitlab_poll_cursors (
+    repo_key TEXT PRIMARY KEY, updated_after TEXT, last_full_reconcile TEXT,
+    last_error TEXT, last_polled_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS outcome_cursors (
     repo TEXT PRIMARY KEY, since TEXT NOT NULL, last_collected_at TEXT
 );
@@ -383,6 +388,34 @@ def upsert_forge_project(
 def forge_project(conn: sqlite3.Connection, key: str) -> dict | None:
     row = conn.execute("SELECT * FROM forge_projects WHERE repo_key=?", (key,)).fetchone()
     return dict(row) if row is not None else None
+
+
+_POLL_UNSET = object()
+
+
+def gitlab_poll_cursor(conn: sqlite3.Connection, repo_key: str) -> dict | None:
+    if not keys.is_gitlab_key(repo_key):
+        raise ValueError("poll cursors require a GitLab key")
+    row = conn.execute("SELECT * FROM gitlab_poll_cursors WHERE repo_key=?", (repo_key,)).fetchone()
+    return dict(row) if row is not None else None
+
+
+def set_gitlab_poll_cursor(conn: sqlite3.Connection, repo_key: str, **fields) -> None:
+    if not keys.is_gitlab_key(repo_key):
+        raise ValueError("poll cursors require a GitLab key")
+    allowed = ("updated_after", "last_full_reconcile", "last_error", "last_polled_at")
+    if fields.keys() - set(allowed):
+        raise ValueError("unknown poll cursor field")
+    values = {name: value for name in allowed
+              if (value := fields.get(name, _POLL_UNSET)) is not _POLL_UNSET}
+    columns = ",".join(("repo_key", *values))
+    marks = ",".join("?" for _ in range(len(values) + 1))
+    update = "DO UPDATE SET " + ",".join(f"{name}=excluded.{name}" for name in values) if values else "DO NOTHING"
+    conn.execute(
+        f"INSERT INTO gitlab_poll_cursors ({columns}) VALUES ({marks}) "
+        f"ON CONFLICT(repo_key) {update}",  # nosec B608 - allowlisted column names
+        (repo_key, *values.values()),
+    )
 
 
 def bot_user_id(conn: sqlite3.Connection, repo: str) -> int | None:

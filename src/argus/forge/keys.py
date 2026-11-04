@@ -75,6 +75,13 @@ def github_key_sql(column: str) -> str:
     return f"instr({column}, ':') = 0"
 
 
+def gitlab_key_sql(column: str) -> str:
+    """SQL condition that is true for a GitLab key. Twin of is_gitlab_key."""
+    if not _SQL_COLUMN.fullmatch(column):
+        raise ValueError("invalid sql column name")
+    return f"substr({column}, 1, 7) = 'gitlab:'"
+
+
 def parse_repo_key(key: str) -> RepoRef:
     if is_gitlab_key(key):
         if canonicalize_key(key) != key:
