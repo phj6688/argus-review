@@ -383,7 +383,7 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_GITLAB_PUBLISH` | `0` | `0`, `dry-run` or `1`. |
 | `ARGUS_GITLAB_PUBLISH_PROJECTS` | none | Comma-separated exact project keys for publishing. No wildcards. |
 | `ARGUS_GITLAB_NOTES_PER_MINUTE` | `30` | Positive note limit per minute. |
-| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Reserved. Minimum trusted access level: 0, 5, 10, 15, 20, 30, 40 or 50. Not used yet. |
+| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust: 0, 5, 10, 15, 20, 30, 40 or 50. |
 | `ARGUS_GITLAB_WATCH` | off | Reserved watcher switch. Not used yet. |
 | `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Reserved. Positive number of watcher ticks between reconciliations. |
 | `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved reply switch. Not used yet. |

@@ -481,3 +481,52 @@ def queue_sizes(path):
             conn.execute("SELECT status,COUNT(*) FROM pr_heads GROUP BY status").fetchall()
         )
     return {s: counts.get(s, 0) for s in STATUSES}
+
+
+def unknown_trust_heads(path, limit):
+    if limit < 1:
+        return []
+    with connection(path) as conn:
+        return [dict(row) for row in conn.execute(
+            "SELECT * FROM pr_heads WHERE is_open=1 AND status='skipped' "
+            f"AND skip_reason='trust_unknown' AND {gitlab_key_sql('repo')} "
+            "ORDER BY julianday(COALESCE(last_listed_at, first_seen_at)), id LIMIT ?",  # nosec B608 - shared predicate
+            (limit,),
+        )]
+
+
+def apply_trust(path, head, trusted, now=None):
+    now = now or utcnow()
+    with connection(path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        current = conn.execute("SELECT * FROM pr_heads WHERE id=?", (head["id"],)).fetchone()
+        if (current is None or not current["is_open"] or current["status"] != "skipped"
+                or current["skip_reason"] != "trust_unknown" or current["head_sha"] != head["head_sha"]):
+            return None
+        head = current
+        pr = {
+            "number": head["pr"], "head": {"sha": head["head_sha"]},
+            "updated_at": head["pr_updated_at"], "draft": head["draft"],
+            "user": {"login": head["author"] or "", "type": head["author_type"]},
+            "base": {"ref": head["base_ref"]}, "author_id": head["author_id"],
+            "head_committed_at": head["head_committed_at"], "author_trusted": 1 if trusted else 0,
+        }
+        _record_listed_head(conn, head["repo"], pr, now, now.isoformat(), False)
+        return conn.execute("SELECT status FROM pr_heads WHERE id=?", (head["id"],)).fetchone()[0]
+
+
+def unknown_trust_count(path):
+    with connection(path) as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM pr_heads WHERE is_open=1 AND status='skipped' "
+            f"AND skip_reason='trust_unknown' AND {gitlab_key_sql('repo')}",  # nosec B608 - shared predicate
+        ).fetchone()[0]
+
+
+def defer_unknown_trust(path, head_id, now=None):
+    with connection(path) as conn:
+        conn.execute(
+            "UPDATE pr_heads SET last_listed_at=? WHERE id=? AND is_open=1 "
+            "AND status='skipped' AND skip_reason='trust_unknown'",
+            ((now or utcnow()).isoformat(), head_id),
+        )

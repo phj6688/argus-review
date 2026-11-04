@@ -162,6 +162,7 @@ def test_gitlab_valid_policy_has_no_refusal(client, clean_env):
         "host": "gitlab.example.test", "baseUrl": "https://gitlab.example.test", "token": "missing",
         "identity": {"status": "skipped", "reason": "token_missing"},
         "publish": {"mode": "0", "projectCount": 0}, "allowCount": 1, "refusal": None,
+        "trustUnknown": 0,
     }
 
 
@@ -182,7 +183,7 @@ def test_gitlab_invalid_policy_reports_safe_refusal(client, clean_env):
         response = client.get("/integrations")
     block = response.json()["gitlab"]
     assert block["refusal"] == "ARGUS_GITLAB_ALLOW: invalid entry"
-    assert set(block) == {"host", "baseUrl", "token", "identity", "publish", "allowCount", "refusal"}
+    assert set(block) == {"host", "baseUrl", "token", "identity", "publish", "allowCount", "refusal", "trustUnknown"}
     assert block["token"] == "configured"
     assert block["identity"] == {"status": "failed", "reason": "gitlab_auth"}
     assert token not in response.text
@@ -195,3 +196,21 @@ def test_gitlab_base_url_preserves_prefix_and_port(client, clean_env):
     block = client.get("/integrations").json()["gitlab"]
     assert block["host"] == "gitlab.example.test:8443"
     assert block["baseUrl"] == "https://gitlab.example.test:8443/gitlab"
+
+
+def test_gitlab_unknown_trust_health_warning(client, clean_env):
+    from argus.api import watch_store
+
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
+    clean_env.setenv("ARGUS_WATCH_TRUSTED_ONLY", "1")
+    before = client.get("/integrations").json()["health"]
+    assert "GitLab trust" not in {row["label"] for row in before}
+    watch_store.record_changes(db.db_path(), "gitlab:gitlab.example.test#42", [{
+        "number": 1, "head": {"sha": "a" * 40},
+        "user": {"login": "argus-dev", "type": "User"}, "author_trusted": None,
+    }], [], False)
+    body = client.get("/integrations").json()
+    assert body["gitlab"]["trustUnknown"] == 1
+    assert body["health"] == before + [{
+        "label": "GitLab trust", "status": "1 merge requests skipped, membership unknown", "state": "warn",
+    }]

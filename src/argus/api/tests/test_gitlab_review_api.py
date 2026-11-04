@@ -185,6 +185,7 @@ def test_integrations_identity_cached_and_safe(api, gitlab_event, monkeypatch):
         "host": gitlab_event.host, "baseUrl": "https://gitlab.example.test:8443/gitlab", "token": "configured",
         "identity": {"status": "ok", "username": "review-bot", "bot": True},
         "publish": {"mode": "dry-run", "projectCount": 1}, "allowCount": 1, "refusal": None,
+        "trustUnknown": 0,
     }
     assert [r.url.path for r in gitlab_event.requests] == [gitlab_event.prefix + "/user"]
 

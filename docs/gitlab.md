@@ -4,7 +4,7 @@ Argus reviews GitLab merge requests the same way it reviews GitHub pull requests
 
 GitLab support is off until you set `ARGUS_GITLAB_URL`. One Argus process talks to one GitLab instance. A GitLab merge request never reads or changes GitHub data, and GitHub behaviour is unchanged.
 
-Not available yet: a GitLab watcher that finds merge requests on its own, and replies to GitLab notes. Their settings (`ARGUS_GITLAB_WATCH`, `ARGUS_GITLAB_TRUSTED_LEVEL`, `ARGUS_GITLAB_RECONCILE_TICKS`, `ARGUS_GITLAB_REPLY_LOOP`) are reserved and start nothing.
+Not available yet: a GitLab watcher that finds merge requests on its own, and replies to GitLab notes. Their settings (`ARGUS_GITLAB_WATCH`, `ARGUS_GITLAB_RECONCILE_TICKS`, `ARGUS_GITLAB_REPLY_LOOP`) are reserved and start nothing.
 
 ## Setup
 
@@ -59,7 +59,7 @@ Blank values use these defaults. GitLab stays disabled when the URL is unset.
 | `ARGUS_GITLAB_NOTES_PER_MINUTE` | `30` | Positive local note rate per bot user. |
 | `ARGUS_GITLAB_TIMEOUT_S` | `30` | Finite positive request timeout in seconds. |
 | `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, including decoded content. Minimum 1024. |
-| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Reserved. Accepts 0, 5, 10, 15, 20, 30, 40 or 50. |
+| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust. Accepts 0, 5, 10, 15, 20, 30, 40 or 50. |
 | `ARGUS_GITLAB_WATCH` | off | Reserved. Accepts `1`, `true`, `yes` or `on`. |
 | `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Reserved. Positive number of watcher ticks. |
 | `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved. Accepts `1`, `true`, `yes` or `on`. |
@@ -173,6 +173,16 @@ Poll helpers compare the stored head sha and overlap the previous cursor by five
 With trusted-only enabled, a stored `author_trusted=1` passes. A value of `0` is skipped as `untrusted author (gitlab membership)`, and NULL is skipped as `trust_unknown`. GitHub author associations never grant GitLab trust. A rate limit retries at the reset time without counting an attempt. Each forge pauses only its own queued heads.
 
 The additive table `gitlab_poll_cursors` stores the update cursor, the last full reconcile, the last error and the last poll time for each project key.
+
+## Listing and trust
+
+Allow entries expand nested groups without shared or archived projects. Matching uses whole path segments from the live response. Every candidate, including numeric project ids, is checked again against live project policy. A renamed path is refused: use the current path or the numeric id.
+
+Incremental listings read all pages with a five minute overlap and keep explicit closures. Full listings return the open heads so they can be compared with the stored shas, because a push may leave `updated_at` unchanged. A full listing is incomplete while any open head has a missing or malformed sha, so stored work stays open. Both kinds keep UTC timestamps and server precision, and hold the cursor at the earliest preparing head until its sha is usable.
+
+Author trust uses direct or inherited project membership. Developer access (30) is trusted by default and `ARGUS_GITLAB_TRUSTED_LEVEL` changes the level. A missing member is untrusted. A failed or malformed lookup stays unknown and is cached for the current tick. Bot flags and project or group bot usernames identify bots.
+
+The recovery sweep retries the oldest open heads that were skipped for unknown trust, within its limit. Unresolved heads, including those without an author id, move to the back of the sweep order so later heads get checked. Resolved membership reuses the queue rules: draft and bot exclusions, completed reviews and attempt limits. `/integrations` reports `gitlab.trustUnknown` and adds a GitLab trust warning when the count is positive. GitHub behaviour is unchanged.
 
 ## Known limits
 
