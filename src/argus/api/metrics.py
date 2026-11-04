@@ -14,12 +14,20 @@ Internal helpers: _iso, _parse.
 
 from datetime import datetime, timedelta, timezone
 
-from argus.forge.keys import github_key_sql
+from argus.forge.keys import github_key_sql, gitlab_key_sql
 
 from . import db
 
 SEVERITIES = ("critical", "major", "minor", "nit")
 _DONE = db.STATUS_DONE
+
+
+def _forge_key_sql(forge: str, column: str) -> str:
+    if forge == "github":
+        return github_key_sql(column)
+    if forge == "gitlab":
+        return gitlab_key_sql(column)
+    raise ValueError(f"Unsupported forge: {forge}")
 
 
 def _iso(dt: datetime) -> str:
@@ -55,7 +63,7 @@ def distinct_pr_count(path: str | None = None) -> int:
         conn.close()
 
 
-def mark_precision(path: str | None = None, *, include_auto: bool = False) -> dict:
+def mark_precision(path: str | None = None, *, include_auto: bool = False, forge: str = "github") -> dict:
     """Operator-label rollup over findings: the only ground-truth precision number.
 
     Uses the latest mark per finding (newest id wins). 'located' findings are the
@@ -73,6 +81,7 @@ def mark_precision(path: str | None = None, *, include_auto: bool = False) -> di
     # Machine markers are namespaced (automark:*, agent:*); a bare marker is a
     # human identity (e.g. 'reviewer'). The colon is the namespace convention, so
     # any future machine lane is excluded without another filter change.
+    repo_filter = _forge_key_sql(forge, "r.repo")
     auto_filter = "" if include_auto else (
         "WHERE marker IS NULL OR marker NOT LIKE '%:%' ")
     conn = db.connect(path)
@@ -84,7 +93,7 @@ def mark_precision(path: str | None = None, *, include_auto: bool = False) -> di
             ") latest ON latest.max_id = m.id"
             " WHERE m.finding_id IN (SELECT f.id FROM findings f "
             "JOIN reviews r ON r.id = f.review_id "
-            f"WHERE {github_key_sql('r.repo')})"  # nosec B608 - validated identifier
+            f"WHERE {repo_filter})"  # nosec B608 - validated identifier
         ).fetchall()
     finally:
         conn.close()
@@ -98,13 +107,14 @@ def mark_precision(path: str | None = None, *, include_auto: bool = False) -> di
     return {"labeled": labeled, "located": located, "precision": precision, **tally}
 
 
-def verified_severity_counts(path: str | None = None) -> dict[str, int]:
+def verified_severity_counts(path: str | None = None, *, forge: str = "github") -> dict[str, int]:
     """Confirmed findings (verdict_is_real=1) grouped by severity, zero-filled."""
+    repo_filter = _forge_key_sql(forge, "r.repo")
     conn = db.connect(path)
     try:
         rows = conn.execute(
             "SELECT f.severity, COUNT(*) AS n FROM findings f JOIN reviews r ON r.id = f.review_id "
-            f"WHERE {github_key_sql('r.repo')} AND f.verdict_is_real = 1 GROUP BY f.severity"  # nosec B608 - validated identifier
+            f"WHERE {repo_filter} AND f.verdict_is_real = 1 GROUP BY f.severity"  # nosec B608 - validated identifier
         ).fetchall()
     finally:
         conn.close()
@@ -115,8 +125,9 @@ def verified_severity_counts(path: str | None = None) -> dict[str, int]:
     return counts
 
 
-def verified_bug_split(path: str | None = None) -> dict[str, int]:
+def verified_bug_split(path: str | None = None, *, forge: str = "github") -> dict[str, int]:
     """is_bug split among confirmed findings -> {"bug": n, "nit": n}."""
+    repo_filter = _forge_key_sql(forge, "r.repo")
     conn = db.connect(path)
     try:
         row = conn.execute(
@@ -124,19 +135,20 @@ def verified_bug_split(path: str | None = None) -> dict[str, int]:
             "SUM(CASE WHEN is_bug = 1 THEN 1 ELSE 0 END) AS bug, "
             "SUM(CASE WHEN is_bug = 0 THEN 1 ELSE 0 END) AS nit "
             "FROM findings f JOIN reviews r ON r.id = f.review_id "
-            f"WHERE {github_key_sql('r.repo')} AND verdict_is_real = 1"  # nosec B608 - validated identifier
+            f"WHERE {repo_filter} AND verdict_is_real = 1"  # nosec B608 - validated identifier
         ).fetchone()
     finally:
         conn.close()
     return {"bug": row["bug"] or 0, "nit": row["nit"] or 0}
 
 
-def verified_finding_count(path: str | None = None) -> int:
+def verified_finding_count(path: str | None = None, *, forge: str = "github") -> int:
+    repo_filter = _forge_key_sql(forge, "r.repo")
     conn = db.connect(path)
     try:
         return conn.execute(
             "SELECT COUNT(*) AS n FROM findings f JOIN reviews r ON r.id = f.review_id "
-            f"WHERE {github_key_sql('r.repo')} AND verdict_is_real = 1"  # nosec B608 - validated identifier
+            f"WHERE {repo_filter} AND verdict_is_real = 1"  # nosec B608 - validated identifier
         ).fetchone()["n"]
     finally:
         conn.close()

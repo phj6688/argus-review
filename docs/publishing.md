@@ -97,9 +97,11 @@ Collection runs in the background. It reads recent replies and thread state for 
 
 The strict re-check is stricter than a publisher's "Addressed in commit" marker. Deletions, fixes outside the flagged lines, and fixes that keep an evidence line do not count as strict. It mostly under-counts, but a model that misjudges can still over-count. A helper extracted with renamed arguments, a moved short call and an in-place edit such as an added comment can still pass.
 
-Rates divide by all posted inline findings, including unconfirmed ones, with Wilson 95% intervals. Summary findings have no reply thread and cannot be accepted through a reply. Open pull requests show lower early rates because authors have not acted yet.
+Rates divide by all posted inline findings, including unconfirmed ones, with Wilson 95% intervals. GitLab findings are reported in a separate `gitlab` section and are not comparable with the GitHub rates (see [GitLab](gitlab.md#acceptance-measurement)). Summary findings have no reply thread and cannot be accepted through a reply. Open pull requests show lower early rates because authors have not acted yet.
 
 For an offline report, make a consistent snapshot of the database and run the scripts against the snapshot. The database runs in WAL mode, so a plain file copy of a live database can miss recent writes or be unreadable. `VACUUM INTO` writes a clean snapshot without stopping the API:
+
+The report opens the snapshot read-only and does not migrate it. A snapshot from an older Argus version lacks the `reply_texts.author_trusted` column and fails with `no such column`. Start the current version once against that database, then take the snapshot.
 
 ```bash
 docker compose exec -T argus-api python -m sqlite3 /data/argus.db "VACUUM INTO '/tmp/argus-copy.db'"

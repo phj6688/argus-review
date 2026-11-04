@@ -229,7 +229,7 @@ Human replies store membership trust as 1 for trusted, 0 for untrusted, or NULL 
 
 Each merge request stores its current state, merge flag, close time and head. Resolvable discussions record both resolved and unresolved states while the merge request is open or was closed within seven days. A stored request that closed more than seven days ago is skipped unless an open watched head exists. Each request commits on its own. GitLab does not use the repository reply cursor to filter discussions.
 
-GitLab request failures are counted and do not stop GitHub collection. A rate limit sets `gitlab_paused` and skips the remaining GitLab projects for that run, also when the rate limit occurs during a project or membership lookup. Projects are skipped as before when GitLab is not configured. Measurement reports stay GitHub-only.
+GitLab request failures are counted and do not stop GitHub collection. A rate limit sets `gitlab_paused` and skips the remaining GitLab projects for that run, also when the rate limit occurs during a project or membership lookup. Projects are skipped as before when GitLab is not configured.
 
 ## Compare and re-check
 
@@ -238,6 +238,14 @@ Comparisons use `repository/compare` and `merge_base`. The old head must be the 
 An incomplete comparison stays unknown and cannot prove that a file is unchanged. Re-checks read the old and the current file through the GitLab reader. Insertions above a finding shift its anchor without marking its region changed.
 
 Acceptance collection and the reply loop share these helpers, so GitHub and GitLab findings use the same re-check rules. The GitHub adapter now exposes `compare` too, and GitHub results are unchanged.
+
+## Acceptance measurement
+
+When GitLab is configured and posted GitLab findings exist, the acceptance report adds a separate `gitlab` section next to the GitHub figures. The scripts print it under its own heading. Its denominator holds only posted inline findings that were confirmed as diff notes (`anchor_status='anchored'`). The counts `rejected_400`, `rejected_500` and `downgraded` sit outside every rate. A reply counts only when `author_trusted` is 1. NULL and 0 do not count. Repositories appear under their project path, or under the full key when two projects share a path.
+
+GitLab rates are not comparable with GitHub rates. Resolve controls and outdated threads behave differently on the two forges, and a resolve rate undercounts after pushes, because outdated threads lose their resolve control. The report note says so, and the GitHub baseline figures do not change.
+
+`mark_precision`, `verified_severity_counts`, `verified_bug_split` and `verified_finding_count` take `forge="gitlab"`. Their default stays GitHub.
 
 ## Known limits
 
@@ -258,7 +266,7 @@ Acceptance collection and the reply loop share these helpers, so GitHub and GitL
 
 ## Measurement filter
 
-Baseline readers count GitHub keys only: acceptance reports and stats, head coverage
+Baseline readers count GitHub keys only: the GitHub part of acceptance reports and stats, head coverage
 and coverage stats, review and finding metrics, benchmark inputs, monthly reports,
 acceptance labels, corpus finding and mark readers, and known false-positive exports.
 Weekly API reports and the overview's measurement counters inherit these filters.
