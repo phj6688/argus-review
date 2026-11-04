@@ -212,7 +212,7 @@ def _sync_rejections(conn, findings, now):
             "WHERE o.finding_id=?", (finding["id"],),
         ).fetchall()
         actions = conn.execute("SELECT * FROM bot_actions WHERE finding_id=?", (finding["id"],)).fetchall()
-        label, _, reply = _signals(outcomes, actions, finding["head_sha"])
+        label, _, reply = _signals(outcomes, actions, finding["head_sha"], repo=finding["repo"])
         changed_resolved = (any(o["kind"] == "addressed" and o["value"] == "true" for o in outcomes)
                             and any(o["kind"] == "resolved" and o["value"] == "true" for o in outcomes))
         fixed = any(a["kind"] == "recheck" and a["value"] == "fixed"

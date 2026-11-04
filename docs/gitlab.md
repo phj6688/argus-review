@@ -207,7 +207,7 @@ Replies stay off until all of these hold:
 
 Each pass checks live project policy and the recorded numeric bot id before it compares code. The bot id must match the id of the token in use. A missing or different id skips the project and counts `bot_id_missing` or `bot_id_mismatch`.
 
-The loop works like the GitHub loop. When the flagged lines change at a new head, Argus re-checks the finding. A confirmed fix gets a reply and the thread is resolved. A trusted author can ask for a re-check in a thread, and each finding gets at most one request reply per head. An incomplete comparison never confirms a fix.
+The loop works like the GitHub loop. When the flagged lines change at a new head, Argus re-checks the finding. A confirmed fix gets a reply and the thread is resolved. A trusted author can ask for a re-check in a thread, and each finding gets at most one request reply per head. An incomplete comparison never confirms a fix. When a trusted author rejects a finding, Argus answers that the finding will not be posted again and stores the rejection, so a later review of the same file and title drops it. A confirmed fix at a later head removes that stored rejection.
 
 Resolution goes through the API and also works for outdated threads. A thread is outdated when its position head differs from the current head, and a resolve of such a thread is counted as `resolved_outdated`. Replies share the publisher's note pacing. They carry their own evidence marker, so a write with an uncertain outcome is found again on the next pass instead of being posted twice. A discussion that no longer exists counts as `discussion_missing`.
 
@@ -255,7 +255,6 @@ GitLab rates are not comparable with GitHub rates. Resolve controls and outdated
 - Collapsed, too-large, generated and binary diffs lower coverage.
 - `POST /review-diff`, `publish-preview`, `publish-placement` and `doctor` are GitHub-only.
 - GitLab replies need their own opt-in flag and the live publishing gates listed under Reply loop.
-- On GitLab, a trusted author's rejection is answered with "will not be posted again", but the rejection is not yet stored in the live false-positive list. A finding with the same title can be posted again.
 - Post-merge reviews of GitLab merge requests do not follow `ARGUS_WATCH_FAST_MERGES`. That setting applies to GitHub only.
 - A full listing returns open merge requests only. With `ARGUS_GITLAB_RECONCILE_TICKS=1`, a merge request that is merged between two polls is closed without a post-merge review. Use a larger value to keep post-merge reviews.
 - Outcome collection recognises only the newest recorded bot user id for a project. After you switch the publishing account, discussions that the earlier account started are not matched, and their replies and resolutions are not collected.

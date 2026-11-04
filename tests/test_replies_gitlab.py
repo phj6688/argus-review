@@ -7,11 +7,13 @@ from contextlib import closing
 import httpx
 import pytest
 
-from argus import client as model_client, replies
+from argus import client as model_client, github, replies
 from argus.api import db
 from argus.forge.keys import gitlab_key
 from argus.gitlab import client as client_module, projects, publisher, threads
 from argus.gitlab.pacing import NotePacer
+from argus.jarvis import live
+from argus.schema import Finding, Severity
 from test_acceptance_gitlab_collect import STAMP, collect, github_finding, rows, seed
 import test_acceptance_gitlab_collect as collection_tests
 
@@ -127,6 +129,95 @@ def test_trusted_fixed_reply_posts_resolves_and_rerun_deduplicates(state):
     assert collect(state)["failures"] == 0
     assert writes(state) == []
     assert len(rows(state, "reply_texts")) == 1
+
+
+def test_trusted_rejection_suppresses_next_review(state, monkeypatch):
+    seed(state)
+    human = state.discussion["notes"][1]
+    human["body"] = "Rejected: this is intended, the caller validates the value first."
+
+    assert collect(state)["failures"] == 0
+
+    posted = [r for r in writes(state) if r.method == "POST"]
+    assert len(posted) == 1
+    assert "will not be posted again" in json.loads(posted[0].content)["body"]
+    suppressions = rows(state, "known_fps_live")
+    assert len(suppressions) == 1
+    suppression, = suppressions
+    assert (suppression["repo"], suppression["file"], suppression["title"],
+            suppression["fingerprint"], suppression["reply_id"]) == (
+        state.key, "app.py", "missing check", "finding", str(human["id"]),
+    )
+
+    monkeypatch.setattr(db, "db_path", lambda: state.path)
+    monkeypatch.setattr(live, "_KNOWN_FP_KEYS", set())
+    live.invalidate_live_fps()
+    finding = Finding(file="app.py", line=1, severity=Severity.major, confidence=0.8,
+                      title="Missing check", description="Validate the value before use.",
+                      proposed_fix="Check the value before calling.")
+    assert live.suppress_known_fps(state.key, [finding]) == ([], [finding])
+    others = [finding.model_copy(update={"file": "other.py"}),
+              finding.model_copy(update={"title": "Different check"})]
+    assert live.suppress_known_fps(state.key, others) == (others, [])
+
+
+@pytest.mark.parametrize("body,access_level,trusted", [
+    ("Fixed the missing check.", 30, 1),
+    ("Rejected: this is intended, the caller validates the value first.", 10, 0),
+])
+def test_fixed_or_untrusted_reply_does_not_suppress(state, body, access_level, trusted):
+    seed(state, head_sha=state.old)
+    state.discussion["notes"][1]["body"] = body
+    state.responses[state.member] = {"id": 4, "access_level": access_level}
+
+    assert collect(state)["failures"] == 0
+
+    assert rows(state, "reply_texts")[0]["author_trusted"] == trusted
+    assert rows(state, "known_fps_live") == []
+
+
+@pytest.mark.parametrize("later_head", [False, True])
+def test_confirmed_fix_only_removes_rejection_suppression_at_later_head(state, later_head):
+    fid = seed(state)
+    state.discussion["notes"][1]["body"] = (
+        "Rejected: this is intended, the caller validates the value first."
+    )
+    assert collect(state)["failures"] == 0
+    assert len(rows(state, "known_fps_live")) == 1
+
+    with closing(db.connect(state.path)) as conn, conn:
+        conn.execute(
+            "INSERT INTO bot_actions(finding_id,kind,value,evidence_id,created_at) "
+            "VALUES (?,'recheck','fixed',?,?)",
+            (fid, "c" * 40 if later_head else state.head, STAMP),
+        )
+
+    assert collect(state)["failures"] == 0
+    assert len(rows(state, "known_fps_live")) == (0 if later_head else 1)
+
+
+@pytest.mark.parametrize("error_type", [RuntimeError, client_module.GitLabRateLimited,
+                                      github.GitHubRateLimited])
+def test_rejection_suppression_survives_reply_loop_error(state, monkeypatch, error_type):
+    seed(state)
+    state.discussion["notes"][1]["body"] = (
+        "Rejected: this is intended, the caller validates the value first."
+    )
+    error = error_type("Reply failed") if error_type is RuntimeError else error_type(1_800_000_060)
+
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(replies, "run", fail)
+    if error_type is github.GitHubRateLimited:
+        with pytest.raises(github.GitHubRateLimited) as caught:
+            collect(state)
+        assert caught.value is error
+    else:
+        run = collect(state)
+        assert run["failures"] == int(error_type is RuntimeError)
+        assert run.get("gitlab_paused", False) is (error_type is client_module.GitLabRateLimited)
+    assert len(rows(state, "known_fps_live")) == 1
 
 
 @pytest.mark.parametrize("status", [502, 429])
