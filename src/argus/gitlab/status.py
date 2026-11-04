@@ -4,7 +4,9 @@ import hashlib
 import re
 import threading
 import time
+from pathlib import Path
 
+from argus.api import db, watch_store
 from argus.forge.keys import canonical_host
 from argus.gitlab import client as client_module, config
 from argus.gitlab.entry import _classification
@@ -55,6 +57,11 @@ def integration_status() -> dict:
         project_count = len(config.publish_projects())
     except config.GitLabConfigError:
         project_count = 0
+    try:
+        path = db.db_path()
+        trust_unknown = watch_store.unknown_trust_count(path) if Path(path).is_file() else 0
+    except Exception:
+        trust_unknown = 0
     return {
         "host": canonical_host(base.host, base.port),
         "baseUrl": base.url,
@@ -63,4 +70,5 @@ def integration_status() -> dict:
         "publish": {"mode": mode, "projectCount": project_count},
         "allowCount": len(config.allow()),
         "refusal": gitlab_policy().refusal,
+        "trustUnknown": trust_unknown,
     }

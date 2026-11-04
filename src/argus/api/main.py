@@ -1152,6 +1152,11 @@ def get_integrations() -> dict:
     }
     if gitlab_configured():
         result["gitlab"] = gitlab_status.integration_status()
+        if (unknown := result["gitlab"]["trustUnknown"]) > 0:
+            result["health"].append({
+                "label": "GitLab trust", "status": f"{unknown} merge requests skipped, membership unknown",
+                "state": "warn",
+            })
     return result
 
 
