@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- GitLab watching now feeds the shared review queue with incremental polling, periodic full reconciliation and retries for unknown membership. Only complete listings close missing requests. Discovery skips permanently unavailable groups and projects, stale requests stay excluded on incremental polls, and poll logs include push counts. GitHub and GitLab polling remain independent. Integrations report the watch state.
 - GitHub polling preserves queued GitLab reviews. Each forge checks its own watched set and quota pause. GitLab workers recheck live policy, retain denial reasons and retry temporary lookup failures.
 - GitLab listing expands permitted groups without shared projects, rechecks live project policy and reads every merge request page with a five minute cursor overlap. Membership determines author trust, unknown results stay skipped until a later sweep, and integrations show the unresolved count and a health warning. Unresolved lookups rotate so later heads can recover. Preparing heads hold the cursor and keep full listings incomplete to preserve queued work.
 - Added incremental GitLab watch storage, strict membership trust, separate forge pauses and persistent poll cursors. Overlapping polls track head shas because pushes may not move the update timestamp.

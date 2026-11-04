@@ -7,17 +7,19 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .. import github
 from ..client import DEFAULT_MODEL, LLM_MAX_CONCURRENCY, llm_in_flight
 from ..forge import forge_for
-from ..forge.keys import gitlab_key, is_gitlab_key
+from ..forge.keys import gitlab_key, is_gitlab_key, parse_repo_key
+from ..forge.types import ChangeMeta, RepoRef
 from ..gitlab import client as gitlab_client
 from ..gitlab import config as gitlab_config
-from ..gitlab import projects
-from ..gitlab.client import GitLabRateLimited
+from ..gitlab import listing, projects, trust
+from ..gitlab.client import GitLabAuthError, GitLabDenied, GitLabHTTPError, GitLabRateLimited
+from ..gitlab.entry import _classification
 from ..repo_policy import env_int, hard_deny_owners, validate_repo, watch_owners
 from ..review import DEFAULT_BUG_CAP
 from . import db, watch_config, watch_store
@@ -38,6 +40,9 @@ _last_tick = {}
 _repo_pushed_at = {}
 _previous_watched_repos = {}
 _gitlab_expanded = {}
+_gitlab_ticks = {}
+_gitlab_pass_errors = {}
+GITLAB_TRUST_SWEEP_LIMIT = 5
 _watched_repos_lock = threading.Lock()
 _outcome_tasks = {}
 _pause_logged = 0
@@ -248,7 +253,7 @@ async def _collect_outcomes(path):
         raise
 
 
-async def poll_once(path=None):
+async def _poll_github_once(path=None):
     from . import watch_metrics
 
     path = path or db.db_path()
@@ -354,6 +359,168 @@ def _transient_lookup(reason):
     )
 
 
+def _gitlab_watching():
+    try:
+        return (gitlab_config.watch_enabled() and bool(os.getenv("ARGUS_GITLAB_URL", "").strip())
+                and gitlab_client.client() is not None)
+    except gitlab_config.GitLabConfigError:
+        log.debug("watcher: GitLab configuration invalid")
+    except Exception:
+        log.warning("watcher: GitLab client unavailable")
+    return False
+
+
+def gitlab_pass_error(path):
+    return _gitlab_pass_errors.get(str(Path(path).resolve()))
+
+
+def _gitlab_lookup_error(reason):
+    if reason == "lookup failed: auth":
+        return GitLabAuthError("GitLab authentication failed")
+    if reason == "lookup failed: rate_limited":
+        return GitLabRateLimited(gitlab_client.client().pause_until())
+    if reason in {"lookup failed: forbidden", "lookup failed: not_found", "lookup failed: redirect_refused"}:
+        return GitLabDenied("GitLab project unavailable")
+    return GitLabHTTPError("GitLab lookup failed")
+
+
+def _gitlab_project_error(path, key, error):
+    with watch_store.connection(path) as conn:
+        db.set_gitlab_poll_cursor(conn, key, last_error=_classification(error),
+                                  last_polled_at=watch_store.utcnow().isoformat())
+
+
+def _poll_gitlab_project(path, key, full, started, cache, sources):
+    decision = projects.live_deny(key, db_path=path)
+    if not decision.allowed:
+        if decision.reason.startswith("lookup failed: "):
+            raise _gitlab_lookup_error(decision.reason)
+        return None
+    with watch_store.connection(path) as conn:
+        cursor = (db.gitlab_poll_cursor(conn, key) or {}).get("updated_after")
+    full = full or not cursor
+    result = listing.full_listing(key, cache=cache) if full else listing.list_changes(key, cursor, cache=cache)
+    ref = parse_repo_key(key)
+    cutoff = started - timedelta(days=env_int("ARGUS_WATCH_ACTIVE_DAYS", 90))
+    opened = []
+    for row in result.changes:
+        if db._parse_created_at(row["updated_at"]) < cutoff:
+            continue
+        source_id = row.get("source_project_id")
+        if type(source_id) is int and source_id != ref.project_id:
+            source = RepoRef("gitlab", ref.host, None, source_id)
+            if source not in sources:
+                meta = ChangeMeta(row["head"]["sha"], None, "open", False, row["draft"],
+                                  str(row["author_id"]), row["user"]["login"],
+                                  row["user"]["type"] == "Bot", "", row["updated_at"], source)
+                reason = projects.live_deny_change(key, meta, db_path=path).reason
+                if reason == "fork_source_denied":
+                    # The shared policy helper also denies unavailable sources; retry those at claim time.
+                    try:
+                        source_decision = projects.live_deny(gitlab_key(ref.host, source_id), db_path=path)
+                    except ValueError:
+                        pass
+                    else:
+                        if source_decision.allowed or source_decision.reason.startswith("lookup failed: "):
+                            reason = source_decision.reason
+                sources[source] = reason
+            if sources[source] == "fork_source_denied":
+                row = {**row, "skip_reason": "fork_source_denied"}
+        opened.append(row)
+    if quota_paused("gitlab"):
+        raise GitLabRateLimited(gitlab_client.client().pause_until())
+    stored_shas = watch_store.open_head_shas(path, key)
+    pushed = sum(row["number"] in stored_shas and stored_shas[row["number"]] != row["head"]["sha"]
+                 for row in opened)
+    queued = watch_store.record_changes(path, key, opened, result.closed, result.complete)
+    now = watch_store.utcnow().isoformat()
+    with watch_store.connection(path) as conn:
+        db.set_gitlab_poll_cursor(conn, key, updated_after=result.cursor or started.isoformat(),
+                                  last_polled_at=now, last_error=None,
+                                  **({"last_full_reconcile": now} if result.complete else {}))
+    return queued, pushed
+
+
+async def _poll_gitlab_once(path):
+    queued = polled = pushed = 0
+    ran = False
+    path_key = str(Path(path).resolve())
+    try:
+        if not _gitlab_watching() or quota_paused("gitlab"):
+            return 0
+        reconcile = gitlab_config.reconcile_ticks()
+        ran = True
+        started = watch_store.utcnow()
+        tick = _gitlab_ticks.get(path_key, 0)
+        _gitlab_ticks[path_key] = tick + 1
+        with _watched_repos_lock:
+            keys = _gitlab_expanded.get(path_key)
+        if keys is None or tick % env_int("ARGUS_WATCH_DISCOVERY_TICKS", 1) == 0:
+            try:
+                keys = frozenset(await asyncio.to_thread(listing.expand_allow, db_path=path, strict=True))
+                _gitlab_pass_errors.pop(path_key, None)
+            except Exception as error:
+                _gitlab_pass_errors[path_key] = _classification(error)
+                log.warning("watcher: GitLab discovery failed; using cached projects")
+                if keys is None:
+                    return 0
+        set_gitlab_expanded(path, keys)
+        await asyncio.to_thread(watch_store.restrict_repos, path, list(keys), forge="gitlab")
+        previous_key = _previous_key(path, "gitlab")
+        with _watched_repos_lock:
+            previous = _previous_watched_repos.get(previous_key)
+            reentered = keys - previous if previous is not None else keys
+            _previous_watched_repos[previous_key] = set(keys)
+        cache, sources = trust.TrustCache(), {}
+        stopped = False
+        pending = set(keys)
+        try:
+            for key in sorted(keys):
+                if quota_paused("gitlab"):
+                    break
+                try:
+                    counts = await asyncio.to_thread(
+                        _poll_gitlab_project, path, key, key in reentered or (tick + 1) % reconcile == 0,
+                        started, cache, sources,
+                    )
+                    if counts is not None:
+                        queued += counts[0]
+                        pushed += counts[1]
+                        polled += 1
+                        pending.discard(key)
+                except Exception as error:
+                    await asyncio.to_thread(_gitlab_project_error, path, key, error)
+                    log.warning("watcher: GitLab project poll failed: %s", _classification(error))
+                    if isinstance(error, (GitLabRateLimited, GitLabAuthError)):
+                        stopped = True
+                        break
+        finally:
+            # Even error persistence can fail; unfinished projects still need a full retry.
+            with _watched_repos_lock:
+                _previous_watched_repos[previous_key].difference_update(pending)
+        if not stopped and not quota_paused("gitlab"):
+            try:
+                swept = await asyncio.to_thread(trust.sweep_unknown, path, GITLAB_TRUST_SWEEP_LIMIT, cache=cache)
+                queued += swept["requeued"]
+            except Exception:
+                log.warning("watcher: GitLab trust sweep failed")
+    except gitlab_config.GitLabConfigError:
+        log.debug("watcher: GitLab configuration invalid")
+    except Exception as error:
+        _gitlab_pass_errors[path_key] = _classification(error)
+        log.warning("watcher: GitLab poll failed: %s", _classification(error))
+    finally:
+        if ran:
+            log.info("watcher: forge=gitlab projects=%d queued=%d pushed=%d", polled, queued, pushed)
+    return queued
+
+
+async def poll_once(path=None):
+    path = path or db.db_path()
+    queued = await _poll_github_once(path)
+    return queued + await _poll_gitlab_once(path)
+
+
 def _gitlab_head_allowed(path, head):
     with _watched_repos_lock:
         expanded = _gitlab_expanded.get(str(Path(path).resolve()))
@@ -400,13 +567,7 @@ def _gitlab_head_allowed(path, head):
 
 def process_one(path):
     github_paused = quota_paused()
-    try:
-        gitlab_watching = (
-            gitlab_config.watch_enabled() and bool(os.getenv("ARGUS_GITLAB_URL", "").strip())
-            and gitlab_client.client() is not None
-        )
-    except Exception:
-        gitlab_watching = False
+    gitlab_watching = _gitlab_watching()
     if github_paused and (not gitlab_watching or quota_paused("gitlab")):
         return False
     # Keep disabled GitLab work queued without constructing its client in claim().

@@ -173,7 +173,9 @@ def test_status_success_cache_and_token_sentinel(gitlab_event, monkeypatch):
                      "baseUrl": "https://" + gitlab_event.host + "/gitlab", "token": "configured",
                      "identity": {"status": "ok", "username": "review-bot", "bot": True},
                      "publish": {"mode": "0", "projectCount": 0}, "allowCount": 1, "refusal": None,
-                     "trustUnknown": 0}
+                     "trustUnknown": 0,
+                     "watch": {"enabled": False, "projectCount": 0, "lastPolledAt": None,
+                               "lastError": None, "trustUnknown": 0, "forkSourceDenied": 0}}
     assert gitlab_event.token not in str(first)
     assert len(gitlab_event.requests) == 1
     monkeypatch.setattr(status, "_clock", lambda: 299)

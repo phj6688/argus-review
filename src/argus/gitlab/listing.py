@@ -12,6 +12,9 @@ from argus.gitlab import projects, trust
 from argus.gitlab.client import GitLabAuthError, GitLabDenied, GitLabHTTPError, GitLabRateLimited
 
 log = logging.getLogger(__name__)
+_PERMANENT_LOOKUP_REASONS = frozenset({
+    "forbidden", "not_found", "redirect_refused", "guard", "invalid_project", "policy_invalid",
+})
 
 
 def _project_key(host, data):
@@ -20,7 +23,7 @@ def _project_key(host, data):
     return gitlab_key(host, data["id"])
 
 
-def expand_allow(*, client=None, db_path=None) -> tuple[str, ...]:
+def expand_allow(*, client=None, db_path=None, strict=False) -> tuple[str, ...]:
     entries = repo_policy.gitlab_allow_entries()
     host = projects._host()
     selected = projects._client(client)
@@ -62,11 +65,21 @@ def expand_allow(*, client=None, db_path=None) -> tuple[str, ...]:
                     raise GitLabAuthError("GitLab authentication failed")
                 if decision.reason == "lookup failed: rate_limited":
                     raise GitLabRateLimited(selected.pause_until())
+                if (strict and decision.reason.startswith("lookup failed: ")
+                        and decision.reason.removeprefix("lookup failed: ") not in _PERMANENT_LOOKUP_REASONS):
+                    raise GitLabHTTPError("GitLab project lookup failed")
                 if decision.allowed:
                     result[key] = None
         except (GitLabAuthError, GitLabRateLimited):
             raise
-        except Exception:
+        except Exception as error:
+            # Watchers must retain the last complete allow set when discovery is unavailable.
+            permanent = isinstance(error, (GitLabDenied, GitLabHTTPError)) and (
+                error.reason in _PERMANENT_LOOKUP_REASONS
+                or isinstance(error, GitLabHTTPError) and error.status_code in {403, 404}
+            )
+            if strict and not permanent:
+                raise
             log.warning("GitLab allow entry skipped: %s", text)
     return tuple(result)
 
@@ -109,6 +122,7 @@ def _listing(repo, since, complete, client, cache):
     if not complete:
         query["updated_after"] = watch_store.poll_window_start(since, overlap_seconds=300)
     opened, closed, max_seen, pending = [], [], None, None
+    skipped = False
     for page in selected.pages("mr_list", project_id=ref.project_id, query=query):
         for item in page.json():
             try:
@@ -116,6 +130,7 @@ def _listing(repo, since, complete, client, cache):
                     raise ValueError
                 updated = _utc(item.get("updated_at"))
             except (ValueError, TypeError, AttributeError, OverflowError):
+                skipped = True
                 log.debug("GitLab listing row skipped")
                 continue
             max_seen = max(max_seen, updated) if max_seen is not None else updated
@@ -129,7 +144,7 @@ def _listing(repo, since, complete, client, cache):
                 (opened if is_open else closed).append(_row(repo, item, updated, selected, cache))
     cursor = min(max_seen, pending) if pending is not None else max_seen
     return ChangeListing(tuple(opened), tuple(closed), cursor.isoformat() if cursor else since,
-                         complete and pending is None)
+                         complete and pending is None and not skipped)
 
 
 def list_changes(repo, since, *, client=None, cache=None) -> ChangeListing:

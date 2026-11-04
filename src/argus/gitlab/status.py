@@ -47,6 +47,8 @@ def _identity(base, token):
 
 
 def integration_status() -> dict:
+    from argus.api import watcher
+
     base = config.base_url()
     token = config.token()
     try:
@@ -58,10 +60,31 @@ def integration_status() -> dict:
     except config.GitLabConfigError:
         project_count = 0
     try:
+        enabled = config.watch_enabled()
+    except config.GitLabConfigError:
+        enabled = False
+    watch = {"enabled": enabled, "projectCount": 0, "lastPolledAt": None,
+             "lastError": None, "trustUnknown": 0, "forkSourceDenied": 0}
+    try:
         path = db.db_path()
-        trust_unknown = watch_store.unknown_trust_count(path) if Path(path).is_file() else 0
+        watch["lastError"] = watcher.gitlab_pass_error(path)
+        if Path(path).is_file():
+            with watch_store.connection(path) as conn:
+                count, polled = conn.execute(
+                    "SELECT COUNT(*), MAX(last_polled_at) FROM gitlab_poll_cursors"
+                ).fetchone()
+                error = conn.execute(
+                    "SELECT last_error FROM gitlab_poll_cursors WHERE last_error IS NOT NULL "
+                    "ORDER BY last_polled_at DESC LIMIT 1"
+                ).fetchone()
+            watch.update(projectCount=count, lastPolledAt=polled,
+                         lastError=error[0] if error else watch["lastError"],
+                         trustUnknown=watch_store.unknown_trust_count(path),
+                         forkSourceDenied=watch_store.fork_denied_count(path))
     except Exception:
-        trust_unknown = 0
+        pass
+    if watch["lastError"] not in {None, "gitlab_auth", "gitlab_denied", "gitlab_rate_limited", "gitlab_http"}:
+        watch["lastError"] = "gitlab_http"
     return {
         "host": canonical_host(base.host, base.port),
         "baseUrl": base.url,
@@ -70,5 +93,6 @@ def integration_status() -> dict:
         "publish": {"mode": mode, "projectCount": project_count},
         "allowCount": len(config.allow()),
         "refusal": gitlab_policy().refusal,
-        "trustUnknown": trust_unknown,
+        "trustUnknown": watch["trustUnknown"],
+        "watch": watch,
     }
