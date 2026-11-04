@@ -24,6 +24,8 @@ import httpx
 
 from mcp.server.fastmcp import FastMCP
 
+from .forge.keys import is_gitlab_key
+
 API_BASE_ENV = "ARGUS_API"
 DEFAULT_API_BASE = "http://127.0.0.1:8350"
 _TIMEOUT = httpx.Timeout(30.0, read=900.0)  # a full review holds the socket for minutes
@@ -70,6 +72,8 @@ def review_diff(diff: str, repo: str = "", mode: str = "full",
     new/unchanged and reports resolved ones - the "did my fix clear finding X"
     answer.
     """
+    if is_gitlab_key(repo):
+        raise ValueError("review_diff supports GitHub repositories only")
     body: dict = {"diff": diff, "mode": mode}
     if repo:
         body["repo"] = repo

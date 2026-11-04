@@ -36,9 +36,11 @@ from ..review import (
     run_review,
 )
 from ..forge import forge_for
-from ..forge.keys import parse_entry
+from ..forge.keys import is_gitlab_key, parse_entry
 from ..forge.skips import gitlab_configured
-from ..repo_policy import RepoDenied, gitlab_policy, validate_repo, watch_owners
+from ..gitlab import config as gitlab_config
+from ..gitlab import entry as gitlab_entry, status as gitlab_status
+from ..repo_policy import RepoDenied, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
 
 log = logging.getLogger("argus.api")
@@ -96,6 +98,18 @@ def configure_logging():
     logger.propagate = False
 
 
+def _log_gitlab_state() -> None:
+    try:
+        configured = gitlab_config.base_url()
+    except gitlab_config.GitLabConfigError:
+        log.warning("GitLab disabled: ARGUS_GITLAB_URL is invalid")
+    else:
+        if configured is None:
+            log.info("GitLab disabled: ARGUS_GITLAB_URL not set")
+        else:
+            log.info("GitLab enabled: forge adapter active")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging()
@@ -122,6 +136,7 @@ async def lifespan(_app: FastAPI):
             "startup: reclaimed %d orphaned running review(s) to interrupted: %s",
             len(reclaimed), reclaimed,
         )
+    _log_gitlab_state()
     watch_task: asyncio.Task | None = None
     if watcher.is_enabled():
         watch_task = asyncio.create_task(watcher.run_forever())
@@ -173,10 +188,23 @@ def _validated_repo(value, *, extra_deny=None):
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
+def _validated_review_repo(value):
+    if is_gitlab_key(value):
+        gitlab_entry.check_repo_syntax(value)
+        return value
+    return _validated_repo(value)
+
+
+def _validated_diff_repo(value):
+    if value is not None and is_gitlab_key(value):
+        raise ValueError("review-diff supports GitHub repositories only")
+    return _validated_repo(value)
+
+
 class ReviewRequest(BaseModel):
     repo: str = Field(min_length=1, description="owner/name, e.g. example/app")
     pr: int = Field(ge=1)
-    _repo_policy = field_validator("repo")(_validated_repo)
+    _repo_policy = field_validator("repo")(_validated_review_repo)
 
 
 class RepoWatch(BaseModel):
@@ -378,6 +406,18 @@ def require_provider(model: str, *, allow_fallback: bool = False) -> None:
 
 @app.post("/reviews", response_model=ReviewCreated, status_code=201)
 def create_review(request: ReviewRequest, background: BackgroundTasks) -> ReviewCreated:
+    repo = request.repo
+    if is_gitlab_key(repo):
+        try:
+            repo = gitlab_entry.canonical_repo(repo)
+            gitlab_entry.check_change(repo, request.pr)
+        except gitlab_entry.EntryRefused as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
+        except gitlab_entry.EntryDenied:
+            raise HTTPException(status_code=403, detail=f"repository denied: {repo}") from None
+        except gitlab_entry.EntryUnavailable as error:
+            raise HTTPException(status_code=502,
+                                detail=f"gitlab lookup failed: {error.classification}") from None
     path = db.db_path()
     stored = db.get_config(path)
     model = stored["model"] if stored else DEFAULT_MODEL
@@ -385,17 +425,17 @@ def create_review(request: ReviewRequest, background: BackgroundTasks) -> Review
     bug_cap = stored["bug_cap"] if stored else DEFAULT_BUG_CAP
     head_sha = None
     try:
-        head_sha = forge_for(request.repo).head_sha(request.repo, request.pr)
+        head_sha = forge_for(repo).head_sha(repo, request.pr)
     except Exception as error:
         log.info("PR head lookup failed for %s#%s (%s)",
-                 request.repo, request.pr, type(error).__name__)
-    review_id = db.create_review(path, request.repo, request.pr, model, head_sha=head_sha)
+                 repo, request.pr, type(error).__name__)
+    review_id = db.create_review(path, repo, request.pr, model, head_sha=head_sha)
     fb_runner, fb_model = _fallback_for(
         model, lambda m: lambda: run_review(
-            request.repo, request.pr, m, bug_cap, expected_head_sha=head_sha))
+            repo, request.pr, m, bug_cap, expected_head_sha=head_sha))
     background.add_task(
-        run_one_review, path, review_id, request.repo, request.pr,
-        lambda: run_review(request.repo, request.pr, model, bug_cap, expected_head_sha=head_sha),
+        run_one_review, path, review_id, repo, request.pr,
+        lambda: run_review(repo, request.pr, model, bug_cap, expected_head_sha=head_sha),
         fallback_runner=fb_runner, primary_model=model, fallback_model=fb_model,
     )
     return ReviewCreated(id=review_id, status=db.STATUS_RUNNING)
@@ -412,7 +452,7 @@ class DiffReviewRequest(BaseModel):
     """
 
     repo: str | None = Field(default=None, description="owner/name")
-    _repo_policy = field_validator("repo")(_validated_repo)
+    _repo_policy = field_validator("repo")(_validated_diff_repo)
     diff: str | None = Field(default=None, max_length=2_000_000)
     base_sha: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{7,40}$")
     head_sha: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{7,40}$")
@@ -535,14 +575,15 @@ def list_reviews() -> dict:
     path = db.db_path()
     rows = db.list_reviews(path)
     counts_by_review = db.severity_counts_by_review(path)
+    labels = _review_labels(rows, path)
     now = datetime.now(timezone.utc)
 
     live = next(
-        (_to_live_review(r, now) for r in rows if r["status"] == db.STATUS_RUNNING),
+        (_to_live_review(r, now, labels) for r in rows if r["status"] == db.STATUS_RUNNING),
         None,
     )
     summaries = [
-        _to_review_summary(r, counts_by_review.get(r["id"], {}), now)
+        _to_review_summary(r, counts_by_review.get(r["id"], {}), now, labels)
         for r in rows
         if r["status"] != db.STATUS_RUNNING
     ]
@@ -563,7 +604,7 @@ def get_review(review_id: int) -> dict:
         raise HTTPException(status_code=404, detail="review not found")
     findings = db.get_findings(path, review_id)
     marks = db.latest_marks_for_review(path, review_id)
-    return _to_review_detail(review, findings, marks)
+    return _to_review_detail(review, findings, marks, _review_labels([review], path))
 
 
 @app.post("/findings/{finding_id}/mark", status_code=201)
@@ -653,7 +694,26 @@ def _review_action(row: dict) -> str | None:
     return _PUBLISH_ACTIONS.get(row.get("publish_status"), "not_posted")
 
 
-def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
+def _review_labels(rows: list[dict], path: str | None = None) -> dict[str, str]:
+    keys = {row["repo"] for row in rows if is_gitlab_key(row["repo"])}
+    labels = {}
+    if keys:
+        with contextlib.closing(db.connect(path)) as conn:
+            for key in keys:
+                project = db.forge_project(conn, key)
+                if project is not None:
+                    labels[key] = project["path_with_namespace"]
+    return labels
+
+
+def _review_title(row: dict, labels: dict[str, str] | None = None) -> str:
+    if labels is None:
+        labels = _review_labels([row])
+    return f"{labels.get(row['repo'], row['repo'])} #{row['pr']}"
+
+
+def _to_review_summary(row: dict, counts: dict, now: datetime,
+                       labels: dict[str, str] | None = None) -> dict:
     """reviews row -> ReviewSummary. counts is the severity tally for this row."""
     zero = {s: 0 for s in metrics.SEVERITIES}
     return {
@@ -661,7 +721,7 @@ def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
         "repo": row["repo"],
         "pr": row["pr"],
         # The engine has no PR title; fall back to a repo#pr label.
-        "title": f"{row['repo']} #{row['pr']}",
+        "title": _review_title(row, labels),
         "model": row["model"],
         "status": row["status"],
         "risk": risk_tier.from_row(row, compact=True),
@@ -673,13 +733,13 @@ def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
     }
 
 
-def _to_live_review(row: dict, now: datetime) -> dict:
+def _to_live_review(row: dict, now: datetime, labels: dict[str, str] | None = None) -> dict:
     """A running reviews row -> LiveReview (the overview/reviews live strip)."""
     return {
         "repo": row["repo"],
         "pr": row["pr"],
         # No PR title persisted; show the repo#pr the run is on.
-        "title": f"{row['repo']} #{row['pr']}",
+        "title": _review_title(row, labels),
         "model": row["model"],
         # The engine does not emit a per-stage signal mid-run.
         "stage": "deep review",
@@ -688,7 +748,8 @@ def _to_live_review(row: dict, now: datetime) -> dict:
 
 
 def _to_review_detail(
-    review: dict, findings: list[dict], marks: dict[int, dict] | None = None
+    review: dict, findings: list[dict], marks: dict[int, dict] | None = None,
+    labels: dict[str, str] | None = None,
 ) -> dict:
     """reviews row + its findings -> ReviewDetail (bugs/nits split on is_bug)."""
     marks = marks or {}
@@ -706,7 +767,7 @@ def _to_review_detail(
         "id": str(review["id"]),
         "repo": review["repo"],
         "pr": review["pr"],
-        "title": f"{review['repo']} #{review['pr']}",
+        "title": _review_title(review, labels),
         **header,
         "model": review["model"],
         "model_used": facts["model_used"],
@@ -1067,7 +1128,7 @@ def get_integrations() -> dict:
         },
     }
     if gitlab_configured():
-        result["gitlab"] = {"refusal": gitlab_policy().refusal}
+        result["gitlab"] = gitlab_status.integration_status()
     return result
 
 

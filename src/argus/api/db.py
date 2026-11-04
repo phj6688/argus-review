@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import verdict
+from ..forge import keys
 from ..forge.types import RepoRecord, RepoRef
 from ..publish import PublishOutcome
 from ..redact import redact
@@ -372,7 +373,7 @@ def upsert_forge_project(
         "path_with_namespace=excluded.path_with_namespace, default_branch=excluded.default_branch, "
         "archived=excluded.archived, visibility=COALESCE(excluded.visibility, forge_projects.visibility), "
         "checked_at=excluded.checked_at",
-        (f"gitlab:{ref.host}#{ref.project_id}", ref.forge, ref.host, ref.project_id,
+        (keys.gitlab_key(ref.host, ref.project_id), ref.forge, ref.host, ref.project_id,
          record.path, record.default_branch, int(record.archived) if record.archived is not None else None,
          visibility, _now_iso()),
     )

@@ -672,11 +672,8 @@ def test_context_mirror_auth_error_is_not_swallowed():
 
 
 def test_change_files_auth_failure_cannot_fallback(make_reader, monkeypatch):
-    from argus import repo_policy
-
     reader, requests, _, _ = make_reader(routes={(MR + "/diffs", "1"): httpx.Response(401)})
     monkeypatch.setitem(forge._REGISTRY, "gitlab", reader)
-    monkeypatch.setattr(repo_policy, "validate_repo", lambda repo: repo)
     monkeypatch.setattr(review, "complete_tool", lambda *args, **kwargs: pytest.fail("Unexpected provider call"))
     with pytest.raises(GitLabAuthError) as raised:
         review.run_review(KEY, 5)

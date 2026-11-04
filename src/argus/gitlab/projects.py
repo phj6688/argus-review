@@ -10,7 +10,8 @@ from argus.forge.keys import canonical_host, gitlab_key, parse_entry, parse_repo
 from argus.forge.types import ChangeMeta, RepoRecord, RepoRef
 from argus.gitlab import config
 from argus.gitlab.client import (
-    GitLabAuthError, GitLabClient, GitLabDenied, GitLabRateLimited, client as shared_client,
+    GitLabAuthError, GitLabClient, GitLabDenied, GitLabHTTPError, GitLabRateLimited,
+    client as shared_client,
 )
 from argus.repo_policy import GitLabDecision
 
@@ -90,6 +91,8 @@ def resolve_input(text: str, *, client: GitLabClient | None = None) -> str:
         parse_repo_key(key)
         return key
     except Exception as error:
+        if isinstance(error, (GitLabHTTPError, GitLabRateLimited, GitLabAuthError)):
+            raise
         if isinstance(error, GitLabDenied) and error.reason in {"redirect_refused", "not_found"}:
             raise GitLabInputError("GitLab project path is unavailable; use the new path or the numeric id") from None
         raise GitLabInputError("GitLab project input could not be resolved") from None
