@@ -1,0 +1,153 @@
+{
+  "derived": {
+    "counts": {
+      "binary": 0,
+      "collapsed": 0,
+      "deleted_file": 0,
+      "generated_file": 1,
+      "new_file": 5,
+      "renamed_file": 0,
+      "too_large": 0
+    },
+    "files": [
+      {
+        "diff_head": "@@ -0,0 +1 @@\n+(()=>{return 1})();\n",
+        "diff_len": 35,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "dist/app.min.js"
+      },
+      {
+        "diff_head": "@@ -0,0 +1 @@\n+generated API\n",
+        "diff_len": 29,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "docs/api.gen.txt"
+      },
+      {
+        "diff_head": "@@ -0,0 +1,2 @@\n+// Code generated. DO NOT EDIT.\n+package vendor\n",
+        "diff_len": 65,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "vendor/gen.pb.go"
+      },
+      {
+        "diff_head": "@@ -0,0 +1,2 @@\n+docs/api.gen.txt gitlab-generated\n+dist/** -diff\n",
+        "diff_len": 66,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": ".gitattributes"
+      },
+      {
+        "diff_head": "@@ -0,0 +1 @@\n+{\"lockfileVersion\": 3}\n",
+        "diff_len": 38,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": true,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "package-lock.json"
+      }
+    ]
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diffs_generated",
+    "question": 2
+  },
+  "request": {
+    "auth": "admin",
+    "method": "GET",
+    "params": {
+      "per_page": 100
+    },
+    "path": "/projects/1/merge_requests/74/diffs"
+  },
+  "response": {
+    "body": [
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "@@ -0,0 +1 @@\n+(()=>{return 1})();\n",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "dist/app.min.js",
+        "old_path": "dist/app.min.js",
+        "renamed_file": false,
+        "too_large": false
+      },
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "@@ -0,0 +1 @@\n+generated API\n",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "docs/api.gen.txt",
+        "old_path": "docs/api.gen.txt",
+        "renamed_file": false,
+        "too_large": false
+      },
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "@@ -0,0 +1 @@\n+{\"lockfileVersion\": 3}\n",
+        "generated_file": true,
+        "new_file": true,
+        "new_path": "package-lock.json",
+        "old_path": "package-lock.json",
+        "renamed_file": false,
+        "too_large": false
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"9f2afc55332ea3804c280e164b68564c\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/74/diffs?id=1&merge_request_iid=74&page=1&per_page=100&unidiff=false>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/74/diffs?id=1&merge_request_iid=74&page=1&per_page=100&unidiff=false>; rel=\"last\"",
+      "vary": "Accept-Encoding, Origin",
+      "x-next-page": "",
+      "x-page": "1",
+      "x-per-page": "100",
+      "x-prev-page": "",
+      "x-total": "5",
+      "x-total-pages": "1"
+    },
+    "status": 200
+  },
+  "trimmed": {
+    "body": 5
+  }
+}

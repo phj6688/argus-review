@@ -152,6 +152,32 @@ def test_fork_host_mismatch_denies_without_source_request(make_client):
     assert len(requests) == 1
 
 
+@pytest.mark.parametrize("source", [
+    RepoRef("github", "github.com", "owner/repo", None),
+    "owner/repo",
+    RepoRef("gitlab", HOST, None, None),
+    RepoRef("gitlab", HOST, None, 42.0),
+])
+def test_invalid_fork_source_denies_without_source_request(make_client, source):
+    client, requests = make_client(lambda _: httpx.Response(200, json=payload()))
+    result = projects.live_deny_change(KEY, meta(source), client=client)
+    assert result.allowed is False
+    assert result.reason == "fork_source_denied"
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize("status,allowed,reason", [
+    (200, True, "allowed"),
+    (404, False, "lookup failed: not_found"),
+])
+def test_absent_fork_source_follows_target_decision(make_client, status, allowed, reason):
+    client, requests = make_client(lambda _: httpx.Response(status, json=payload()))
+    result = projects.live_deny_change(KEY, meta(None), client=client)
+    assert result.allowed is allowed
+    assert result.reason == reason
+    assert len(requests) == 1
+
+
 @pytest.mark.parametrize("source", [None, REF, RepoRef("gitlab", HOST, "old/path", 42)])
 def test_non_fork_resolves_only_target(make_client, source):
     client, requests = make_client(lambda _: httpx.Response(200, json=payload()))

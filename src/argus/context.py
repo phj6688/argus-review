@@ -11,7 +11,7 @@ from pathlib import PurePosixPath
 from typing import Protocol
 
 from .diff import REMOVED_STATUS, FilePatch, added_lines, split_lines
-from .github import GitHubAuthError, GitHubDenied, GitHubRateLimited
+from .forge.errors import ForgeAuthError, ForgeDenied, ForgeRateLimited
 from .tokens import HeuristicEstimator, TokenEstimator
 
 FULL_FILE_MAX_LINES = 600
@@ -148,7 +148,7 @@ def _file_views(file: FilePatch, read: FileReader | None, result: RenderedContex
     if read is not None and not _generated(file.filename):
         try:
             content = read(file.filename)
-        except (GitHubRateLimited, GitHubAuthError, GitHubDenied):
+        except (ForgeRateLimited, ForgeAuthError, ForgeDenied):
             raise
         except Exception:
             result.files_read_failed += 1
@@ -265,7 +265,7 @@ def _useful_name(name: str) -> bool:
 def _read_context(read: FileReader | None, path: str) -> str | None:
     try:
         return read(path) if read is not None else None
-    except (GitHubRateLimited, GitHubAuthError, GitHubDenied):
+    except (ForgeRateLimited, ForgeAuthError, ForgeDenied):
         raise
     except Exception:
         log.exception('context read failed for %s; using patch context', path)
@@ -609,7 +609,7 @@ def _mirror_block(name, files, read, symbols, source, max_tokens, estimator):
         if name == 'callers':
             return caller_block(files, symbols, source, max_tokens, estimator)
         return cochange_block(files, symbols, source, max_tokens, estimator)
-    except (GitHubRateLimited, GitHubAuthError, GitHubDenied):
+    except (ForgeRateLimited, ForgeAuthError, ForgeDenied):
         raise
     except Exception:
         log.exception('%s context source failed', name)

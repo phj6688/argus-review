@@ -50,5 +50,15 @@ def forge_for(key: str):
     if ref.forge in _REGISTRY:
         return _REGISTRY[ref.forge]
     if ref.forge == "gitlab":
+        from argus.gitlab import config
+
+        try:
+            configured = config.base_url() is not None
+        except config.GitLabConfigError:
+            configured = False
+        if configured:
+            from argus.gitlab.reader import gitlab_forge
+
+            return gitlab_forge
         raise ForgeDenied("gitlab forge is not enabled")
     raise ForgeDenied("unknown forge")

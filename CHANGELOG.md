@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A golden snapshot suite under `tests/golden/` pins GitHub requests, prompts, return values and database rows before the forge refactor. `ARGUS_GOLDEN_UPDATE=1` regenerates it.
+- Added a GitLab reader with head checks, paginated diffs, explicit incomplete coverage, target project file reads and default branch house rules. GitLab failures no longer trigger a model fallback. GitLab auth, denial and rate-limit errors are no longer swallowed during context reads.
 - Added live GitLab project resolution by id, deny checks that follow renames and transfers, hard group denies and fork source checks. Configured GitLab integrations now report policy refusal reasons.
 - Added a GitLab HTTP client with guarded token headers, redirect refusal, bounded responses, safe pagination, per-client rate limits, GET-only retries and distinct error categories.
 - Added a pure GitLab URL guard with fixed route builders, strict path and query validation, and checks against the configured HTTPS origin and API prefix.

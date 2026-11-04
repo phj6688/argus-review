@@ -122,7 +122,10 @@ def live_deny_change(key: str, meta: ChangeMeta, *, client: GitLabClient | None 
     if not target.allowed:
         return target
     source = meta.source_repo
-    if isinstance(source, RepoRef) and source.forge == "gitlab":
+    if source is not None:
+        if (not isinstance(source, RepoRef) or source.forge != "gitlab"
+                or type(source.project_id) is not int):
+            return GitLabDecision(False, "fork_source_denied")
         ref = parse_repo_key(key)
         if (source.host, source.project_id) != (ref.host, ref.project_id):
             try:

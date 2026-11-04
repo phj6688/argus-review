@@ -43,7 +43,7 @@ from .diff import (
 )
 from .errors import HeadMoved
 from .forge import forge_for
-from .forge.errors import ForgeAuthError, ForgeDenied, ForgeRateLimited
+from .forge.errors import ForgeAuthError, ForgeDenied, ForgeError, ForgeRateLimited
 from .schema import (
     CATEGORIES, CounterEvidence, CounterEvidenceVerdict, Finding, JudgeOpinion, Review, Severity, Verdict,
     VerifiedFinding, parse_findings,
@@ -440,12 +440,23 @@ def from_github(error: Exception) -> bool:
         return False
 
 
+def from_gitlab(error: Exception) -> bool:
+    """True when an httpx error came from the configured GitLab host."""
+    from .gitlab import config
+
+    if not isinstance(error, httpx.HTTPError):
+        return False
+    try:
+        base = config.base_url()
+        return base is not None and error.request.url.host == base.host
+    except (config.GitLabConfigError, RuntimeError):
+        return False
+
+
 def fallback_eligible(error: Exception) -> bool:
-    """A second model cannot fix a forge-side failure (an auth, quota or HTTP
-    error from the GitHub API) or a moved head. A failure of the model provider
-    stays eligible."""
-    return not (isinstance(error, (HeadMoved, *_FORGE_ABORT))
-                or from_github(error))
+    """A second model cannot fix a forge failure or a moved head."""
+    return not (isinstance(error, (HeadMoved, ForgeError))
+                or from_github(error) or from_gitlab(error))
 
 
 def fetch_pr_files(repo: str, pr: int):
