@@ -369,10 +369,25 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_PUBLISH_TOKEN` | none | Write token of the bot account. |
 | `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the Config page invite the bot with `GITHUB_TOKEN` (needs Administration:write). |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. |
+| `ARGUS_GITLAB_URL` | none | HTTPS origin with an optional path prefix. No credentials, query or fragment. |
+| `ARGUS_GITLAB_TOKEN` | none | GitLab credential. |
+| `ARGUS_GITLAB_CA_BUNDLE` | none | Optional CA bundle path. |
+| `ARGUS_GITLAB_ALLOW` | none | Comma-separated projects allowed for GitLab access. |
+| `ARGUS_GITLAB_PUBLISH` | `0` | `0`, `dry-run` or `1`. |
+| `ARGUS_GITLAB_PUBLISH_PROJECTS` | none | Comma-separated exact project keys for publishing. No wildcards. |
+| `ARGUS_GITLAB_NOTES_PER_MINUTE` | `30` | Positive note limit per minute. |
+| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum trusted access level: 0, 5, 10, 15, 20, 30, 40 or 50. |
+| `ARGUS_GITLAB_WATCH` | off | Enable the GitLab watcher. |
+| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of watcher ticks between reconciliations. |
+| `ARGUS_GITLAB_REPLY_LOOP` | off | Enable replies to GitLab notes. |
+| `ARGUS_GITLAB_TIMEOUT_S` | `30.0` | Finite positive request timeout in seconds. |
+| `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, at least 1024. |
 | `ARGUS_DB_PATH` | `./.argus/argus.db` | SQLite file. Compose sets `/data/argus.db`. |
 | `ARGUS_PUBLIC_API_URL` | `http://127.0.0.1:8350` | Public URL of the API. Compose uses `ARGUS_API_PORT`. |
 | `ARGUS_API_PORT` | `8350` | Host port of the API in Docker. |
 | `ARGUS_WEB_PORT` | `3350` | Host port of the console in Docker. |
+
+GitLab support is configuration only so far. No GitLab call is made yet. `ARGUS_GITLAB_CA_BUNDLE` points at the mounted path inside the container.
 
 ## Development
 

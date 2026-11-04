@@ -125,9 +125,25 @@ services:
       ARGUS_REPLY_MAX_WRITES_PER_RUN: "${ARGUS_REPLY_MAX_WRITES_PER_RUN:-20}"
       ARGUS_RECHECK_MAX_PER_RUN: "${ARGUS_RECHECK_MAX_PER_RUN:-10}"
       ARGUS_OUTCOME_INTERVAL_TICKS: "${ARGUS_OUTCOME_INTERVAL_TICKS:-10}"
+      # GitLab stays off by default. This allowlist carries settings into the API container.
+      ARGUS_GITLAB_URL: "${ARGUS_GITLAB_URL:-}"
+      ARGUS_GITLAB_TOKEN: "${ARGUS_GITLAB_TOKEN:-}"
+      ARGUS_GITLAB_CA_BUNDLE: "${ARGUS_GITLAB_CA_BUNDLE:-}"
+      ARGUS_GITLAB_ALLOW: "${ARGUS_GITLAB_ALLOW:-}"
+      ARGUS_GITLAB_PUBLISH: "${ARGUS_GITLAB_PUBLISH:-0}"
+      ARGUS_GITLAB_PUBLISH_PROJECTS: "${ARGUS_GITLAB_PUBLISH_PROJECTS:-}"
+      ARGUS_GITLAB_NOTES_PER_MINUTE: "${ARGUS_GITLAB_NOTES_PER_MINUTE:-30}"
+      ARGUS_GITLAB_TRUSTED_LEVEL: "${ARGUS_GITLAB_TRUSTED_LEVEL:-30}"
+      ARGUS_GITLAB_WATCH: "${ARGUS_GITLAB_WATCH:-}"
+      ARGUS_GITLAB_RECONCILE_TICKS: "${ARGUS_GITLAB_RECONCILE_TICKS:-10}"
+      ARGUS_GITLAB_REPLY_LOOP: "${ARGUS_GITLAB_REPLY_LOOP:-0}"
+      ARGUS_GITLAB_TIMEOUT_S: "${ARGUS_GITLAB_TIMEOUT_S:-30}"
+      ARGUS_GITLAB_MAX_RESPONSE_BYTES: "${ARGUS_GITLAB_MAX_RESPONSE_BYTES:-10485760}"
       ARGUS_CR_THREADS_PATH: "${ARGUS_CR_THREADS_PATH:-}"
     volumes:
       - argus-data:/data
+      # ARGUS_GITLAB_CA_BUNDLE must use the path inside the container: /etc/argus/gitlab-ca.pem.
+      # - /etc/ssl/certs/gitlab-ca.pem:/etc/argus/gitlab-ca.pem:ro
     ports:
       # Loopback only. Put a reverse proxy in front before you expose it.
       - "127.0.0.1:${ARGUS_API_PORT:-8350}:8000"
