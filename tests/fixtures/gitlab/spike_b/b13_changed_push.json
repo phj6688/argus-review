@@ -1,0 +1,304 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "changed_push",
+    "question": 13
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": null,
+    "method": "GET",
+    "params": {
+      "per_page": 100
+    },
+    "path": "/projects/1/merge_requests/107/discussions"
+  },
+  "response": {
+    "body": [
+      {
+        "id": "4f95318c8d9b282e55ebb9ee3703b78cf977d1df",
+        "individual_note": false,
+        "notes": [
+          {
+            "author": {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 2,
+              "locked": false,
+              "name": "Argus Bot",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-bot",
+              "web_url": "https://gitlab.example.test/argus-bot"
+            },
+            "body": "changed",
+            "commands_changes": {},
+            "commit_id": null,
+            "confidential": false,
+            "created_at": "2026-11-02T22:26:52.270Z",
+            "id": 241,
+            "imported": false,
+            "imported_from": "none",
+            "internal": false,
+            "noteable_id": 112,
+            "noteable_iid": 107,
+            "noteable_type": "MergeRequest",
+            "position": {
+              "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+              "head_sha": "6ac9c8484ebbae854acc004f283fc7b23b08c6d5",
+              "line_range": null,
+              "new_line": 1,
+              "new_path": "spike/thread.txt",
+              "old_line": null,
+              "old_path": "spike/thread.txt",
+              "position_type": "text",
+              "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+            },
+            "project_id": 1,
+            "resolvable": true,
+            "resolved": false,
+            "resolved_at": null,
+            "resolved_by": null,
+            "suggestions": [],
+            "system": false,
+            "type": "DiffNote",
+            "updated_at": "2026-11-02T22:26:55.035Z"
+          },
+          {
+            "author": {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 3,
+              "locked": false,
+              "name": "Argus Bot Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-bot-dev",
+              "web_url": "https://gitlab.example.test/argus-bot-dev"
+            },
+            "body": "Reply.",
+            "commands_changes": {},
+            "commit_id": null,
+            "confidential": false,
+            "created_at": "2026-11-02T22:26:52.650Z",
+            "id": 243,
+            "imported": false,
+            "imported_from": "none",
+            "internal": false,
+            "noteable_id": 112,
+            "noteable_iid": 107,
+            "noteable_type": "MergeRequest",
+            "position": {
+              "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+              "head_sha": "6ac9c8484ebbae854acc004f283fc7b23b08c6d5",
+              "line_range": null,
+              "new_line": 1,
+              "new_path": "spike/thread.txt",
+              "old_line": null,
+              "old_path": "spike/thread.txt",
+              "position_type": "text",
+              "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+            },
+            "project_id": 1,
+            "resolvable": true,
+            "resolved": false,
+            "resolved_at": null,
+            "resolved_by": null,
+            "suggestions": [],
+            "system": false,
+            "type": "DiffNote",
+            "updated_at": "2026-11-02T22:26:55.035Z"
+          },
+          {
+            "author": {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 2,
+              "locked": false,
+              "name": "Argus Bot",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-bot",
+              "web_url": "https://gitlab.example.test/argus-bot"
+            },
+            "body": "Reply.",
+            "commands_changes": {},
+            "commit_id": null,
+            "confidential": false,
+            "created_at": "2026-11-02T22:26:52.746Z",
+            "id": 244,
+            "imported": false,
+            "imported_from": "none",
+            "internal": false,
+            "noteable_id": 112,
+            "noteable_iid": 107,
+            "noteable_type": "MergeRequest",
+            "position": {
+              "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+              "head_sha": "6ac9c8484ebbae854acc004f283fc7b23b08c6d5",
+              "line_range": null,
+              "new_line": 1,
+              "new_path": "spike/thread.txt",
+              "old_line": null,
+              "old_path": "spike/thread.txt",
+              "position_type": "text",
+              "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+            },
+            "project_id": 1,
+            "resolvable": true,
+            "resolved": false,
+            "resolved_at": null,
+            "resolved_by": null,
+            "suggestions": [],
+            "system": false,
+            "type": "DiffNote",
+            "updated_at": "2026-11-02T22:26:55.035Z"
+          },
+          {
+            "author": {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            },
+            "body": "changed this line in [version 2 of the diff](/argus-test/sub-a/sub-b/demo-app/-/merge_requests/107/diffs?diff_id=308&start_sha=6ac9c8484ebbae854acc004f283fc7b23b08c6d5#62c0c97477475c3ce43c57d1beb40f8dd383f53e_1_1)",
+            "commands_changes": {},
+            "commit_id": null,
+            "confidential": false,
+            "created_at": "2026-11-02T22:26:54.492Z",
+            "id": 245,
+            "imported": false,
+            "imported_from": "none",
+            "internal": false,
+            "noteable_id": 112,
+            "noteable_iid": 107,
+            "noteable_type": "MergeRequest",
+            "position": {
+              "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+              "head_sha": "6ac9c8484ebbae854acc004f283fc7b23b08c6d5",
+              "line_range": null,
+              "new_line": 1,
+              "new_path": "spike/thread.txt",
+              "old_line": null,
+              "old_path": "spike/thread.txt",
+              "position_type": "text",
+              "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+            },
+            "project_id": 1,
+            "resolvable": false,
+            "suggestions": [],
+            "system": true,
+            "type": "DiffNote",
+            "updated_at": "2026-11-02T22:26:54.492Z"
+          }
+        ],
+        "resolvable": true,
+        "resolved": false
+      },
+      {
+        "id": "2fc29d522eb2a8b54f068d19a92ea16977c02ac9",
+        "individual_note": false,
+        "notes": [
+          {
+            "author": {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 2,
+              "locked": false,
+              "name": "Argus Bot",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-bot",
+              "web_url": "https://gitlab.example.test/argus-bot"
+            },
+            "body": "untouched",
+            "commands_changes": {},
+            "commit_id": null,
+            "confidential": false,
+            "created_at": "2026-11-02T22:26:52.519Z",
+            "id": 242,
+            "imported": false,
+            "imported_from": "none",
+            "internal": false,
+            "noteable_id": 112,
+            "noteable_iid": 107,
+            "noteable_type": "MergeRequest",
+            "position": {
+              "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+              "head_sha": "dc1021d39f033a89eff6fd6193f63466a5698e80",
+              "line_range": null,
+              "new_line": 3,
+              "new_path": "spike/thread.txt",
+              "old_line": null,
+              "old_path": "spike/thread.txt",
+              "position_type": "text",
+              "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+            },
+            "project_id": 1,
+            "resolvable": true,
+            "resolved": false,
+            "resolved_at": null,
+            "resolved_by": null,
+            "suggestions": [],
+            "system": false,
+            "type": "DiffNote",
+            "updated_at": "2026-11-02T22:26:55.306Z"
+          }
+        ],
+        "resolvable": true,
+        "resolved": false
+      },
+      {
+        "id": "fdc5953e31afdba4ea960e7fcadfeb7e7d380025",
+        "individual_note": true,
+        "notes": [
+          {
+            "author": {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            },
+            "body": "added 1 commit\n\n<ul><li>dc1021d3 - Change commented line</li></ul>\n\n[Compare with previous version](/argus-test/sub-a/sub-b/demo-app/-/merge_requests/107/diffs?diff_id=308&start_sha=6ac9c8484ebbae854acc004f283fc7b23b08c6d5)",
+            "commands_changes": {},
+            "confidential": false,
+            "created_at": "2026-11-02T22:26:54.580Z",
+            "id": 246,
+            "imported": false,
+            "imported_from": "none",
+            "internal": false,
+            "noteable_id": 112,
+            "noteable_iid": 107,
+            "noteable_type": "MergeRequest",
+            "project_id": 1,
+            "resolvable": false,
+            "system": true,
+            "type": null,
+            "updated_at": "2026-11-02T22:26:54.581Z"
+          }
+        ],
+        "resolvable": false
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"92d901dd1dfe1c956f125674963d4677\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/107/discussions?id=1&noteable_id=107&page=1&per_page=100>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/107/discussions?id=1&noteable_id=107&page=1&per_page=100>; rel=\"last\"",
+      "vary": "Accept-Encoding, Origin",
+      "x-next-page": "",
+      "x-page": "1",
+      "x-per-page": "100",
+      "x-prev-page": "",
+      "x-total": "3",
+      "x-total-pages": "1"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}
