@@ -106,6 +106,18 @@ rm /tmp/argus-copy.db
 
 For a host install, run the first command against your `ARGUS_DB_PATH` with `uv run python -m sqlite3`. The snapshot holds review data. Delete it when you finish.
 
+## Forge columns for GitLab rows
+
+- `published_findings.gh_review_id`: the summary note id (integer).
+- `published_findings.gh_comment_id`: the first note id of the finding discussion (integer).
+- `published_findings.gh_thread_id`: the discussion id (40-hex text), known at creation.
+- `bot_actions.gh_comment_id`: the reply note id.
+- `publishing_identities.bot_user_id`: the bot's numeric user id; the publisher writes it, the thread reader filters the bot's own notes by id and uses the username only when the id is NULL. GitHub rows leave it NULL.
+- `pr` everywhere: the merge request iid, never the global merge request id.
+
+`forge_projects` stores mutable project attributes keyed by the opaque key `gitlab:<host>#<project_id>`.
+The new columns are NULL on GitHub rows. The `gh_*` columns are not renamed.
+
 ### GitLab policy entries
 
 GitLab policy entries use `gitlab:HOST/group/sub` for a group path or `gitlab:HOST#ID` for a project id.

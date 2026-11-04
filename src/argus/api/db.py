@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import verdict
+from ..forge.types import RepoRecord, RepoRef
 from ..publish import PublishOutcome
 from ..redact import redact
 from ..repo_policy import valid_catalogue_name
@@ -141,6 +142,31 @@ CREATE TABLE IF NOT EXISTS publishing_identities (
     repo TEXT NOT NULL, bot_login TEXT NOT NULL, first_seen_at TEXT NOT NULL,
     PRIMARY KEY(repo, bot_login)
 );
+
+-- Keep GitLab identity stable across project renames in forge_projects.
+-- Reuse the gh_* columns so existing references and constraints stay intact:
+-- published_findings.gh_review_id is the integer summary note id;
+-- gh_comment_id is the integer first note id of the finding discussion;
+-- gh_thread_id is the 40-hex discussion id, known at creation.
+-- bot_actions.gh_comment_id is the reply note id. The publisher records the
+-- numeric publishing_identities.bot_user_id so the thread reader can filter
+-- the bot's own notes by id, falling back to username only when the id is NULL.
+-- pr always holds the merge request iid, never the global merge request id.
+-- GitHub rows leave the new nullable columns NULL.
+CREATE TABLE IF NOT EXISTS forge_projects (
+    repo_key TEXT NOT NULL PRIMARY KEY,
+    forge TEXT NOT NULL,
+    host TEXT NOT NULL,
+    project_id INTEGER NOT NULL,
+    path_with_namespace TEXT,
+    default_branch TEXT,
+    archived INTEGER,
+    visibility TEXT,
+    checked_at TEXT,
+    CHECK(forge = 'gitlab' AND repo_key = 'gitlab:' || host || '#' || project_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_forge_projects_host_id ON forge_projects(host, project_id);
+
 CREATE TABLE IF NOT EXISTS outcome_cursors (
     repo TEXT PRIMARY KEY, since TEXT NOT NULL, last_collected_at TEXT
 );
@@ -295,6 +321,14 @@ def init_db(path: str | None = None) -> None:
         _ensure_column(conn, "config", "watch_mode")
         _ensure_column(conn, "config", "owned_repos", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(conn, "config", "publish_repos")
+        for table, name, decl in (
+            ("pr_heads", "author_trusted", "INTEGER"),
+            ("pr_heads", "author_id", "INTEGER"),
+            ("reply_texts", "author_trusted", "INTEGER"),
+            ("published_findings", "anchor_status", "TEXT"),
+            ("publishing_identities", "bot_user_id", "INTEGER"),
+        ):
+            _ensure_column(conn, table, name, decl)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_reviews_head ON reviews(repo, pr, head_sha)")
         row = conn.execute("SELECT repo_allowlist FROM config WHERE watch_mode IS NULL").fetchone()
         if row:
@@ -325,6 +359,37 @@ def _ensure_column(conn: sqlite3.Connection, table: str, name: str,
     columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
     if name not in columns:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+
+def upsert_forge_project(
+    conn: sqlite3.Connection, ref: RepoRef, record: RepoRecord, *, visibility: str | None = None,
+) -> None:
+    conn.execute(
+        "INSERT INTO forge_projects "
+        "(repo_key, forge, host, project_id, path_with_namespace, default_branch, archived, visibility, checked_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(repo_key) DO UPDATE SET "
+        "path_with_namespace=excluded.path_with_namespace, default_branch=excluded.default_branch, "
+        "archived=excluded.archived, visibility=COALESCE(excluded.visibility, forge_projects.visibility), "
+        "checked_at=excluded.checked_at",
+        (f"gitlab:{ref.host}#{ref.project_id}", ref.forge, ref.host, ref.project_id,
+         record.path, record.default_branch, int(record.archived) if record.archived is not None else None,
+         visibility, _now_iso()),
+    )
+
+
+def forge_project(conn: sqlite3.Connection, key: str) -> dict | None:
+    row = conn.execute("SELECT * FROM forge_projects WHERE repo_key=?", (key,)).fetchone()
+    return dict(row) if row is not None else None
+
+
+def bot_user_id(conn: sqlite3.Connection, repo: str) -> int | None:
+    row = conn.execute(
+        "SELECT bot_user_id FROM publishing_identities "
+        "WHERE repo=? AND bot_user_id IS NOT NULL ORDER BY first_seen_at DESC LIMIT 1",
+        (repo,),
+    ).fetchone()
+    return row[0] if row is not None else None
 
 
 def create_review(
@@ -674,7 +739,7 @@ def _save_published_items(conn, review_id, outcome):
     review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
     mode = "dry_run" if outcome.status == "dry_run" else "posted"
     if outcome.bot_login:
-        conn.execute("INSERT OR IGNORE INTO publishing_identities VALUES (?, ?, ?)",
+        conn.execute("INSERT OR IGNORE INTO publishing_identities (repo, bot_login, first_seen_at) VALUES (?, ?, ?)",
                      (review["repo"], outcome.bot_login, outcome.posted_at or _now_iso()))
     for item in outcome.items:
         # Review ids increase over time; the newest review's rendering wins regardless of write order.

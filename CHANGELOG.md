@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added GitLab project storage, nullable forge columns and shared trust helpers. GitHub behavior is unchanged.
 - Added a repository key parser and forge aware deny and allow policy. `is_denied` stays pure and denies every GitLab key. GitHub behavior is unchanged.
 - GitLab token prefixes are redacted. The `ARGUS_GITLAB_*` settings and a single base URL parser add configuration only, with GitLab features off by default and no GitLab calls yet.
 - Added `argus.forge` with neutral types and an error hierarchy. GitHub exceptions gain neutral bases with no behavior change.
