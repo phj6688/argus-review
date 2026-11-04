@@ -544,6 +544,18 @@ def test_transient_gitlab_lookup_failure_requeues(path, gitlab, reason):
     assert db.list_reviews(path) == []
 
 
+def test_rate_limited_lookup_without_future_reset_waits(path, gitlab, monkeypatch):
+    queue_gitlab(path)
+    gitlab.decision = GitLabDecision(False, "lookup failed: rate_limited")
+    monkeypatch.setattr(gitlab_client, "client", lambda: SimpleNamespace(pause_until=lambda: 0.0))
+    before = time.time()
+    assert watcher.process_one(path)
+    row = watch_store.heads(path)[0]
+    assert row["status"] == "queued"
+    assert row["attempts"] == 0
+    assert datetime.fromisoformat(row["next_attempt_at"]).timestamp() > before
+
+
 @pytest.mark.parametrize("boundary", ["meta_error", "deny_error"])
 @pytest.mark.parametrize("limited", [False, True])
 def test_gitlab_lookup_exception_requeues(path, gitlab, boundary, limited):
