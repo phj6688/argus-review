@@ -8,6 +8,7 @@ from contextlib import closing
 from pathlib import Path
 
 from argus.api.db import db_path
+from argus.forge.keys import github_key_sql
 
 
 def main():
@@ -16,7 +17,9 @@ def main():
     args = parser.parse_args()
     with closing(sqlite3.connect(Path(args.db).resolve().as_uri() + "?mode=ro", uri=True)) as conn:
         conn.row_factory = sqlite3.Row
-        for row in conn.execute("SELECT * FROM known_fps_live ORDER BY repo, file, title"):
+        for row in conn.execute(
+            f"SELECT * FROM known_fps_live WHERE {github_key_sql('repo')} ORDER BY repo, file, title"  # nosec B608 - validated identifier
+        ):
             print(json.dumps({**dict(row), "verdict": "FALSE_POSITIVE",
                               "reason": f"Author rejected the published finding (reply {row['reply_id']})"}))
 

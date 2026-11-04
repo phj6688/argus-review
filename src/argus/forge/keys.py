@@ -9,6 +9,7 @@ from .types import RepoRef
 GITHUB_OWNER = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}\Z")
 GITHUB_NAME = re.compile(r"[A-Za-z0-9._-]{1,100}\Z")
 GITLAB_MAX_DEPTH = 20
+_SQL_COLUMN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?\Z")
 
 
 def canonical_host(host: str, port: int | None = None, default_port: int = 443) -> str:
@@ -65,6 +66,13 @@ def is_gitlab_key(key: str) -> bool:
 
 def is_github_key(key: str) -> bool:
     return ":" not in key
+
+
+def github_key_sql(column: str) -> str:
+    """SQL condition that is true for a GitHub key. Twin of is_github_key."""
+    if not _SQL_COLUMN.fullmatch(column):
+        raise ValueError("invalid sql column name")
+    return f"instr({column}, ':') = 0"
 
 
 def parse_repo_key(key: str) -> RepoRef:

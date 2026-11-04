@@ -7,7 +7,8 @@ from collections import defaultdict
 from pathlib import Path
 
 from argus.acceptance import _signals
-from argus.forge.skips import count_skip, is_gitlab_key, log_skips
+from argus.forge.keys import is_github_key
+from argus.forge.skips import count_skip, log_skips
 
 from .reports import readonly
 
@@ -34,7 +35,7 @@ def labelled_findings(conn, since=None, until=None, stats=None):
         'AND (? IS NULL OR julianday(posted_at)<julianday(?)) ORDER BY id',
         (since, since, until, until),
     ):
-        if is_gitlab_key(finding['repo']):
+        if not is_github_key(finding['repo']):
             skipped += 1
             count_skip(stats)
             continue

@@ -2,7 +2,8 @@
 
 CodeRabbit-side volume/action numbers come from data/cr_threads.jsonl (its own
 persisted threads: a precision oracle of what it surfaced, not ground truth).
-Argus-side numbers come from the live reviews/findings DB where derivable.
+Argus-side numbers come through GitHub-filtered metrics, with no SQL here.
+per_repo_rows reads only the CodeRabbit JSONL corpus.
 Catch-rate and false-positive-rate stay pending until the injected-bug and
 verified-finding corpora are scored locally.
 """
