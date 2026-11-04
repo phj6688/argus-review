@@ -86,6 +86,7 @@ class PublishOutcome:
     gh_review_id: int | None = None
     bot_login: str | None = None
     posted_at: str | None = None
+    bot_user_id: int | None = None
 
 
 def enabled_for(repo: str) -> bool:

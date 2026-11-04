@@ -8,6 +8,7 @@ service uses the repo data dir by default.
 import json
 import logging
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -701,28 +702,67 @@ def save_result(path: str | None, review_id: int, result: ReviewResult) -> None:
         conn.close()
 
 
+def _redact_json(value):
+    if isinstance(value, dict):
+        return {
+            (redact(key) if isinstance(key, str) else key): "[redacted]" if (
+                isinstance(key, str) and isinstance(item, str) and re.fullmatch(
+                    r"api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password", key, re.IGNORECASE
+                )
+            ) else _redact_json(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact_json(item) for item in value]
+    if isinstance(value, str):
+        return redact(value)
+    return value
+
+
+def _bound_payload(payload: str) -> str:
+    if len(payload) > 200_000:
+        # Keep oversized records valid JSON and make the loss explicit. ASCII
+        # JSON makes the character limit equal the stored UTF-8 byte limit.
+        original = payload
+        low, high = 0, 200_000
+        while low < high:
+            middle = (low + high + 1) // 2
+            candidate = json.dumps({"truncated": True, "original_bytes": len(original),
+                                    "preview": original[:middle]})
+            if len(candidate) <= 200_000:
+                low = middle
+            else:
+                high = middle - 1
+        payload = json.dumps({"truncated": True, "original_bytes": len(original),
+                              "preview": original[:low]})
+    return payload
+
+
 def save_publish_outcome(path: str | None, review_id: int, outcome: PublishOutcome) -> None:
     """Record publishing separately so posting cannot change the review's status."""
     payload = None
-    if outcome.payload is not None:
-        payload = json.dumps(outcome.payload)
-        if len(payload) > 200_000:
-            # Keep oversized records valid JSON and make the loss explicit. ASCII
-            # JSON makes the character limit equal the stored UTF-8 byte limit.
-            original = payload
-            low, high = 0, 200_000
-            while low < high:
-                middle = (low + high + 1) // 2
-                candidate = json.dumps({"truncated": True, "original_bytes": len(original),
-                                        "preview": original[:middle]})
-                if len(candidate) <= 200_000:
-                    low = middle
-                else:
-                    high = middle - 1
-            payload = json.dumps({"truncated": True, "original_bytes": len(original),
-                                  "preview": original[:low]})
     conn = connect(path)
     try:
+        review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if review and keys.is_gitlab_key(review["repo"]):
+            if outcome.payload is not None:
+                # Truncation can hide credential keys or leave unrecognizable secret fragments.
+                payload = _bound_payload(json.dumps(_redact_json(outcome.payload), ensure_ascii=True))
+            conn.execute(
+                "UPDATE reviews SET publish_status = ?, published_at = ?, publish_error = ?, "
+                "published_comments = ?, publish_payload = ? WHERE id = ?",
+                (outcome.status, (outcome.posted_at or _now_iso()) if outcome.status == "posted" else None,
+                 redact(outcome.reason), outcome.comments_posted, payload, review_id),
+            )
+            if outcome.status in {"posted", "dry_run"} or (
+                outcome.status == "error" and outcome.reason == "partial_post"
+                and (outcome.gh_review_id is not None or any(_gitlab_confirmed(item, outcome) for item in outcome.items))
+            ):
+                _save_published_items(conn, review_id, outcome, review)
+            conn.commit()
+            return
+        if outcome.payload is not None:
+            payload = _bound_payload(json.dumps(outcome.payload))
         conn.execute(
             "UPDATE reviews SET publish_status = ?, published_at = ?, publish_error = ?, "
             "published_comments = ?, publish_payload = ? WHERE id = ?",
@@ -736,8 +776,11 @@ def save_publish_outcome(path: str | None, review_id: int, outcome: PublishOutco
         conn.close()
 
 
-def _save_published_items(conn, review_id, outcome):
-    review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
+def _save_published_items(conn, review_id, outcome, review=None):
+    if review is None:
+        review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
+    if keys.is_gitlab_key(review["repo"]):
+        return _save_gitlab_items(conn, review_id, outcome, review)
     mode = "dry_run" if outcome.status == "dry_run" else "posted"
     if outcome.bot_login:
         conn.execute("INSERT OR IGNORE INTO publishing_identities (repo, bot_login, first_seen_at) VALUES (?, ?, ?)",
@@ -762,6 +805,50 @@ def _save_published_items(conn, review_id, outcome):
              item["severity"], item.get("category"), item["file"], item["line"], item.get("end_line"),
              item["title"], item["placement"], mode, outcome.gh_review_id, item.get("gh_comment_id"),
              outcome.posted_at or _now_iso(), int(item.get("unverified", False))),
+        )
+
+
+def _gitlab_confirmed(item, outcome):
+    if item["placement"] == "summary":
+        return outcome.gh_review_id is not None
+    return item.get("gh_comment_id") is not None and bool(item.get("gh_thread_id"))
+
+
+def _save_gitlab_items(conn, review_id, outcome, review):
+    mode = "dry_run" if outcome.status == "dry_run" else "posted"
+    posted_at = outcome.posted_at or _now_iso()
+    if outcome.bot_login:
+        conn.execute(
+            "INSERT INTO publishing_identities (repo, bot_login, first_seen_at, bot_user_id) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(repo, bot_login) DO UPDATE SET "
+            "bot_user_id = COALESCE(excluded.bot_user_id, publishing_identities.bot_user_id)",
+            (review["repo"], outcome.bot_login, posted_at, outcome.bot_user_id),
+        )
+    for item in outcome.items:
+        if mode == "posted" and not _gitlab_confirmed(item, outcome):
+            continue
+        conn.execute(
+            "INSERT INTO published_findings "
+            "(review_id,repo,pr,head_sha,fingerprint,severity,category,path,line,end_line,title,"
+            "placement,mode,gh_review_id,gh_comment_id,gh_thread_id,anchor_status,posted_at,unverified) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(repo,pr,fingerprint,head_sha,mode) DO UPDATE SET "
+            "gh_review_id=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.gh_review_id,published_findings.gh_review_id) ELSE excluded.gh_review_id END, "
+            "gh_comment_id=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.gh_comment_id,published_findings.gh_comment_id) ELSE excluded.gh_comment_id END, "
+            "gh_thread_id=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.gh_thread_id,published_findings.gh_thread_id) ELSE excluded.gh_thread_id END, "
+            "anchor_status=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.anchor_status,published_findings.anchor_status) ELSE excluded.anchor_status END, "
+            "placement=excluded.placement, unverified=excluded.unverified, review_id=excluded.review_id, "
+            "severity=excluded.severity, category=excluded.category, path=excluded.path, line=excluded.line, "
+            "end_line=excluded.end_line, title=excluded.title, posted_at=excluded.posted_at "
+            "WHERE excluded.review_id >= published_findings.review_id",
+            (review_id, review["repo"], review["pr"], review["head_sha"], item["fingerprint"],
+             item["severity"], item.get("category"), item["file"], item["line"], item.get("end_line"),
+             item["title"], item["placement"], mode, outcome.gh_review_id, item.get("gh_comment_id"),
+             item.get("gh_thread_id"), item.get("anchor_status"), posted_at, int(item.get("unverified", False))),
         )
 
 

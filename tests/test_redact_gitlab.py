@@ -2,6 +2,7 @@
 
 import json
 import re
+import time
 
 import pytest
 
@@ -62,3 +63,22 @@ def test_configured_gitlab_token_is_redacted_without_a_known_prefix(monkeypatch)
 @pytest.mark.parametrize("text", ["glpat", "the glpat- prefix", "glider-plane-1"])
 def test_ordinary_words_are_not_redacted(text):
     assert redact(text) == text
+
+
+def test_long_letters_are_redacted_in_under_two_seconds():
+    text = "a" * 100_000
+    started = time.perf_counter()
+    result = redact(text)
+    elapsed = time.perf_counter() - started
+    assert result == text
+    assert elapsed < 2.0
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("https://reviewer:password@example.test/repo", "https://[redacted]@example.test/repo"),
+    ("https://example.test/repo?private=value", "https://example.test/repo?[redacted]"),
+    ("https://reviewer:password@example.test/repo?private=value",
+     "https://[redacted]@example.test/repo?[redacted]"),
+])
+def test_url_credentials_are_still_redacted(text, expected):
+    assert redact(text) == expected
