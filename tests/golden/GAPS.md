@@ -1,0 +1,1 @@
+- `automark/select-and-mark`: dash-free persisted notes are unavailable because production generates a long dash in each note. The snapshots retain those notes verbatim to pin current behavior without changing production.

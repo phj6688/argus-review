@@ -1,0 +1,86 @@
+{
+  "case": "check-missing-403-404-401",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/forbidden"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/missing"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/rejected"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/readonly"
+    }
+  ],
+  "result": {
+    "example/forbidden": {
+      "detail": "GitHub refused the check (status 403)",
+      "grant": null,
+      "settingsUrl": "https://github.com/example/forbidden/settings/access",
+      "state": "unknown"
+    },
+    "example/missing": {
+      "detail": "bot cannot see this repository",
+      "grant": null,
+      "settingsUrl": "https://github.com/example/missing/settings/access",
+      "state": "missing"
+    },
+    "example/readonly": {
+      "detail": "bot has no write access",
+      "grant": null,
+      "settingsUrl": "https://github.com/example/readonly/settings/access",
+      "state": "missing"
+    },
+    "example/rejected": {
+      "detail": "publish token was rejected",
+      "grant": null,
+      "settingsUrl": "https://github.com/example/rejected/settings/access",
+      "state": "unknown"
+    }
+  },
+  "scenario": "publish-access"
+}
