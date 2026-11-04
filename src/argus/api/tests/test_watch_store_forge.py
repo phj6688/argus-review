@@ -124,6 +124,7 @@ def test_merged_before_seen_matches_github_row_and_requeue(path):
     }
     assert (gl["status"], gl["is_open"], gl["merged_before_seen"]) == ("queued", 0, 1)
     watch_store.restrict_repos(path, [], NOW)
+    watch_store.restrict_repos(path, [], NOW, forge="gitlab")
     assert watch_store.requeue_fast_merges(path, [GH], NOW) == 1
     assert watch_store.requeue_fast_merges(path, [GL], NOW) == 1
     assert watch_store.requeue_fast_merges(path, [GH, GL], NOW) == 0
@@ -172,6 +173,7 @@ def test_incremental_merge_of_queued_sha_matches_github_requeue(path):
     }
     assert (gl["status"], gl["is_open"], gl["merged_before_seen"]) == ("queued", 0, 1)
     watch_store.restrict_repos(path, [], later)
+    watch_store.restrict_repos(path, [], later, forge="gitlab")
     assert watch_store.requeue_fast_merges(path, [GH], later) == 1
     assert watch_store.requeue_fast_merges(path, [GL], later) == 1
     assert [watch_store.claim(path, later)["repo"] for _ in range(2)] == [GH, GL]

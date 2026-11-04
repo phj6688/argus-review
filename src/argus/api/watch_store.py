@@ -303,16 +303,19 @@ def poll_window_start(updated_after, overlap_seconds=300):
     return (db._parse_created_at(updated_after) - timedelta(seconds=overlap_seconds)).isoformat()
 
 
-def restrict_repos(path, repos, now=None):
+def restrict_repos(path, repos, now=None, *, forge="github"):
+    if forge not in {"github", "gitlab"}:
+        raise ValueError("unknown forge")
+    predicate = github_key_sql("repo") if forge == "github" else gitlab_key_sql("repo")
     stamp = (now or utcnow()).isoformat()
     with connection(path) as conn:
         placeholders = ",".join("?" for _ in repos) or "''"
         conn.execute(
-            f"UPDATE pr_heads SET is_open=0 WHERE repo NOT IN ({placeholders})",  # nosec B608 - placeholders only
+            f"UPDATE pr_heads SET is_open=0 WHERE repo NOT IN ({placeholders}) AND {predicate}",  # nosec B608 - placeholders and shared predicate
             repos,
         )
         conn.execute(
-            f"UPDATE pr_heads SET status='closed', ended_at=? WHERE repo NOT IN ({placeholders}) AND status='queued'",  # nosec B608 - placeholders only
+            f"UPDATE pr_heads SET status='closed', ended_at=? WHERE repo NOT IN ({placeholders}) AND status='queued' AND {predicate}",  # nosec B608 - placeholders and shared predicate
             (stamp, *repos),
         )
 
@@ -444,13 +447,13 @@ def finish(path, head, review_id, error=None, now=None):
         _finish(conn, head, review_id, error, now or utcnow())
 
 
-def close_claim(path, head, now=None):
+def close_claim(path, head, now=None, reason=None):
     with connection(path) as conn:
         # An expired worker must not close a newer claim.
         conn.execute(
-            "UPDATE pr_heads SET status='closed', ended_at=?, is_open=0, next_attempt_at=NULL "
-            "WHERE id=? AND status='running' AND claimed_at=?",
-            ((now or utcnow()).isoformat(), head["id"], head["claimed_at"]),
+            "UPDATE pr_heads SET status='closed', ended_at=?, is_open=0, next_attempt_at=NULL, "
+            "skip_reason=COALESCE(?, skip_reason) WHERE id=? AND status='running' AND claimed_at=?",
+            ((now or utcnow()).isoformat(), reason, head["id"], head["claimed_at"]),
         )
 
 
