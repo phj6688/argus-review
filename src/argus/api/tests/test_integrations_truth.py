@@ -157,16 +157,34 @@ def test_gitlab_unset_preserves_exact_response_bytes(client, clean_env):
 def test_gitlab_valid_policy_has_no_refusal(client, clean_env):
     clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
     clean_env.setenv("ARGUS_GITLAB_ALLOW", "gitlab:gitlab.example.test/group")
-    assert client.get("/integrations").json()["gitlab"] == {"refusal": None}
+    block = client.get("/integrations").json()["gitlab"]
+    assert block == {
+        "host": "gitlab.example.test", "token": "missing",
+        "identity": {"status": "skipped", "reason": "token_missing"},
+        "publish": {"mode": "0", "projectCount": 0}, "allowCount": 1, "refusal": None,
+    }
 
 
 def test_gitlab_invalid_policy_reports_safe_refusal(client, clean_env):
+    from contextlib import closing
+
+    import httpx
+    from argus.gitlab import client as client_module, status
+
     token = "gl" + "pat-" + "x" * 20
     clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
     clean_env.setenv("ARGUS_GITLAB_TOKEN", token)
     clean_env.setenv("ARGUS_GITLAB_ALLOW", "https://private.test/" + token)
-    response = client.get("/integrations")
-    assert response.json()["gitlab"] == {"refusal": "ARGUS_GITLAB_ALLOW: invalid entry"}
+    clean_env.setattr(status, "_identity_cache", None)
+    with closing(client_module.GitLabClient(transport=httpx.MockTransport(
+            lambda _: httpx.Response(401)))) as connection:
+        clean_env.setattr(client_module, "client", lambda: connection)
+        response = client.get("/integrations")
+    block = response.json()["gitlab"]
+    assert block["refusal"] == "ARGUS_GITLAB_ALLOW: invalid entry"
+    assert set(block) == {"host", "token", "identity", "publish", "allowCount", "refusal"}
+    assert block["token"] == "configured"
+    assert block["identity"] == {"status": "failed", "reason": "gitlab_auth"}
     assert token not in response.text
     assert "https://private.test/" not in response.text
     assert "https://gitlab.example.test" not in response.text

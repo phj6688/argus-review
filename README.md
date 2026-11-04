@@ -123,6 +123,8 @@ The CLI has these commands:
 | `argus publish-preview REVIEW_ID` | Renders a stored review as the GitHub payload, without posting. |
 | `argus publish-placement REVIEW_ID` | Lists where each finding would go and whether the line can take a comment. |
 
+With GitLab configured, `review` and `compress` also accept either GitLab key form plus the MR iid, or a single configured instance MR URL. The API and MCP `review_pr` accept both key forms. See [Review entry points](docs/gitlab.md#review-entry-points).
+
 To run the API and the console on the host:
 
 ```bash

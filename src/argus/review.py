@@ -44,6 +44,7 @@ from .diff import (
 from .errors import HeadMoved
 from .forge import forge_for
 from .forge.errors import ForgeAuthError, ForgeDenied, ForgeError, ForgeRateLimited
+from .forge.keys import is_gitlab_key
 from .schema import (
     CATEGORIES, CounterEvidence, CounterEvidenceVerdict, Finding, JudgeOpinion, Review, Severity, Verdict,
     VerifiedFinding, parse_findings,
@@ -472,7 +473,7 @@ def run_review(
 
     from .repo_policy import validate_repo
 
-    validate_repo(repo)
+    validate_repo(repo, allow_gitlab=is_gitlab_key(repo))
     forge = forge_for(repo)
     verify_variant = _resolve_variant(verify_variant)
     files = fetch_pr_files(repo, pr)
@@ -558,6 +559,8 @@ def run_diff_review(
     from .repo_policy import validate_repo
 
     if repo:
+        if is_gitlab_key(repo):
+            raise ValueError("run_diff_review supports GitHub repositories only")
         validate_repo(repo)
     verify_variant = _resolve_variant(verify_variant)
     read = _file_reader(repo, head_sha, file_loader)

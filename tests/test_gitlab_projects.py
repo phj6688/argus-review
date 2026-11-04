@@ -13,7 +13,9 @@ from argus.api import db
 from argus.forge.keys import parse_repo_key
 from argus.forge.types import ChangeMeta, RepoRecord, RepoRef
 from argus.gitlab import projects
-from argus.gitlab.client import GitLabClient, GitLabDenied
+from argus.gitlab.client import (
+    GitLabAuthError, GitLabClient, GitLabDenied, GitLabHTTPError, GitLabRateLimited,
+)
 
 HOST = "gitlab.example.test"
 KEY = f"gitlab:{HOST}#42"
@@ -353,11 +355,31 @@ def test_input_invalid_response_id_raises(make_client, data):
         projects.resolve_input("allowed/app", client=client)
 
 
-@pytest.mark.parametrize("status", [401, 403, 429, 500])
-def test_input_other_failures_have_fixed_safe_message(make_client, status):
-    client, _ = make_client(lambda _: httpx.Response(status, text=TOKEN))
+def test_input_other_failures_have_fixed_safe_message(make_client):
+    client, _ = make_client(lambda _: httpx.Response(403, text=TOKEN))
     with pytest.raises(projects.GitLabInputError, match="^GitLab project input could not be resolved$"):
         projects.resolve_input("allowed/app", client=client)
+
+
+@pytest.mark.parametrize("status,error_type", [
+    (401, GitLabAuthError), (429, GitLabRateLimited), (500, GitLabHTTPError),
+])
+def test_input_upstream_failures_propagate(make_client, status, error_type):
+    client, _ = make_client(lambda _: httpx.Response(status, text=TOKEN))
+    with pytest.raises(error_type) as caught:
+        projects.resolve_input("allowed/sub/app", client=client)
+    assert TOKEN not in str(caught.value)
+
+
+def test_input_timeout_propagates_as_http_error(make_client):
+    def fail(request):
+        raise httpx.ReadTimeout(TOKEN, request=request)
+
+    client, _ = make_client(fail)
+    with pytest.raises(GitLabHTTPError) as caught:
+        projects.resolve_input("allowed/sub/app", client=client)
+    assert caught.value.reason == "transport"
+    assert TOKEN not in str(caught.value)
 
 
 def test_rename_updates_one_row_and_checked_at(make_client, monkeypatch, configured):
