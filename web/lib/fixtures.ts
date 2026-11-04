@@ -7,6 +7,7 @@ import type {
   ReviewSummary,
   LiveReview,
   ReviewDetail,
+  RiskTier,
   Report,
   ReportPeriod,
   Benchmark,
@@ -75,6 +76,37 @@ const rawReviews: RawRow[] = [
   ["acme/tooling", 207, "editor: lazy-load language servers", "gpt-5.6-terra", "2d", 0, 0, 0, 6, "not_posted"],
 ];
 
+const safeRisk: RiskTier = {
+  tier: "safe",
+  label: "Risk tier: safe (path and size rule only; not a correctness verdict)",
+  reasons: [],
+};
+
+const riskyLabel = "Risk tier: risky (path and size rule only; needs the operator checkpoint; not a correctness verdict)";
+
+const reviewRisks: Record<string, RiskTier> = {
+  "acme/infra#218": {
+    tier: "risky",
+    label: riskyLabel,
+    reasons: ["tripwire path deploy/docker-compose.prod.yml (docker-compose*)"],
+  },
+  "acme/web#142": {
+    ...safeRisk,
+    changed_lines: 59,
+    max_lines: 300,
+    files: 3,
+    incomplete: false,
+  },
+  "acme/web#140": {
+    tier: "risky",
+    label: riskyLabel,
+    reasons: [
+      "tripwire path api/proxy.ts (*proxy*)",
+      "412 changed lines exceed the 300 line limit",
+    ],
+  },
+};
+
 export const reviews: ReviewSummary[] = rawReviews.map((r) => ({
   id: `${r[0].replace("/", "-")}-${r[1]}`,
   repo: r[0],
@@ -85,6 +117,9 @@ export const reviews: ReviewSummary[] = rawReviews.map((r) => ({
   counts: { critical: r[5], major: r[6], minor: r[7], nit: r[8] },
   action: r[9],
   posted_comments: r[9] === "posted" ? r[5] + r[6] + r[7] : 0,
+  ...(r[0] === "acme/tooling" && r[1] === 207
+    ? {}
+    : { risk: reviewRisks[`${r[0]}#${r[1]}`] ?? safeRisk }),
 }));
 
 export const reviewDetail: ReviewDetail = {
@@ -98,6 +133,7 @@ export const reviewDetail: ReviewDetail = {
   model_used: "gpt-6.1-sol",
   fallback_from: null,
   fallback_reason: null,
+  risk: reviewRisks["acme/web#142"],
   status: "done",
   time: "22m ago",
   filesChanged: 3,
@@ -270,6 +306,7 @@ function withoutHeader(detail: ReviewDetail): ReviewDetail {
   delete copy.filesChanged;
   delete copy.added;
   delete copy.removed;
+  delete copy.risk;
   return copy;
 }
 

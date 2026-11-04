@@ -160,11 +160,11 @@ def test_background_task_marks_error_when_run_review_raises(db_path):
 
 # Field sets the web view models require (web/lib/types.ts). A missing key the
 # UI reads crashes the screen, so assert the contract by key set, not by hand.
-_SUMMARY_KEYS = {"id", "repo", "pr", "title", "model", "counts", "action", "age"}
+_SUMMARY_KEYS = {"id", "repo", "pr", "title", "model", "counts", "action", "age", "risk"}
 _LIVE_KEYS = {"repo", "pr", "title", "model", "stage", "elapsed"}
 _DETAIL_KEYS = {
     "id", "repo", "pr", "title", "model", "time", "model_used", "fallback_from",
-    "fallback_reason", "decision", "bugs", "nits", "thread",
+    "fallback_reason", "decision", "bugs", "nits", "thread", "risk",
 }
 
 

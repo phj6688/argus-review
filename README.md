@@ -356,6 +356,8 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_PROVIDER` | auto | Model provider. |
 | `ARGUS_MODEL` | provider default | Reviewer model. |
 | `ARGUS_FALLBACK_MODEL` | none | Second attempt on failure. |
+| `ARGUS_RISK_TRIPWIRES` | [Default patterns](docs/risk-tier.md) | Comma-separated path patterns replacing the defaults. Blank uses the defaults. |
+| `ARGUS_RISK_MAX_LINES` | `300` | Positive added plus deleted line limit for the risk tier. Exactly 300 is within the default limit. |
 | `ARGUS_MODEL_OPTIONS` | none | Models the console offers. |
 | `GITHUB_TOKEN` | none | Read token. |
 | `ARGUS_WATCH_ENABLED` | off | Start the PR watcher. |
@@ -406,6 +408,7 @@ More docs:
 - [DEPLOY.md](DEPLOY.md): self-hosting behind a reverse proxy, upgrades and backups.
 - [docs/publishing.md](docs/publishing.md): posting, the reply loop and acceptance tracking.
 - [docs/evaluation.md](docs/evaluation.md): offline replay and scoring.
+- [docs/risk-tier.md](docs/risk-tier.md): the path and size category and operator checkpoint.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to send a change.
 
 ## License
