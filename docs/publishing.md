@@ -106,6 +106,11 @@ rm /tmp/argus-copy.db
 
 For a host install, run the first command against your `ARGUS_DB_PATH` with `uv run python -m sqlite3`. The snapshot holds review data. Delete it when you finish.
 
+### GitLab policy entries
+
+GitLab policy entries use `gitlab:HOST/group/sub` for a group path or `gitlab:HOST#ID` for a project id.
+A bare `ARGUS_DENY_OWNERS` entry also denies GitLab projects whose top-level group matches, ignoring case.
+
 ## Learning from rejections
 
 A rejected finding enters the live known-false-positive feed. The next review suppresses the exact repository, file and normalized title. Titles are lowercased with whitespace collapsed. The live cache lasts at most 60 seconds.

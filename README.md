@@ -389,6 +389,9 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 
 GitLab support is configuration only so far. No GitLab call is made yet. `ARGUS_GITLAB_CA_BUNDLE` points at the mounted path inside the container.
 
+GitLab policy entries use `gitlab:HOST/group/sub` for a group path or `gitlab:HOST#ID` for a project id.
+A bare `ARGUS_DENY_OWNERS` entry also denies GitLab projects whose top-level group matches, ignoring case.
+
 ## Development
 
 ```bash

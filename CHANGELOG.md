@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a repository key parser and forge aware deny and allow policy. `is_denied` stays pure and denies every GitLab key. GitHub behavior is unchanged.
 - GitLab token prefixes are redacted. The `ARGUS_GITLAB_*` settings and a single base URL parser add configuration only, with GitLab features off by default and no GitLab calls yet.
 - Added `argus.forge` with neutral types and an error hierarchy. GitHub exceptions gain neutral bases with no behavior change.
 - The posting list is rechecked immediately before each review POST (and the 422 retry), and the deny policy is read strictly and revalidated before the auto-invite collaborator PUT. An unreadable deny list blocks the invite. A small window remains between the PUT and the invitation accept, which is not rechecked.
