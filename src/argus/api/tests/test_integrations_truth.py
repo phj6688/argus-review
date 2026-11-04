@@ -46,6 +46,7 @@ CLEARED = (
     "OPENAI_API_KEY", "OPENAI_BASE_URL", "ARGUS_WATCH_ENABLED", "ARGUS_WATCH_OWNERS",
     "ARGUS_WATCH_INTERVAL", "ARGUS_PUBLISH", "ARGUS_PUBLISH_REPOS", "ARGUS_PUBLISH_TOKEN", "ARGUS_PUBLISH_AUTO_INVITE",
     "GITHUB_TOKEN", "OPENROUTER_API_KEY",
+    "ARGUS_GITLAB_URL", "ARGUS_GITLAB_TOKEN", "ARGUS_GITLAB_ALLOW", "ARGUS_DENY_OWNERS",
 )
 
 
@@ -142,3 +143,30 @@ def test_malformed_base_url_returns_empty_not_500(client, clean_env, monkeypatch
     response = client.get("/integrations")
     assert response.status_code == 200
     assert response.json()["api"]["baseUrl"] == ""
+
+
+def test_gitlab_unset_preserves_exact_response_bytes(client, clean_env):
+    response = client.get("/integrations")
+    assert set(response.json()) == {"health", "warning", "github", "api", "mcp"}
+    assert "gitlab" not in response.json()
+    clean_env.setenv("ARGUS_GITLAB_URL", "")
+    clean_env.setenv("ARGUS_GITLAB_ALLOW", "invalid")
+    assert client.get("/integrations").content == response.content
+
+
+def test_gitlab_valid_policy_has_no_refusal(client, clean_env):
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
+    clean_env.setenv("ARGUS_GITLAB_ALLOW", "gitlab:gitlab.example.test/group")
+    assert client.get("/integrations").json()["gitlab"] == {"refusal": None}
+
+
+def test_gitlab_invalid_policy_reports_safe_refusal(client, clean_env):
+    token = "gl" + "pat-" + "x" * 20
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
+    clean_env.setenv("ARGUS_GITLAB_TOKEN", token)
+    clean_env.setenv("ARGUS_GITLAB_ALLOW", "https://private.test/" + token)
+    response = client.get("/integrations")
+    assert response.json()["gitlab"] == {"refusal": "ARGUS_GITLAB_ALLOW: invalid entry"}
+    assert token not in response.text
+    assert "https://private.test/" not in response.text
+    assert "https://gitlab.example.test" not in response.text

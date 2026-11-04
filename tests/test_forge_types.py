@@ -142,7 +142,7 @@ pytestmark = pytest.mark.parametrize(
         ),
         pytest.param(
             RepoRecord,
-            dict(path="owner/name", archived=False, default_branch="main"),
+            dict(path="owner/name", archived=False, default_branch="main", visibility="private"),
             id="repo-record",
         ),
         pytest.param(

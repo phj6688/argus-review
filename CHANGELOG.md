@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added live GitLab project resolution by id, deny checks that follow renames and transfers, hard group denies and fork source checks. Configured GitLab integrations now report policy refusal reasons.
 - Added a GitLab HTTP client with guarded token headers, redirect refusal, bounded responses, safe pagination, per-client rate limits, GET-only retries and distinct error categories.
 - Added a pure GitLab URL guard with fixed route builders, strict path and query validation, and checks against the configured HTTPS origin and API prefix.
 - A review whose file listing was incomplete (more than 3000 files, an unsafe path, or an unparseable diff section) no longer reports `full` coverage. The reviewer lane records `files_unseen: true`, and when that lane ran the coverage level is `partial` instead of `full`. A skipped reviewer lane keeps its previous coverage level. `files_omitted` and the posted line "Files reviewed: N; omitted: M" are unchanged, and lane records of complete listings are byte-identical. Stored reviews are not rewritten.

@@ -100,6 +100,7 @@ class RepoRecord:
     path: str
     archived: bool
     default_branch: str | None
+    visibility: str | None = None
 
 
 @dataclass(frozen=True)

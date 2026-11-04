@@ -37,7 +37,8 @@ from ..review import (
 )
 from ..forge import forge_for
 from ..forge.keys import parse_entry
-from ..repo_policy import RepoDenied, validate_repo, watch_owners
+from ..forge.skips import gitlab_configured
+from ..repo_policy import RepoDenied, gitlab_policy, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
 
 log = logging.getLogger("argus.api")
@@ -1029,7 +1030,7 @@ def get_integrations() -> dict:
         "source": publish.repo_allowlist_source(),
         "autoInvite": publish_access.auto_invite_enabled(),
     }
-    return {
+    result = {
         "health": [
             {"label": "GitHub token",
              "status": "configured" if github_token else "missing",
@@ -1065,6 +1066,9 @@ def get_integrations() -> dict:
             "resources": [],
         },
     }
+    if gitlab_configured():
+        result["gitlab"] = {"refusal": gitlab_policy().refusal}
+    return result
 
 
 # The server runs inside the API container, so the client starts it through
