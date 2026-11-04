@@ -6,8 +6,12 @@ import re
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
+from .. import github
 from ..errors import HeadMoved, classify_error
-from ..github import GitHubRateLimited
+from ..forge.errors import ForgeRateLimited
+from ..forge.keys import github_key_sql, gitlab_key_sql, is_gitlab_key
+from ..forge.trust_sql import trusted_sql
+from ..gitlab import client as gitlab_client
 from ..repo_policy import TRUSTED_ASSOCIATIONS, env_int
 from . import db
 
@@ -40,7 +44,7 @@ def trusted_only():
     }
 
 
-def skip_reason(pr):
+def skip_reason(pr, repo=None):
     user = pr.get("user") or {}
     login = user.get("login", "").lower()
     if pr.get("draft") and not truthy("ARGUS_WATCH_INCLUDE_DRAFTS"):
@@ -52,7 +56,12 @@ def skip_reason(pr):
     ):
         if not truthy("ARGUS_WATCH_INCLUDE_BOTS"):
             return "bot"
-    if trusted_only() and pr.get("author_association") not in TRUSTED_ASSOCIATIONS:
+    if trusted_only() and repo is not None and is_gitlab_key(repo):
+        if pr.get("author_trusted") is None:
+            return "trust_unknown"
+        if pr.get("author_trusted") != 1:
+            return "untrusted author (gitlab membership)"
+    elif trusted_only() and pr.get("author_association") not in TRUSTED_ASSOCIATIONS:
         reason = f"untrusted author association: {pr.get('author_association') or 'missing'}"
         log.info("watcher: skipped PR #%s: %s", pr.get("number"), reason)
         return reason
@@ -62,6 +71,88 @@ def skip_reason(pr):
 def heads(path):
     with connection(path) as conn:
         return [dict(r) for r in conn.execute("SELECT * FROM pr_heads ORDER BY id")]
+
+
+def _record_listed_head(conn, repo, pr, now, stamp, first_listing):
+    queued = 0
+    sha = (pr.get("head") or {}).get("sha")
+    if not sha or pr.get("number") is None:
+        return 0
+    number, reason = int(pr["number"]), skip_reason(pr, repo)
+    user = pr.get("user") or {}
+    gitlab = is_gitlab_key(repo)
+    columns = ",author_trusted,author_id" if gitlab else ""
+    values = ",?,?" if gitlab else ""
+    update = ",author_trusted=excluded.author_trusted,author_id=excluded.author_id" if gitlab else ""
+    pushed = min(now, db._parse_created_at(pr["updated_at"])) if pr.get("updated_at") else now
+    baseline = first_listing and (now - pushed).total_seconds() > 900
+    conn.execute(
+        "UPDATE pr_heads SET status='superseded', ended_at=? "
+        "WHERE repo=? AND pr=? AND head_sha<>? AND status='queued'",
+        (stamp, repo, number, sha),
+    )
+    old = conn.execute(
+        "SELECT * FROM pr_heads WHERE repo=? AND pr=? AND head_sha=?", (repo, number, sha)
+    ).fetchone()
+    done = conn.execute(
+        "SELECT id, completed_at FROM reviews WHERE repo=? AND pr=? "
+        "AND head_sha=? AND status='done' ORDER BY id LIMIT 1",
+        (repo, number, sha),
+    ).fetchone()
+    status = old["status"] if old else "queued"
+    if done:
+        status = "done"
+    elif status != "running":
+        if reason:
+            status = "skipped"
+        elif status in {"skipped", "closed", "superseded"}:
+            status = (
+                "parked"
+                if old["attempts"] >= env_int("ARGUS_WATCH_MAX_ATTEMPTS", 4)
+                else "queued"
+            )
+    if status == "queued" and (not old or old["status"] != "queued"):
+        queued += 1
+    conn.execute(
+        f"""INSERT INTO pr_heads
+        (repo,pr,head_sha,first_seen_at,pr_updated_at,draft,author,author_type,author_association,base_ref,
+         status,skip_reason,last_listed_at,review_id,completed_at,head_committed_at,
+         eligible_at,eligible_pr_updated_at,baseline{columns})
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?{values})
+        ON CONFLICT(repo,pr,head_sha) DO UPDATE SET
+          draft=excluded.draft, author=excluded.author, author_type=excluded.author_type,
+          author_association=excluded.author_association,
+          base_ref=excluded.base_ref, status=excluded.status, skip_reason=excluded.skip_reason,
+          last_listed_at=excluded.last_listed_at, is_open=1, ended_at=NULL,
+          eligible_pr_updated_at=CASE WHEN pr_heads.eligible_at IS NULL
+            THEN excluded.eligible_pr_updated_at ELSE pr_heads.eligible_pr_updated_at END,
+          eligible_at=COALESCE(pr_heads.eligible_at,excluded.eligible_at),
+          review_id=COALESCE(excluded.review_id,pr_heads.review_id),
+          completed_at=COALESCE(excluded.completed_at,pr_heads.completed_at),
+          head_committed_at=COALESCE(excluded.head_committed_at,pr_heads.head_committed_at){update}""",  # nosec B608 - fixed column fragments
+        (
+            repo,
+            number,
+            sha,
+            stamp,
+            pr.get("updated_at"),
+            int(bool(pr.get("draft"))),
+            user.get("login"),
+            user.get("type"),
+            None if gitlab else pr.get("author_association"),
+            (pr.get("base") or {}).get("ref"),
+            status,
+            reason,
+            stamp,
+            done["id"] if done else None,
+            done["completed_at"] if done else None,
+            pr.get("head_committed_at"),
+            stamp if reason is None else None,
+            pr.get("updated_at") if reason is None else None,
+            int(baseline),
+        ) + ((pr.get("author_trusted"), pr.get("author_id")) if gitlab else ()),
+    )
+    return queued
 
 
 def record_listing(path, repo, prs, now=None):
@@ -74,79 +165,7 @@ def record_listing(path, repo, prs, now=None):
         conn.execute("BEGIN IMMEDIATE")
         conn.execute("UPDATE pr_heads SET is_open=0 WHERE repo=?", (repo,))
         for pr in prs:
-            sha = (pr.get("head") or {}).get("sha")
-            if not sha or pr.get("number") is None:
-                continue
-            number, reason = int(pr["number"]), skip_reason(pr)
-            user = pr.get("user") or {}
-            pushed = min(now, db._parse_created_at(pr["updated_at"])) if pr.get("updated_at") else now
-            baseline = first_listing and (now - pushed).total_seconds() > 900
-            conn.execute(
-                "UPDATE pr_heads SET status='superseded', ended_at=? "
-                "WHERE repo=? AND pr=? AND head_sha<>? AND status='queued'",
-                (stamp, repo, number, sha),
-            )
-            old = conn.execute(
-                "SELECT * FROM pr_heads WHERE repo=? AND pr=? AND head_sha=?", (repo, number, sha)
-            ).fetchone()
-            done = conn.execute(
-                "SELECT id, completed_at FROM reviews WHERE repo=? AND pr=? "
-                "AND head_sha=? AND status='done' ORDER BY id LIMIT 1",
-                (repo, number, sha),
-            ).fetchone()
-            status = old["status"] if old else "queued"
-            if done:
-                status = "done"
-            elif status != "running":
-                if reason:
-                    status = "skipped"
-                elif status in {"skipped", "closed", "superseded"}:
-                    status = (
-                        "parked"
-                        if old["attempts"] >= env_int("ARGUS_WATCH_MAX_ATTEMPTS", 4)
-                        else "queued"
-                    )
-            if status == "queued" and (not old or old["status"] != "queued"):
-                queued += 1
-            conn.execute(
-                """INSERT INTO pr_heads
-                (repo,pr,head_sha,first_seen_at,pr_updated_at,draft,author,author_type,author_association,base_ref,
-                 status,skip_reason,last_listed_at,review_id,completed_at,head_committed_at,
-                 eligible_at,eligible_pr_updated_at,baseline)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(repo,pr,head_sha) DO UPDATE SET
-                  draft=excluded.draft, author=excluded.author, author_type=excluded.author_type,
-                  author_association=excluded.author_association,
-                  base_ref=excluded.base_ref, status=excluded.status, skip_reason=excluded.skip_reason,
-                  last_listed_at=excluded.last_listed_at, is_open=1, ended_at=NULL,
-                  eligible_pr_updated_at=CASE WHEN pr_heads.eligible_at IS NULL
-                    THEN excluded.eligible_pr_updated_at ELSE pr_heads.eligible_pr_updated_at END,
-                  eligible_at=COALESCE(pr_heads.eligible_at,excluded.eligible_at),
-                  review_id=COALESCE(excluded.review_id,pr_heads.review_id),
-                  completed_at=COALESCE(excluded.completed_at,pr_heads.completed_at),
-                  head_committed_at=COALESCE(excluded.head_committed_at,pr_heads.head_committed_at)""",
-                (
-                    repo,
-                    number,
-                    sha,
-                    stamp,
-                    pr.get("updated_at"),
-                    int(bool(pr.get("draft"))),
-                    user.get("login"),
-                    user.get("type"),
-                    pr.get("author_association"),
-                    (pr.get("base") or {}).get("ref"),
-                    status,
-                    reason,
-                    stamp,
-                    done["id"] if done else None,
-                    done["completed_at"] if done else None,
-                    pr.get("head_committed_at"),
-                    stamp if reason is None else None,
-                    pr.get("updated_at") if reason is None else None,
-                    int(baseline),
-                ),
-            )
+            queued += _record_listed_head(conn, repo, pr, now, stamp, first_listing)
         conn.execute(
             "UPDATE pr_heads SET status='closed', ended_at=? "
             "WHERE repo=? AND is_open=0 AND status='queued' AND merged_before_seen=0",
@@ -156,6 +175,58 @@ def record_listing(path, repo, prs, now=None):
     return queued
 
 
+def _record_fast_merge(conn, repo, pr, now, stamp):
+    sha = (pr.get("head") or {}).get("sha") or ""
+    merged_at = pr.get("merged_at")
+    if not merged_at or pr.get("number") is None:
+        return 0
+    if skip_reason(pr, repo):
+        if is_gitlab_key(repo):
+            # A rejected refresh must revoke stale trust before work can be claimed.
+            conn.execute(
+                "UPDATE pr_heads SET author_trusted=?, author_id=? "
+                "WHERE repo=? AND pr=? AND head_sha=? AND status='queued'",
+                (pr.get("author_trusted"), pr.get("author_id"), repo, int(pr["number"]), sha),
+            )
+        return 0
+    if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
+        return 0
+    merged = db._parse_created_at(merged_at)
+    if not now - timedelta(minutes=60) <= merged <= now + timedelta(minutes=5):
+        return 0
+    user = pr.get("user") or {}
+    gitlab = is_gitlab_key(repo)
+    columns = ",author_trusted,author_id" if gitlab else ""
+    values = ",?,?" if gitlab else ""
+    update = ",author_trusted=excluded.author_trusted,author_id=excluded.author_id" if gitlab else ""
+    # A merge must survive later open listings without disturbing a claim or backoff.
+    conn.execute(
+        "UPDATE pr_heads SET merged_before_seen=1, merged_at=? "
+        "WHERE repo=? AND pr=? AND head_sha=? AND status IN ('queued','running')",
+        (merged_at, repo, int(pr["number"]), sha),
+    )
+    added = conn.execute(
+        f"""INSERT INTO pr_heads
+        (repo,pr,head_sha,first_seen_at,pr_updated_at,draft,author,author_type,author_association,base_ref,
+         status,last_listed_at,eligible_at,eligible_pr_updated_at,is_open,baseline,
+         merged_before_seen,merged_at{columns})
+        VALUES(?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,0,0,1,?{values})
+        ON CONFLICT(repo,pr,head_sha) DO UPDATE SET
+          status='queued', merged_before_seen=1, eligible_at=excluded.eligible_at,
+          eligible_pr_updated_at=excluded.eligible_pr_updated_at, ended_at=NULL, baseline=0,
+          merged_at=excluded.merged_at, author_association=excluded.author_association{update}
+        WHERE pr_heads.status='closed' AND pr_heads.merged_before_seen=0
+          AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.repo=pr_heads.repo
+            AND r.pr=pr_heads.pr AND r.head_sha=pr_heads.head_sha AND r.status='done')""",  # nosec B608 - fixed column fragments
+        (repo, int(pr["number"]), sha, stamp, pr.get("updated_at"),
+         int(bool(pr.get("draft"))), user.get("login"), user.get("type"),
+         None if gitlab else pr.get("author_association"),
+         (pr.get("base") or {}).get("ref"), stamp, stamp, merged_at, merged_at)
+        + ((pr.get("author_trusted"), pr.get("author_id")) if gitlab else ()),
+    ).rowcount
+    return added
+
+
 def record_fast_merges(path, repo, prs, now=None):
     now = now or utcnow()
     stamp = now.isoformat()
@@ -163,45 +234,73 @@ def record_fast_merges(path, repo, prs, now=None):
     with connection(path) as conn:
         conn.execute("BEGIN IMMEDIATE")
         for pr in prs:
-            sha = (pr.get("head") or {}).get("sha") or ""
-            merged_at = pr.get("merged_at")
-            if not merged_at or pr.get("number") is None or skip_reason(pr):
-                continue
-            if not re.fullmatch(r"[0-9a-fA-F]{40}", sha):
-                continue
-            merged = db._parse_created_at(merged_at)
-            if not now - timedelta(minutes=60) <= merged <= now + timedelta(minutes=5):
-                continue
-            user = pr.get("user") or {}
-            # A merge must survive later open listings without disturbing a claim or backoff.
-            conn.execute(
-                "UPDATE pr_heads SET merged_before_seen=1, merged_at=? "
-                "WHERE repo=? AND pr=? AND head_sha=? AND status IN ('queued','running')",
-                (merged_at, repo, int(pr["number"]), sha),
-            )
-            added = conn.execute(
-                """INSERT INTO pr_heads
-                (repo,pr,head_sha,first_seen_at,pr_updated_at,draft,author,author_type,author_association,base_ref,
-                 status,last_listed_at,eligible_at,eligible_pr_updated_at,is_open,baseline,
-                 merged_before_seen,merged_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,0,0,1,?)
-                ON CONFLICT(repo,pr,head_sha) DO UPDATE SET
-                  status='queued', merged_before_seen=1, eligible_at=excluded.eligible_at,
-                  eligible_pr_updated_at=excluded.eligible_pr_updated_at, ended_at=NULL, baseline=0,
-                  merged_at=excluded.merged_at, author_association=excluded.author_association
-                WHERE pr_heads.status='closed' AND pr_heads.merged_before_seen=0
-                  AND NOT EXISTS(SELECT 1 FROM reviews r WHERE r.repo=pr_heads.repo
-                    AND r.pr=pr_heads.pr AND r.head_sha=pr_heads.head_sha AND r.status='done')""",
-                (repo, int(pr["number"]), sha, stamp, pr.get("updated_at"),
-                 int(bool(pr.get("draft"))), user.get("login"), user.get("type"),
-                 pr.get("author_association"),
-                 (pr.get("base") or {}).get("ref"), stamp, stamp, merged_at, merged_at),
-            ).rowcount
-            if added:
+            if _record_fast_merge(conn, repo, pr, now, stamp):
                 queued.append(pr["number"])
     for number in queued:
         log.info("watcher: queued fast merge %s#%s", repo, number)
     return len(queued)
+
+
+def record_changes(path, repo, opened, closed, complete, now=None):
+    """Record a full listing or only changed MRs, without closing unlisted MRs.
+
+    GitLab dicts use the PR shape: number (iid), head.sha, updated_at (ISO),
+    draft (bool), user.login/type, base.ref, author_trusted (1/0/None),
+    author_id (int/None), merged_at (ISO/None), optional head_committed_at.
+    GitLab dicts omit author_association. Closed entries with merged_at use
+    the fast-merge path; other closed entries affect incremental listings only.
+    """
+    now = now or utcnow()
+    stamp = now.isoformat()
+    queued = record_listing(path, repo, opened, now) if complete else 0
+    listing_key = (os.path.realpath(path or db.db_path()), repo.casefold())
+    first_listing = listing_key not in _listed_repos
+    closed = list(closed)
+    fast_merges = []
+    with connection(path) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if not complete:
+            for pr in opened:
+                sha = (pr.get("head") or {}).get("sha")
+                if not sha or pr.get("number") is None:
+                    continue
+                conn.execute(
+                    "UPDATE pr_heads SET is_open=0 WHERE repo=? AND pr=? AND head_sha<>?",
+                    (repo, int(pr["number"]), sha),
+                )
+                queued += _record_listed_head(conn, repo, pr, now, stamp, first_listing)
+            for pr in closed:
+                if pr.get("number") is None:
+                    continue
+                conn.execute("UPDATE pr_heads SET is_open=0 WHERE repo=? AND pr=?",
+                             (repo, int(pr["number"])))
+                conn.execute(
+                    "UPDATE pr_heads SET status='closed', ended_at=? WHERE repo=? AND pr=? "
+                    "AND status='queued' AND merged_before_seen=0", (stamp, repo, int(pr["number"])),
+                )
+        for pr in closed:
+            if _record_fast_merge(conn, repo, pr, now, stamp):
+                fast_merges.append(pr["number"])
+    _listed_repos.add(listing_key)
+    for number in fast_merges:
+        log.info("watcher: queued fast merge %s#%s", repo, number)
+    return queued + len(fast_merges)
+
+
+def open_head_shas(path, repo):
+    with connection(path) as conn:
+        return {r["pr"]: r["head_sha"] for r in conn.execute(
+            "SELECT pr, head_sha FROM pr_heads "
+            "WHERE repo=? AND is_open=1 AND status<>'superseded' "
+            "ORDER BY julianday(COALESCE(last_listed_at,first_seen_at)), id", (repo,),
+        )}
+
+
+def poll_window_start(updated_after, overlap_seconds=300):
+    # A push may change the head sha without moving updated_at.
+    if updated_after is None:
+        return None
+    return (db._parse_created_at(updated_after) - timedelta(seconds=overlap_seconds)).isoformat()
 
 
 def restrict_repos(path, repos, now=None):
@@ -241,28 +340,41 @@ def requeue_fast_merges(path, repos, now=None):
     return len(queued)
 
 
-def claim(path, now=None, *, exclude=()):
+def claim(path, now=None, *, exclude=(), pauses=None):
     now = now or utcnow()
+    if pauses is None:
+        gitlab_pause = 0
+        try:
+            client = gitlab_client.client()
+            gitlab_pause = client.pause_until() if client else 0
+        except Exception:
+            log.debug("watcher: GitLab pause lookup failed", exc_info=True)
+        pauses = {"github": github.pause_until(), "gitlab": gitlab_pause}
+    pause_filter = ""
+    if pauses.get("github", 0) > now.timestamp():
+        pause_filter += f" AND NOT ({github_key_sql('repo')})"
+    if pauses.get("gitlab", 0) > now.timestamp():
+        pause_filter += f" AND NOT ({gitlab_key_sql('repo')})"
     with connection(path) as conn:
         # Queued work can outlive a deployment with a less restrictive policy.
         if trusted_only():
-            trusted = sorted(TRUSTED_ASSOCIATIONS)
-            marks = ",".join("?" for _ in trusted)
             skipped = conn.execute(
-                f"UPDATE pr_heads SET status='skipped', skip_reason='untrusted author association' "
-                f"WHERE status='queued' AND COALESCE(author_association,'') NOT IN ({marks}) "
-                "RETURNING repo, pr",  # nosec B608 - placeholders only
-                trusted,
+                "UPDATE pr_heads SET status='skipped', skip_reason=CASE "
+                f"WHEN {gitlab_key_sql('repo')} THEN CASE WHEN author_trusted IS NULL "
+                "THEN 'trust_unknown' ELSE 'untrusted author (gitlab membership)' END "
+                "ELSE 'untrusted author association' END "
+                f"WHERE status='queued' AND NOT ({trusted_sql()}) "
+                "RETURNING repo, pr, skip_reason",  # nosec B608 - shared predicate
             ).fetchall()
             for head in skipped:
-                log.info("watcher: skipped %s#%s: untrusted author association", head["repo"], head["pr"])
+                log.info("watcher: skipped %s#%s: %s", head["repo"], head["pr"], head["skip_reason"])
         placeholders = ",".join("?" for _ in exclude) or "-1"
         row = conn.execute(
             f"""UPDATE pr_heads SET status='running', claimed_at=?
             WHERE id=(SELECT id FROM pr_heads WHERE status='queued'
                 AND (is_open=1 OR merged_before_seen=1)
                 AND (next_attempt_at IS NULL OR julianday(next_attempt_at)<=julianday(?))
-                AND id NOT IN ({placeholders})
+                AND id NOT IN ({placeholders}){pause_filter}
                 ORDER BY baseline,
                   (MIN(julianday(first_seen_at),COALESCE(julianday(pr_updated_at),julianday(first_seen_at)))<julianday(?)),
                   MIN(julianday(first_seen_at),COALESCE(julianday(pr_updated_at),julianday(first_seen_at))),
@@ -288,11 +400,13 @@ def _finish(conn, head, review_id, error, now):
         )
         return
     category = classify_error(error) if error else None
-    attempts = current["attempts"] + int(error is not None and category != "github_rate_limited")
+    attempts = current["attempts"] + int(
+        error is not None and category not in {"github_rate_limited", "gitlab_rate_limited"}
+    )
     status, next_at = "done", None
     if error:
         status = "queued"
-        if isinstance(error, GitHubRateLimited):
+        if isinstance(error, ForgeRateLimited):
             next_at = datetime.fromtimestamp(error.reset_at, timezone.utc).isoformat()
         else:
             next_at = (now + timedelta(minutes=(2, 10, 30)[min(attempts - 1, 2)])).isoformat()

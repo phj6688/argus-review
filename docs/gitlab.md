@@ -164,6 +164,16 @@ The shared tables keep their GitHub column names. For GitLab rows:
 
 Argus records an inline item only with both a note id and a discussion id, and a summary item only with a confirmed summary note id. Any unresolved attempt is stored as `error` with the reason `partial_post`. Stored errors and payloads are redacted.
 
+## Watch store
+
+The watch store keeps GitLab merge request heads next to the GitHub ones. A listing that covers only part of a project updates just the merge requests it lists. A complete listing also closes the heads it no longer returns. Fast merges use the existing queue and requeue rules.
+
+Poll helpers compare the stored head sha and overlap the previous cursor by five minutes, because a push may not move `updated_at`.
+
+With trusted-only enabled, a stored `author_trusted=1` passes. A value of `0` is skipped as `untrusted author (gitlab membership)`, and NULL is skipped as `trust_unknown`. GitHub author associations never grant GitLab trust. A rate limit retries at the reset time without counting an attempt. Each forge pauses only its own queued heads.
+
+The additive table `gitlab_poll_cursors` stores the update cursor, the last full reconcile, the last error and the last poll time for each project key.
+
 ## Known limits
 
 - The URL guard accepts only branch and tag names that start with a letter or digit and use only letters, digits, dot, underscore, slash and hyphen. A request that carries any other name is refused, for example a branch name with a plus sign or a non-ASCII letter.

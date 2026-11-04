@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added incremental GitLab watch storage, strict membership trust, separate forge pauses and persistent poll cursors. Overlapping polls track head shas because pushes may not move the update timestamp.
 - GitLab support is documented in `docs/gitlab.md` and the README: self-managed and gitlab.com setup, token choice and scopes, roles, minimum version, settings, limits and pacing, the hard-deny and fork rules and known limits. Merge request reviews post inline discussions and one summary note. Watching and replies for GitLab are not available yet. GitHub behaviour is unchanged.
 - Added GitLab console trigger forms, project labels, merge request links and an integrations card. GitHub rows keep their existing presentation. The `/integrations` GitLab block now includes `baseUrl` so console links preserve the configured path prefix.
 - GitLab reviews can now post inline discussions and one summary note, with partial posts recorded only where creation was confirmed. Retrying a partially posted review posts its own missing summary note even when another review of the same head already posted one. Attempts that write nothing preserve the partial state for a later retry. A new review of an unchanged head still posts nothing. GitHub publishing is unchanged.

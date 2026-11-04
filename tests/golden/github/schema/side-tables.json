@@ -105,6 +105,12 @@
         ],
         [
           "table",
+          "gitlab_poll_cursors",
+          "gitlab_poll_cursors",
+          "CREATE TABLE gitlab_poll_cursors (\n    repo_key TEXT PRIMARY KEY, updated_after TEXT, last_full_reconcile TEXT,\n    last_error TEXT, last_polled_at TEXT\n)"
+        ],
+        [
+          "table",
           "known_fps_live",
           "known_fps_live",
           "CREATE TABLE known_fps_live (\n    repo TEXT NOT NULL, file TEXT NOT NULL, title TEXT NOT NULL,\n    fingerprint TEXT NOT NULL, reply_id TEXT NOT NULL, rejected_at TEXT NOT NULL,\n    UNIQUE(repo, file, title)\n)"
@@ -809,6 +815,48 @@
           [
             8,
             "checked_at",
+            "TEXT",
+            0,
+            null,
+            0
+          ]
+        ],
+        "gitlab_poll_cursors": [
+          [
+            0,
+            "repo_key",
+            "TEXT",
+            0,
+            null,
+            1
+          ],
+          [
+            1,
+            "updated_after",
+            "TEXT",
+            0,
+            null,
+            0
+          ],
+          [
+            2,
+            "last_full_reconcile",
+            "TEXT",
+            0,
+            null,
+            0
+          ],
+          [
+            3,
+            "last_error",
+            "TEXT",
+            0,
+            null,
+            0
+          ],
+          [
+            4,
+            "last_polled_at",
             "TEXT",
             0,
             null,
