@@ -3,9 +3,10 @@ import type { LiveReview, ReviewSummary, Severity } from "@/lib/types";
 import { cn, SEV_ABBREV, SEV_TALLY_TIP, SEVERITIES, modelChipStyle, sevVar } from "@/lib/utils";
 
 const ACTION = {
-  acted: { label: "acted", color: "var(--color-accent)", tip: "You addressed this finding before the PR merged." },
-  merged: { label: "merged past", color: "var(--color-faint)", tip: "Argus flagged it, but the PR merged without it being addressed." },
-  pending: { label: "pending", color: "var(--color-dim)", tip: "PR is still open — not yet resolved or merged." },
+  posted: { label: "posted", color: "var(--color-accent)", tip: "Argus posted this review to the pull request on GitHub." },
+  dry_run: { label: "dry run", color: "var(--color-dim)", tip: "Posting was rehearsed, nothing was sent to GitHub." },
+  not_posted: { label: "review only", color: "var(--color-faint)", tip: "Argus reviewed this PR but did not post to GitHub: publishing is off for this repo, or there was nothing new." },
+  post_failed: { label: "post failed", color: "var(--color-critical)", tip: "The review finished but posting it to GitHub failed." },
 } as const;
 
 export function ModelChip({
@@ -49,11 +50,20 @@ function RowModel({ review }: { review: ReviewSummary }) {
   return <ModelChip model={review.model} />;
 }
 
-export function ActionLabel({ action }: { action: ReviewSummary["action"] }) {
-  const a = ACTION[action];
+export function ActionLabel({ review }: { review: ReviewSummary }) {
+  if (!review.action) {
+    return (
+      <span data-tip="The review failed, so there was nothing to post." className="text-xs text-faint">
+        —
+      </span>
+    );
+  }
+  const a = ACTION[review.action];
+  const count = review.action === "posted" && review.posted_comments ? ` · ${review.posted_comments}` : "";
   return (
     <span data-tip={a.tip} className="text-xs" style={{ color: a.color }}>
       {a.label}
+      {count}
     </span>
   );
 }
@@ -124,8 +134,8 @@ export function ReviewRow({
       </div>
       {list ? (
         <>
-          <div className="hidden w-[78px] shrink-0 sm:block">
-            <ActionLabel action={review.action} />
+          <div className="hidden w-[92px] shrink-0 whitespace-nowrap sm:block">
+            <ActionLabel review={review} />
           </div>
           <div className="w-[34px] shrink-0 text-right text-xs text-faint">{review.age}</div>
         </>

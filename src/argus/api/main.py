@@ -621,6 +621,19 @@ def _run_truth(row: dict) -> dict:
     return {key: facts[key] for key in ("model_used", "fallback_from", "fallback_reason")}
 
 
+# publish_status written by db.save_publish_outcome -> the action the console shows.
+# NULL (publishing never ran for the row) and "skipped" (off, repo not on the list,
+# nothing new) both mean nothing reached GitHub.
+_PUBLISH_ACTIONS = {"posted": "posted", "dry_run": "dry_run", "error": "post_failed"}
+
+
+def _review_action(row: dict) -> str | None:
+    """What happened on GitHub for this review, or None when the run itself failed."""
+    if row["status"] == db.STATUS_ERROR:
+        return None
+    return _PUBLISH_ACTIONS.get(row.get("publish_status"), "not_posted")
+
+
 def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
     """reviews row -> ReviewSummary. counts is the severity tally for this row."""
     zero = {s: 0 for s in metrics.SEVERITIES}
@@ -634,8 +647,8 @@ def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
         "status": row["status"],
         **_run_truth(row),
         "counts": {**zero, **counts},
-        # No GitHub acted/merged signal is wired, so every row reads as pending.
-        "action": "pending",
+        "action": _review_action(row),
+        "posted_comments": row.get("published_comments") or 0,
         "age": _relative_age(row.get("created_at"), now),
     }
 

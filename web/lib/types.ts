@@ -27,7 +27,8 @@ export interface VerifiedFinding {
 
 /* ---- derived / view shapes returned by the API ---- */
 
-export type ActionState = "acted" | "merged" | "pending";
+/** What happened on GitHub for a finished review. */
+export type ActionState = "posted" | "dry_run" | "not_posted" | "post_failed";
 export type Decision = "approve" | "comment" | "changes_requested" | "insufficient_evidence";
 
 export interface SeverityCounts {
@@ -51,7 +52,10 @@ export interface ReviewSummary {
   fallback_from?: string | null;
   fallback_reason?: string | null;
   counts: SeverityCounts;
-  action: ActionState;
+  /** Null when the run itself failed, so there was nothing to post. */
+  action: ActionState | null;
+  /** Inline comments the review posted to GitHub. */
+  posted_comments?: number;
   age: string;
 }
 

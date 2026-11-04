@@ -404,8 +404,9 @@ def test_list_reviews_omits_payload_and_preserves_other_fields(database):
     after = main.list_reviews()
     assert "publish_payload" not in after["reviews"][0]
     for key, value in before["reviews"][0].items():
-        if not key.startswith("publish"):
+        if not key.startswith("publish") and key != "action":
             assert after["reviews"][0][key] == value
+    assert (before["reviews"][0]["action"], after["reviews"][0]["action"]) == ("not_posted", "dry_run")
 
 
 def test_list_reviews_works_without_payload_column(tmp_path):
