@@ -36,10 +36,12 @@ from .context import (
     FileReader, RenderedContext, cached_reader, mirror_context_enabled, render_review_context,
 )
 from .diff import (
-    REMOVED_STATUS, FilePatch, added_lines, change_stats, compress_diff, fetch_pr_files, split_lines,
+    REMOVED_STATUS, FilePatch, added_lines, change_stats, compress_diff, split_lines,
     touched_lines,
 )
 from .errors import HeadMoved
+from .forge import forge_for
+from .forge.errors import ForgeAuthError, ForgeDenied, ForgeRateLimited
 from .schema import (
     CATEGORIES, CounterEvidence, CounterEvidenceVerdict, Finding, JudgeOpinion, Review, Severity, Verdict,
     VerifiedFinding, parse_findings,
@@ -47,6 +49,8 @@ from .schema import (
 from .tokens import HeuristicEstimator
 
 log = logging.getLogger("argus.review")
+
+_FORGE_ABORT = (ForgeRateLimited, ForgeDenied, ForgeAuthError)
 
 REVIEW_MAX_TOKENS = 8000
 VERIFY_MAX_TOKENS = 2000
@@ -430,12 +434,16 @@ def from_github(error: Exception) -> bool:
 
 
 def fallback_eligible(error: Exception) -> bool:
-    """A second model cannot fix a GitHub-side failure (an auth, quota or HTTP
+    """A second model cannot fix a forge-side failure (an auth, quota or HTTP
     error from the GitHub API) or a moved head. A failure of the model provider
     stays eligible."""
-    return not (isinstance(error, (HeadMoved, github.GitHubRateLimited,
-                                   github.GitHubDenied, github.GitHubAuthError))
+    return not (isinstance(error, (HeadMoved, *_FORGE_ABORT))
                 or from_github(error))
+
+
+def fetch_pr_files(repo: str, pr: int):
+    # Preserve patches to review.fetch_pr_files here and diff.fetch_pr_files in the adapter.
+    return forge_for(repo).change_files(repo, pr)
 
 
 def run_review(
@@ -447,12 +455,13 @@ def run_review(
     from .repo_policy import validate_repo
 
     validate_repo(repo)
+    forge = forge_for(repo)
     verify_variant = _resolve_variant(verify_variant)
     files = fetch_pr_files(repo, pr)
     patches = {f.filename: f.patch or "" for f in files}
     try:
-        meta = live._pr_meta(repo, pr)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        meta = forge.pr_meta(repo, pr)
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("PR metadata lookup failed for %s#%s; reviewing without it", repo, pr)
@@ -463,13 +472,13 @@ def run_review(
             raise RuntimeError("Could not resolve PR head after listing")
         if head_sha != expected_head_sha:
             raise HeadMoved("PR head changed after listing")
-    read = _file_reader(repo, head_sha)
+    read = forge.file_reader(repo, head_sha)
     pr_section = _pr_section(meta.get("title"), meta.get("body"), meta.get("commits"))
     source = live.context_source(repo, head_sha) if mirror_context_enabled() else None
     rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator(),
                                      source=source)
     if rendered.views:
-        house_rules = fetch_house_rules(repo)
+        house_rules = forge.house_rules(repo)
         intent = _intent_for_prompt(repo, pr, meta)
         review = _deep_review(rendered.prompt, house_rules, model, intent, pr_section)
         stats = {**review.parsing_stats, **_reanchor_findings(review.findings, read, patches)}
@@ -536,7 +545,7 @@ def run_diff_review(
     try:
         scan = live.probe_scan_for_files(repo, head_sha, files, read)
         probe_verified, probe_record = scan.findings, scan.coverage
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("probe lane failed for diff review; continuing without it")
@@ -610,11 +619,11 @@ def run_diff_review(
 
 def _file_reader(repo: str | None, head_sha: str | None,
                  file_loader: FileReader | None = None) -> FileReader | None:
-    from .jarvis import live
-
     if file_loader is None and repo and head_sha:
+        forge = forge_for(repo)
+
         def file_loader(path: str) -> str | None:
-            return live._fetch_file_at(repo, path, head_sha)
+            return forge.read_file(repo, path, head_sha)
     return cached_reader(file_loader)
 
 
@@ -657,7 +666,7 @@ def _reanchor_findings(findings: list, read: FileReader | None,
             continue
         try:
             content = read(finding.file)
-        except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        except _FORGE_ABORT:
             raise
         except Exception:
             counts["evidence_unreadable"] += 1
@@ -709,11 +718,9 @@ RUFF_ALWAYS_KEEP = {"F821", "invalid-syntax"}
 def _head_sha_for(repo: str, pr: int) -> str | None:
     """The PR's head SHA, best-effort. Without it the ruff lane has no whole-file
     content to read and records a skip, which is the honest outcome."""
-    from .jarvis import live
-
     try:
-        return live._pr_head_sha(repo, pr)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        return forge_for(repo).head_sha(repo, pr)
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("head sha lookup failed for %s#%s", repo, pr)
@@ -763,7 +770,7 @@ def _ruff_lane(files: list[FilePatch], repo: str | None,
                     suppressed += 1
                     suppressed_codes.add(hit.code)
             analysed += 1
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception as error:
         log.exception("ruff lane failed for %s@%s", repo, head_sha)
@@ -815,7 +822,7 @@ def _config_lane(files: list[FilePatch], repo: str | None,
             found.extend(config_lane.to_finding(hit)
                          for hit in config_lane.scan(path, content, read=read))
             analysed += 1
-        except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        except _FORGE_ABORT:
             raise
         except Exception as error:
             # Per file, never per lane. A templated Helm or Ansible document does
@@ -932,7 +939,7 @@ def _intent_for_prompt(repo: str, pr: int, meta: dict | None = None) -> str | No
 
     try:
         return live.intent_section(repo, pr, meta)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("intent recovery failed for %s#%s; reviewing without it", repo, pr)
@@ -956,7 +963,7 @@ def _probe_lane(
 
     try:
         scan = live.probe_scan(repo, pr, files, head_sha, read)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("probe lane failed for %s#%s; continuing without it", repo, pr)
@@ -1148,7 +1155,7 @@ def _unconfirmed(evidence: CounterEvidence | None, read: FileReader | None) -> _
         return _Void(VOID_UNREADABLE, "no file reader was available to confirm the quote")
     try:
         content = read(evidence.path)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception as error:
         log.warning("counter_evidence read failed for %s: %s", evidence.path, error)

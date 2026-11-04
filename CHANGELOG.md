@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Read the review path through a GitHub forge adapter and treat forge auth, denial and rate-limit errors as non-retryable by class (GitHub behaviour unchanged).
 - Added GitLab project storage, nullable forge columns and shared trust helpers. GitHub behavior is unchanged.
 - Added a repository key parser and forge aware deny and allow policy. `is_denied` stays pure and denies every GitLab key. GitHub behavior is unchanged.
 - GitLab token prefixes are redacted. The `ARGUS_GITLAB_*` settings and a single base URL parser add configuration only, with GitLab features off by default and no GitLab calls yet.
