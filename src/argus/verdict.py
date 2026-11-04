@@ -19,6 +19,7 @@ found is evidence found, so a probe hit requests changes however thin the lane s
 
 import json
 
+from . import risk_tier
 from .redact import redact
 
 TIER_DETERMINISTIC = "deterministic"
@@ -169,6 +170,7 @@ def document(review: dict, findings: list[dict], baseline: list[str] | None = No
         "verdict": decision(findings, coverage),
         "review_id": review["id"],
         "coverage": coverage,
+        "risk": risk_tier.from_row(review),
         "source": {
             "kind": review.get("source_kind") or "pr",
             "repo": review.get("repo") or None,

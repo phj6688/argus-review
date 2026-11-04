@@ -93,7 +93,8 @@ def get_verdict(review_id: int) -> str:
     reviews return the verdict document: decision (approve/comment/
     changes_requested), findings with fingerprints, severities, confidence,
     lanes and evidence tiers (deterministic > consensus > single_critic >
-    disputed), plus baseline resolution when a baseline was given.
+    disputed), plus baseline resolution when a baseline was given. The risk
+    field is a path and size rule, not a correctness verdict.
     """
     return json.dumps(_api(f"/reviews/{review_id}/verdict"))
 

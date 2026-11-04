@@ -277,6 +277,11 @@ def render_review(
         "Tier counts: " + "; ".join(f"{tier}: {tiers[tier]}" for tier in
                                     ("deterministic", "consensus", "single_critic", "disputed")),
     ]
+    if risk := document.get("risk"):
+        line = risk["label"]
+        if risk["tier"] == "risky" and risk.get("reasons"):
+            line += " Reasons: " + "; ".join(_risk_reason(reason) for reason in risk["reasons"])
+        body.append(line)
     if outside:
         body.append(_summary_findings("Outside the diff", outside))
     if overflow:
@@ -309,6 +314,13 @@ def render_review(
         body.append(section)
     body.extend(footer(listed))
     return {"commit_id": head_sha, "event": "COMMENT", "body": "\n\n".join(body), "comments": comments}
+
+
+def _risk_reason(reason: str) -> str:
+    match = re.fullmatch(r"tripwire path (.+) \((.*)\)", reason)
+    if match:
+        return f"tripwire path {code_span(match[1])} ({escape_inline(match[2])})"
+    return escape_inline(reason)
 
 
 def _list_all(http, url: str, headers: dict) -> list[dict]:

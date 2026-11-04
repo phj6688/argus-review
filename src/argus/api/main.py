@@ -25,10 +25,12 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from .. import acceptance, diff, doctor, github, providers, publish, publish_access, rules, verdict
+from .. import (
+    acceptance, diff, doctor, github, providers, publish, publish_access, risk_tier, rules, verdict,
+)
 from ..client import DEFAULT_MODEL, ping
 from ..errors import HeadMoved
-from ..diff import FilePatch, parse_unified_diff
+from ..diff import FileList, FilePatch, parse_unified_diff
 from ..review import (
     DEFAULT_BUG_CAP, ENV_FALLBACK_MODEL, ReviewResult, fallback_eligible, fallback_for, run_diff_review,
     run_review,
@@ -429,7 +431,10 @@ def _cap_files(files: list) -> list:
     return files
 
 
-def _files_for_diff_request(request: DiffReviewRequest) -> list:
+GITHUB_COMPARE_FILES_CAP = 300
+
+
+def _files_for_diff_request(request: DiffReviewRequest) -> FileList:
     if request.diff:
         files = parse_unified_diff(request.diff)
         if not files:
@@ -441,12 +446,18 @@ def _files_for_diff_request(request: DiffReviewRequest) -> list:
         if response.status_code != 200:
             raise HTTPException(status_code=422,
                                 detail=f"compare fetch failed ({response.status_code})")
-        files = [
-            FilePatch(filename=f["filename"], status=f["status"], patch=f.get("patch"))
-            for f in response.json().get("files", [])
-            if diff._safe_path(f["filename"])
-            and (not f.get("previous_filename") or diff._safe_path(f["previous_filename"]))
-        ]
+        listed = response.json().get("files", [])
+        files = FileList(unseen=len(listed) >= GITHUB_COMPARE_FILES_CAP)
+        for item in listed:
+            previous = item.get("previous_filename")
+            if not diff._safe_path(item["filename"]) or (previous and not diff._safe_path(previous)):
+                files.unseen = True
+                continue
+            files.append(FilePatch(
+                filename=item["filename"], status=item["status"], patch=item.get("patch"),
+                additions=diff._count_or_none(item.get("additions")),
+                deletions=diff._count_or_none(item.get("deletions")), previous_filename=previous,
+            ))
         if not files:
             raise HTTPException(status_code=422, detail="diff parsed to zero files")
         return _cap_files(files)
@@ -514,7 +525,8 @@ def get_verdict(review_id: int) -> dict:
 def list_reviews() -> dict:
     """Overview/reviews-screen feed: a LiveReview (the one running row, if any)
     plus the done/error rows as ReviewSummary objects. Matches the
-    {live, reviews} shape web/lib/api.ts getReviews expects (web/lib/types.ts)."""
+    {live, reviews} shape web/lib/api.ts getReviews expects (web/lib/types.ts).
+    Each summary includes the compact path and size risk tier when recorded."""
     path = db.db_path()
     rows = db.list_reviews(path)
     counts_by_review = db.severity_counts_by_review(path)
@@ -538,7 +550,8 @@ def get_review(review_id: int) -> dict:
     each a VerifiedFinding. branch, author and the diff stats appear when the run
     recorded them. model_used, fallback_from and fallback_reason say which model
     answered, and error carries the failure text of an errored run. The comment
-    thread is not mirrored; see web/lib/types.ts."""
+    thread is not mirrored; see web/lib/types.ts.
+    Includes the full path and size risk tier when recorded."""
     path = db.db_path()
     review = db.get_review(path, review_id)
     if review is None:
@@ -646,6 +659,7 @@ def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
         "title": f"{row['repo']} #{row['pr']}",
         "model": row["model"],
         "status": row["status"],
+        "risk": risk_tier.from_row(row, compact=True),
         **_run_truth(row),
         "counts": {**zero, **counts},
         "action": _review_action(row),
@@ -699,6 +713,7 @@ def _to_review_detail(
         # decision vocabulary, or every value added to that vocabulary reads as
         # unfinished to any consumer that has not been taught the new value.
         "status": review["status"],
+        "risk": risk_tier.from_row(review),
         "time": f"{_relative_age(review.get('created_at'), now)} ago",
         "decision": _decision_for(review, findings),
         "bugs": bugs,

@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 import httpx
 from pydantic import ValidationError
 
-from . import fingerprint, github, rules, verdict
+from . import fingerprint, github, risk_tier, rules, verdict
 from .client import DEFAULT_MODEL, ToolSpec, complete_tool, prompt_cache_scope
 from .context import (
     REVIEW_CONTEXT_BUDGET_TOKENS,
@@ -390,6 +390,15 @@ class ReviewResult:
     files_changed: int | None = None
     lines_added: int | None = None
     lines_removed: int | None = None
+    risk_tier: dict | None = None
+
+
+def _risk_for_files(files: list[FilePatch]) -> dict | None:
+    try:
+        return risk_tier.classify_files(files).to_dict()
+    except Exception:
+        log.exception("Risk tier classification failed; continuing without a label")
+        return None
 
 
 ENV_FALLBACK_MODEL = "ARGUS_FALLBACK_MODEL"
@@ -490,6 +499,7 @@ def run_review(
         head_sha=head_sha,
         branch=meta.get("branch"), author=meta.get("author"),
         files_changed=files_changed, lines_added=lines_added, lines_removed=lines_removed,
+        risk_tier=_risk_for_files(files),
         coverage=[probe_record, ruff_record, config_record,
                   llm_record, judge_record],
     )
@@ -545,6 +555,7 @@ def run_diff_review(
         return ReviewResult(
             raw_count=0, bugs=probe_bugs + det_bugs, nits=probe_nits + det_nits,
             dropped=0, files_changed=changed, lines_added=added, lines_removed=removed,
+            risk_tier=_risk_for_files(files),
             # The judge lane is listed even though it obviously cannot run here.
             # A reader must not have to already know the full set of lanes to
             # notice that one is missing from the document.
@@ -583,6 +594,7 @@ def run_diff_review(
         dropped=len(review.findings) - len(bugs) - len(nits),
         all_findings=verified,
         files_changed=changed, lines_added=added, lines_removed=removed,
+        risk_tier=_risk_for_files(files),
         coverage=[probe_record, ruff_record, config_record,
                   llm_record, judge_record],
     )

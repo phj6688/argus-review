@@ -38,6 +38,16 @@ export interface SeverityCounts {
   nit: number;
 }
 
+export interface RiskTier {
+  tier: "safe" | "risky";
+  label: string;
+  reasons: string[];
+  changed_lines?: number;
+  max_lines?: number;
+  files?: number;
+  incomplete?: boolean;
+}
+
 export interface ReviewSummary {
   id: string;
   repo: string;
@@ -51,6 +61,7 @@ export interface ReviewSummary {
   model_used?: string | null;
   fallback_from?: string | null;
   fallback_reason?: string | null;
+  risk?: RiskTier | null;
   counts: SeverityCounts;
   /** Null when the run itself failed, so there was nothing to post. */
   action: ActionState | null;
@@ -104,6 +115,7 @@ export interface ReviewDetail {
   /** Set when the primary model failed and the fallback model answered. */
   fallback_from?: string | null;
   fallback_reason?: string | null;
+  risk?: RiskTier | null;
   /** Failure text of an errored run, with credentials removed. */
   error?: string | null;
   /** Run lifecycle, independent of the verdict: a poller must not have to

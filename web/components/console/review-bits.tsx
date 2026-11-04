@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { LiveReview, ReviewSummary, Severity } from "@/lib/types";
+import type { LiveReview, ReviewSummary, RiskTier } from "@/lib/types";
 import { cn, SEV_ABBREV, SEV_TALLY_TIP, SEVERITIES, modelChipStyle, sevVar } from "@/lib/utils";
 
 const ACTION = {
@@ -23,6 +23,26 @@ export function ModelChip({
       style={modelChipStyle(model)}
     >
       {model}
+    </span>
+  );
+}
+
+export function RiskChip({ risk }: { risk?: RiskTier | null }) {
+  if (!risk) return null;
+  const risky = risk.tier === "risky";
+  return (
+    <span
+      data-testid="risk-tier"
+      data-tier={risk.tier}
+      data-tip={risk.reasons.length ? `${risk.label} Reasons: ${risk.reasons.join("; ")}` : risk.label}
+      className="inline-block whitespace-nowrap rounded-[6px] border px-[9px] py-[3px] text-[11px]"
+      style={{
+        color: risky ? "var(--color-accent)" : "var(--color-dim)",
+        borderColor: risky ? "var(--accent-35)" : "var(--line-14)",
+        background: risky ? "var(--accent-08)" : "var(--bone-04)",
+      }}
+    >
+      {risk.tier}
     </span>
   );
 }
@@ -116,10 +136,10 @@ export function ReviewRow({
         <span className="shrink-0 font-mono text-xs text-faint">#{review.pr}</span>
       </div>
       <div className="min-w-0 flex-1 truncate text-sm text-text">{review.title}</div>
-      <div className="shrink-0 md:w-[76px]">
+      <div className={cn("shrink-0", list ? "md:w-[124px]" : "md:w-[76px]")}>
         <RowModel review={review} />
       </div>
-      <div className="hidden w-[150px] shrink-0 gap-2 md:flex">
+      <div className={cn("hidden shrink-0 gap-2 md:flex", list ? "w-[184px]" : "w-[150px]")}>
         {review.status === "error" ? (
           <span
             data-testid="row-failed"
@@ -134,6 +154,9 @@ export function ReviewRow({
       </div>
       {list ? (
         <>
+          <div className="hidden w-[56px] shrink-0 md:block">
+            <RiskChip risk={review.risk} />
+          </div>
           <div className="hidden w-[92px] shrink-0 whitespace-nowrap sm:block">
             <ActionLabel review={review} />
           </div>

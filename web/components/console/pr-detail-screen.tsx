@@ -466,6 +466,27 @@ export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
       <div className="mb-2 font-mono text-[13px]">
         <span className="text-dim">{detail.repo}</span> <span className="text-faint">#{detail.pr}</span>
       </div>
+      {detail.risk && (
+        <div
+          data-testid="risk-note"
+          className="panel mb-2 mt-4 px-4 py-3 text-[12.5px] leading-[1.6] text-dim"
+          style={{ borderColor: detail.risk.tier === "risky" ? "var(--accent-35)" : "var(--line-14)" }}
+        >
+          <p style={{ color: detail.risk.tier === "risky" ? "var(--color-accent)" : "var(--color-dim)" }}>
+            {detail.risk.label}
+          </p>
+          {detail.risk.reasons.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 break-words pl-4">
+              {detail.risk.reasons.map((reason, i) => <li key={i}>{reason}</li>)}
+            </ul>
+          )}
+          {detail.risk.changed_lines !== undefined && detail.risk.max_lines !== undefined && (
+            <p className="mt-2 text-xs text-faint">
+              {detail.risk.changed_lines} changed lines / {detail.risk.max_lines} line limit
+            </p>
+          )}
+        </div>
+      )}
       <RunNotes detail={detail} />
 
       <div className="my-6 h-px bg-[var(--line)]" />

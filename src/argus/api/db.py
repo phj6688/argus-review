@@ -255,7 +255,7 @@ def init_db(path: str | None = None) -> None:
         for name in ("head_sha", "error", "completed_at", "error_class",
                      "source_kind", "base_sha", "diff_hash", "baseline_json",
                      "model_used", "fallback_from", "fallback_reason",
-                     "coverage_json"):
+                     "coverage_json", "risk_tier", "risk_json"):
             _ensure_column(conn, "reviews", name)
         for name, decl in (("branch", "TEXT"), ("author", "TEXT"),
                            ("files_changed", "INTEGER"), ("lines_added", "INTEGER"),
@@ -586,10 +586,13 @@ def save_result(path: str | None, review_id: int, result: ReviewResult) -> None:
         conn.execute(
             "UPDATE reviews SET status = ?, raw_count = ?, dropped = ?, "
             "completed_at = ?, coverage_json = ?, branch = ?, author = ?, "
-            "files_changed = ?, lines_added = ?, lines_removed = ? WHERE id = ?",
+            "files_changed = ?, lines_added = ?, lines_removed = ?, "
+            "risk_tier = ?, risk_json = ? WHERE id = ?",
             (STATUS_DONE, result.raw_count, result.dropped, _now_iso(),
              _coverage_json(result), result.branch, result.author,
-             result.files_changed, result.lines_added, result.lines_removed, review_id),
+             result.files_changed, result.lines_added, result.lines_removed,
+             result.risk_tier["tier"] if result.risk_tier is not None else None,
+             json.dumps(result.risk_tier) if result.risk_tier is not None else None, review_id),
         )
         if result.head_sha:
             row = conn.execute("SELECT head_sha FROM reviews WHERE id = ?", (review_id,)).fetchone()
