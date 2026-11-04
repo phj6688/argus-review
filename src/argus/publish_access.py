@@ -131,9 +131,14 @@ def _grant_access(repo: str, status: dict) -> dict:
         return {**status, "grant": "failed", "detail": "bot login could not be resolved"}
     detail = "reviewer token cannot add collaborators here"
     try:
-        repo_policy.validate_repo(repo)
+        from .api import db
+
+        _, deny = db.get_publish_state()  # strict: raises on a malformed stored deny list
+        repo_policy.validate_repo(repo, deny)
     except repo_policy.RepoDenied:
         return {**status, "grant": "skipped", "detail": "repository is denied, add the bot by hand"}
+    except Exception:
+        return {**status, "grant": "failed", "detail": "deny policy could not be read"}
     try:
         response = _request("PUT", f"{github.GITHUB_API}/repos/{repo}/collaborators/{bot}",
                             token=reviewer_token, json={"permission": "push"})

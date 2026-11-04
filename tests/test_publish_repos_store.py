@@ -238,7 +238,26 @@ def test_grant_skips_a_repo_denied_after_the_access_check(monkeypatch):
         raise repo_policy.RepoDenied(name)
 
     monkeypatch.setattr(repo_policy, "validate_repo", denied)
+    monkeypatch.setattr("argus.api.db.get_publish_state", lambda *a, **k: (None, []))
     monkeypatch.setattr(publish_access, "_request",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not write")))
     out = publish_access._grant_access("example/repo", {"state": "missing"})
     assert out["grant"] == "skipped"
+
+
+def test_grant_fails_closed_when_the_deny_list_is_unreadable(monkeypatch):
+    from argus import publish_access, repo_policy
+
+    monkeypatch.setenv("ARGUS_PUBLISH_AUTO_INVITE", "1")
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setattr(repo_policy, "watch_owners", lambda: {"example"})
+    monkeypatch.setattr(publish_access.publish, "_bot_login", lambda: "test-bot")
+
+    def broken(*a, **k):
+        raise ValueError("malformed deny list")
+
+    monkeypatch.setattr("argus.api.db.get_publish_state", broken)
+    monkeypatch.setattr(publish_access, "_request",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not write")))
+    out = publish_access._grant_access("example/repo", {"state": "missing"})
+    assert out["grant"] == "failed"
