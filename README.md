@@ -2,7 +2,7 @@
 
 # Argus
 
-Argus is a self-hosted code reviewer for GitHub pull requests. It reads a PR, asks a model for candidate bugs, and has a second skeptical pass try to refute each one. It then checks the survivors against your rules and posts only a few findings that held up.
+Argus is a self-hosted code reviewer for GitHub pull requests and GitLab merge requests. It reads a change, asks a model for candidate bugs, and has a second skeptical pass try to refute each one. It then checks the survivors against your rules and posts only a few findings that held up.
 
 You run it on your own machine and bring your own model: an API key, a local OpenAI-compatible server, or a Claude or ChatGPT subscription. Your code goes to the model you choose and nowhere else.
 
@@ -21,7 +21,7 @@ If the evidence line sits elsewhere in the file, Argus moves the finding to it.
 
 ## Quickstart with Docker
 
-You need Docker with the compose plugin, a GitHub token and one model provider.
+You need Docker with the compose plugin, a GitHub or GitLab token and one model provider.
 
 1. Clone the repository and create your settings file.
 
@@ -39,7 +39,7 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
 
 3. Open `.env` and set three things:
    - `ARGUS_API_TOKEN`, the value from step 2. It must be at least 32 characters.
-   - `GITHUB_TOKEN`, a fine-grained token with Contents:read and Pull requests:read on the repositories you want reviewed.
+   - `GITHUB_TOKEN` for GitHub, a fine-grained token with Contents:read and Pull requests:read on the repositories you want reviewed. For GitLab, use the settings in the [GitLab guide](docs/gitlab.md#setup).
    - One provider. For example, `OPENROUTER_API_KEY=...`. See [Choosing a model provider](#choosing-a-model-provider).
 
 4. Start the stack.
@@ -87,6 +87,10 @@ Commands that name a container, such as the MCP snippet below, use the service n
 
 Data lives in the `argus-data` volume. `docker compose down` keeps it. `docker compose down -v` deletes it.
 
+## GitLab
+
+Argus reviews GitLab merge requests through the console, API, CLI and MCP. With publishing enabled, it posts inline discussions and one summary note. Start with one project in dry-run mode. See the [GitLab guide](docs/gitlab.md) for tokens, roles, settings and limits. Watching GitLab for new merge requests and replying to GitLab notes are not available yet.
+
 ## Quickstart without Docker
 
 You need Python 3.11 or newer and [uv](https://docs.astral.sh/uv/).
@@ -98,7 +102,7 @@ uv sync
 cp .env.example .env     # then edit it, and export the values in your shell
 ```
 
-Edit `.env` as in steps 2 and 3 of the Docker quickstart. Generate a token with `openssl rand -hex 32` and set it as `ARGUS_API_TOKEN`. Set `GITHUB_TOKEN` and one provider. The API refuses to start without a token of 32 characters or more.
+Edit `.env` as in steps 2 and 3 of the Docker quickstart. Generate a token with `openssl rand -hex 32` and set it as `ARGUS_API_TOKEN`. Set `GITHUB_TOKEN` for GitHub or the GitLab settings above, plus one provider. The API refuses to start without a token of 32 characters or more.
 
 Load the settings into your shell. This reads `.env` as plain `KEY=value` lines:
 
@@ -106,11 +110,12 @@ Load the settings into your shell. This reads `.env` as plain `KEY=value` lines:
 set -a; . ./.env; set +a
 ```
 
-Check the provider, then review a PR from the command line:
+Check the provider, then review a GitHub PR or GitLab merge request from the command line. The GitHub example needs `GITHUB_TOKEN`. The GitLab example needs `ARGUS_GITLAB_TOKEN`, `ARGUS_GITLAB_URL` for the same host, and a matching `ARGUS_GITLAB_ALLOW` entry:
 
 ```bash
 uv run argus doctor
 uv run argus review owner/repo 123
+uv run argus review 'gitlab:gitlab.example.com#123' 7
 ```
 
 The CLI has these commands:
@@ -378,10 +383,10 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_GITLAB_PUBLISH` | `0` | `0`, `dry-run` or `1`. |
 | `ARGUS_GITLAB_PUBLISH_PROJECTS` | none | Comma-separated exact project keys for publishing. No wildcards. |
 | `ARGUS_GITLAB_NOTES_PER_MINUTE` | `30` | Positive note limit per minute. |
-| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum trusted access level: 0, 5, 10, 15, 20, 30, 40 or 50. |
-| `ARGUS_GITLAB_WATCH` | off | Enable the GitLab watcher. |
-| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of watcher ticks between reconciliations. |
-| `ARGUS_GITLAB_REPLY_LOOP` | off | Enable replies to GitLab notes. |
+| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Reserved. Minimum trusted access level: 0, 5, 10, 15, 20, 30, 40 or 50. Not used yet. |
+| `ARGUS_GITLAB_WATCH` | off | Reserved watcher switch. Not used yet. |
+| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Reserved. Positive number of watcher ticks between reconciliations. |
+| `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved reply switch. Not used yet. |
 | `ARGUS_GITLAB_TIMEOUT_S` | `30.0` | Finite positive request timeout in seconds. |
 | `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, at least 1024. |
 | `ARGUS_DB_PATH` | `./.argus/argus.db` | SQLite file. Compose sets `/data/argus.db`. |
@@ -389,7 +394,7 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_API_PORT` | `8350` | Host port of the API in Docker. |
 | `ARGUS_WEB_PORT` | `3350` | Host port of the console in Docker. |
 
-GitLab support is configuration only so far. No GitLab call is made yet. `ARGUS_GITLAB_CA_BUNDLE` points at the mounted path inside the container.
+GitLab support reads merge requests and can post inline discussions and one summary note. Publishing requires both publishing modes and an exact project allowlist. The [GitLab guide](docs/gitlab.md) covers setup and a first run that posts nothing. `ARGUS_GITLAB_CA_BUNDLE` points at the mounted path inside the container.
 
 GitLab policy entries use `gitlab:HOST/group/sub` for a group path or `gitlab:HOST#ID` for a project id.
 A bare `ARGUS_DENY_OWNERS` entry also denies GitLab projects whose top-level group matches, ignoring case.
@@ -427,6 +432,7 @@ More docs:
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the pipeline is built.
 - [DEPLOY.md](DEPLOY.md): self-hosting behind a reverse proxy, upgrades and backups.
 - [docs/publishing.md](docs/publishing.md): posting, the reply loop and acceptance tracking.
+- [docs/gitlab.md](docs/gitlab.md): GitLab setup, publishing, limits and safety rules.
 - [docs/evaluation.md](docs/evaluation.md): offline replay and scoring.
 - [docs/risk-tier.md](docs/risk-tier.md): the path and size category and operator checkpoint.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to send a change.
