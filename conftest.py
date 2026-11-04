@@ -1,4 +1,20 @@
+from types import SimpleNamespace
+
 import pytest
+
+from argus import github
+
+
+def stub_github_client(monkeypatch, *, get=None, post=None):
+    def unexpected(*args, **kwargs):
+        pytest.fail("Unexpected GitHub HTTP request")
+
+    client = SimpleNamespace(
+        get=get if get is not None else unexpected,
+        post=post if post is not None else unexpected,
+    )
+    monkeypatch.setattr(github, "_client", lambda: client)
+    return client
 
 
 @pytest.fixture(autouse=True)

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- GitHub API calls reuse one HTTP client, so each call no longer opens a new TLS connection.
 - The `action` column of the reviews list shows the real GitHub posting state of each finished review: `posted` (with `posted_comments`), `dry_run`, `not_posted` or `post_failed`. A failed run has `action: null` and shows a dash. Before, every row said `pending`.
 - The Config page has a "GitHub posting" section. Drag a repository between "Review only" and "Review and post to GitHub" (or use the arrow button) to change where Argus posts. The list is stored in the database. `ARGUS_PUBLISH_REPOS` seeds it until the first save, and `ARGUS_PUBLISH` stays an environment setting. New API: `PUT /config/publish-repos`. `GET /config` adds a `publish` object and `GET /integrations` adds `github.publishing.source`. On add, Argus checks the bot's write access. With the new opt-in `ARGUS_PUBLISH_AUTO_INVITE=1` (default 0, needs a `GITHUB_TOKEN` with Administration:write) it also invites the bot for watched owners and accepts the invitation. Without the opt-in `GITHUB_TOKEN` is never used to write. When the bot has no access the repository is still saved and the console shows a warning with a link to the access settings. Denied owners are refused with `422`.
 - Compose sets no project, container or image names, and the host ports come from `ARGUS_API_PORT` and `ARGUS_WEB_PORT`. A second copy no longer collides with the first. Add the old names in `docker-compose.override.yml` if a script needs them.

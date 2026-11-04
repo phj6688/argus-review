@@ -129,6 +129,7 @@ async def lifespan(_app: FastAPI):
             watch_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await watch_task
+        github.close_client()
 
 
 app = FastAPI(title="Argus", version="0.1.0", lifespan=lifespan,

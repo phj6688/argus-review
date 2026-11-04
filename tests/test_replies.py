@@ -5,6 +5,7 @@ import time
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import acceptance, client, github, publish, replies
 from argus.api import db
@@ -388,7 +389,7 @@ def test_recheck_file_uses_read_token(live, monkeypatch):
         assert kw["params"]["ref"] in {"a" * 40, "b" * 40}
         return httpx.Response(200, json={"encoding": "base64",
             "content": base64.b64encode(b"return value").decode()}, request=httpx.Request("GET", url))
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     monkeypatch.setattr(client, "complete_tool", lambda *a: {"verdict": "fixed", "quote": "return value"})
     assert replies.recheck("owner/repo", {"path": "app.py", "line": 1, "head_sha": "a" * 40,
         "comparison": {"status": "ahead", "files": [file_entry(filename="app.py",

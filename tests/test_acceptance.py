@@ -8,6 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from conftest import stub_github_client
 import yaml
 
 from argus import acceptance, github
@@ -25,6 +26,7 @@ def database(tmp_path, monkeypatch):
     monkeypatch.setattr(github, "_cache", github.OrderedDict())
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("Unexpected HTTP"))
     monkeypatch.setattr(httpx, "post", lambda *a, **k: pytest.fail("Unexpected HTTP"))
+    stub_github_client(monkeypatch, get=httpx.get, post=httpx.post)
     db.init_db(path)
     db.init_db(path)
     return path
@@ -108,7 +110,7 @@ def test_graphql_read_records_quota(database, monkeypatch):
         return httpx.Response(200, json={"data": {"viewer": {"login": "reader"}}},
                               headers={"x-ratelimit-resource": "graphql", "x-ratelimit-remaining": "900"},
                               request=httpx.Request("POST", url))
-    monkeypatch.setattr(httpx, "post", post)
+    stub_github_client(monkeypatch, post=post)
     assert github.graphql_read("query { viewer { login } }", {})["viewer"]["login"] == "reader"
     assert github.quota_snapshot()["graphql"]["remaining"] == 900
     monkeypatch.setattr(github, "_pause_until", time.time() + 60)
@@ -161,14 +163,13 @@ def test_collector_replies_resolution_changes_and_cursor(database, monkeypatch):
             body = {"state": "open", "head": {"sha": "b" * 40}}
             headers = {}
         return httpx.Response(200, json=body, headers=headers, request=httpx.Request("GET", url))
-    monkeypatch.setattr(httpx, "get", get)
     def post(url, **kwargs):
         assert kwargs["json"]["query"].lstrip().startswith("query")
         return httpx.Response(200, json={"data": {"repository": {"pullRequest": {"reviewThreads": {
             "nodes": [{"isResolved": False, "comments": {"nodes": [{"databaseId": 101}]}},
                       {"isResolved": True, "comments": {"nodes": [{"databaseId": 102}]}}]}}}}},
                               request=httpx.Request("POST", url))
-    monkeypatch.setattr(httpx, "post", post)
+    stub_github_client(monkeypatch, get=get, post=post)
     acceptance.collect(database)
     outcomes = rows(database, "finding_outcomes")
     assert len([o for o in outcomes if o["kind"] == "reply"]) == 2
@@ -329,7 +330,7 @@ def test_interrupted_reply_pagination_replays_without_losing_cursor(database, mo
                                          "updated_at": "2026-02-01T00:00:00Z"}],
                               headers={"etag": '"one"', "link": '<https://api.github.com/repos/owner/repo/pulls/comments?page=2>; rel="next"'},
                               request=httpx.Request("GET", url))
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     with pytest.raises(github.GitHubRateLimited):
         acceptance.collect(database)
     assert not rows(database, "finding_outcomes")
@@ -378,7 +379,7 @@ def test_addressed_resolved_rejection_does_not_seed_suppression(database, monkey
         {"id": 9, "in_reply_to_id": 101, "body": "rejected", "user": {"login": "author"}, "author_association": "MEMBER",
          "created_at": now, "updated_at": now}])
     monkeypatch.setattr(github, "get_json_cached", lambda *a: ({"state": "open", "head": {"sha": "b" * 40}}, ""))
-    monkeypatch.setattr(httpx, "get", lambda url, **kw: httpx.Response(
+    stub_github_client(monkeypatch, get=lambda url, **kw: httpx.Response(
         200, json={"status": "ahead", "files": [{"filename": "app.py", "status": "removed"}]},
         request=httpx.Request("GET", url)))
     monkeypatch.setattr(github, "graphql_read", lambda *a: {"repository": {"pullRequest": {"reviewThreads": {
@@ -411,11 +412,11 @@ def test_exhausted_query_quota_leaves_rest_available(database, monkeypatch):
         return httpx.Response(200, json={"data": {}},
                               headers={"x-ratelimit-resource": "graphql", "x-ratelimit-remaining": "0",
                                        "x-ratelimit-reset": str(reset)}, request=httpx.Request("POST", url))
-    monkeypatch.setattr(httpx, "post", post)
+    stub_github_client(monkeypatch, post=post)
     with pytest.raises(github.GraphQLRateLimited):
         github.graphql_read("query { viewer { login } }", {})
     assert github.pause_until() == 0
-    monkeypatch.setattr(httpx, "get", lambda url, **kwargs: httpx.Response(
+    stub_github_client(monkeypatch, get=lambda url, **kwargs: httpx.Response(
         200, json={"state": "open"}, request=httpx.Request("GET", url)))
     assert github.get("/repos/owner/repo/pulls/3").status_code == 200
     with pytest.raises(github.GitHubRateLimited):
@@ -433,7 +434,7 @@ def test_compare_failure_isolated_and_run_stats(database, monkeypatch, caplog):
                                         response=httpx.Response(404))
         return httpx.Response(200, json={"status": "ahead", "files": [{"filename": "app.py", "status": "removed"}]},
                               request=httpx.Request("GET", url))
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     monkeypatch.setattr(github, "get_json_cached", lambda *a: ({"state": "open", "head": {"sha": "c" * 40}}, ""))
     acceptance.collect(database)
     assert any(o["finding_id"] == second and o["kind"] == "addressed" for o in rows(database, "finding_outcomes"))
@@ -598,7 +599,7 @@ def collector_http(monkeypatch, *, status="ahead", query_error=None, compare_err
         if query_error:
             raise query_error
         return {"repository": {"pullRequest": {"reviewThreads": {"nodes": []}}}}
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     monkeypatch.setattr(github, "graphql_read", query)
     return calls
 
@@ -718,7 +719,7 @@ def test_query_escape_refused_without_request(database, caplog):
     (200, {}, {"errors": [{"type": "RATE_LIMITED"}]}),
 ])
 def test_query_limits_have_separate_exception(database, monkeypatch, code, headers, body):
-    monkeypatch.setattr(httpx, "post", lambda url, **kw: httpx.Response(
+    stub_github_client(monkeypatch, post=lambda url, **kw: httpx.Response(
         code, headers=headers, json=body, request=httpx.Request("POST", url)))
     with pytest.raises(github.GraphQLRateLimited):
         github.graphql_read("query { viewer { login } }", {})
@@ -741,7 +742,7 @@ def test_unchanged_and_unavailable_patches_stay_judged(database, monkeypatch, fi
         return httpx.Response(200, json={"status": "ahead", "files": files},
                               headers={"etag": "large"}, request=httpx.Request("GET", url))
     monkeypatch.setattr(github, "get_json_cached", lambda *a: ({"state": "open", "head": {"sha": "c" * 40}}, ""))
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     for _ in range(2):
         acceptance.collect(database)
     assert [o["value"] for o in rows(database, "finding_outcomes") if o["kind"] == "addressed"] == [value]
