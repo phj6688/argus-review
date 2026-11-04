@@ -1,5 +1,6 @@
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import github
 from argus.repo_policy import RepoDenied, is_denied, validate_repo
@@ -41,6 +42,7 @@ def test_deny(monkeypatch):
 def test_denied_before_transport(path, monkeypatch):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp")
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("request sent"))
+    stub_github_client(monkeypatch, get=httpx.get)
     with pytest.raises(github.GitHubDenied):
         github.get(path)
 
@@ -51,7 +53,7 @@ def test_denied_redirect(monkeypatch):
     response = httpx.Response(
         200, json={}, request=httpx.Request("GET", "https://api.github.com/repos/acme-corp/secret-repo")
     )
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: response)
+    stub_github_client(monkeypatch, get=lambda *a, **k: response)
     with pytest.raises(github.GitHubDenied):
         github.get("/repos/example/x")
 
@@ -62,6 +64,7 @@ def test_denied_redirect(monkeypatch):
 def test_nested_or_encoded_owner_paths(path, monkeypatch):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp")
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("request sent"))
+    stub_github_client(monkeypatch, get=httpx.get)
     with pytest.raises(github.GitHubDenied):
         github.get(path)
 
@@ -105,9 +108,5 @@ def test_denied_publish_redirect_does_not_return_body(monkeypatch):
 def test_safe_content_path_encoding_is_allowed(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "fake")
     url = "https://api.github.com/repos/example/a/contents/a%20file.py"
-    monkeypatch.setattr(
-        httpx,
-        "get",
-        lambda *a, **k: httpx.Response(200, json={}, request=httpx.Request("GET", url)),
-    )
+    stub_github_client(monkeypatch, get=lambda *a, **k: httpx.Response(200, json={}, request=httpx.Request("GET", url)))
     assert github.get("/repos/example/a/contents/a file.py").status_code == 200

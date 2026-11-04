@@ -5,8 +5,10 @@ engine is monkeypatched at the point main.py looks it up, so these tests never
 touch the provider backend.
 """
 
+import asyncio
 import sqlite3
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -50,6 +52,37 @@ def client(db_path, monkeypatch):
     monkeypatch.setattr(main, "run_review", lambda *a, **kw: _stub_result())
     with TestClient(main.app) as test_client:
         yield test_client
+
+
+@pytest.mark.parametrize("watch_enabled", [False, True])
+def test_shutdown_closes_github_client_after_watcher(db_path, monkeypatch, watch_enabled):
+    main.github.close_client()
+    http = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200)))
+    monkeypatch.setattr(main.github, "_http", http)
+    monkeypatch.setattr(main.watcher, "is_enabled", lambda: watch_enabled)
+    stopped = []
+
+    async def watch():
+        try:
+            await asyncio.Future()
+        finally:
+            assert not http.is_closed
+            stopped.append(True)
+
+    monkeypatch.setattr(main.watcher, "run_forever", watch)
+
+    async def run():
+        async with main.lifespan(main.app):
+            await asyncio.sleep(0)
+            assert main.github._client() is http
+        assert http.is_closed
+        assert main.github._http is None
+        assert stopped == ([True] if watch_enabled else [])
+
+    try:
+        asyncio.run(run())
+    finally:
+        main.github.close_client()
 
 
 def test_health_returns_model_without_network(client, monkeypatch):

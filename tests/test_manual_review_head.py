@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
+from conftest import stub_github_client
 from fastapi.testclient import TestClient
 
 from argus import github, review
@@ -21,6 +22,7 @@ def database(tmp_path, monkeypatch):
     monkeypatch.setenv("ARGUS_DB_PATH", path)
     monkeypatch.delenv("ARGUS_FALLBACK_MODEL", raising=False)
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("unexpected request"))
+    stub_github_client(monkeypatch, get=httpx.get)
     monkeypatch.setattr(live, "_pr_head_sha", lambda *a: HEAD)
     monkeypatch.setattr(main, "_publish_completed_review", Mock())
     db.init_db(path)

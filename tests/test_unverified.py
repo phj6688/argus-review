@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import acceptance, cli, diff, github, publish, verdict
 from argus.api import db, main
@@ -34,6 +35,7 @@ def database(tmp_path, monkeypatch):
     monkeypatch.setenv("ARGUS_PUBLISH_MIN_SEVERITY", "minor")
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("Unexpected HTTP"))
     monkeypatch.setattr(httpx, "post", lambda *a, **k: pytest.fail("Unexpected HTTP"))
+    stub_github_client(monkeypatch, get=httpx.get, post=httpx.post)
     monkeypatch.setattr(diff, "fetch_pr_files", lambda *a: FILES)
     monkeypatch.setattr(cli, "fetch_pr_files", lambda *a: FILES)
     db.init_db(path)

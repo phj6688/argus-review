@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
+from conftest import stub_github_client
 from fastapi.testclient import TestClient
 
 from argus import context, github, review
@@ -31,6 +32,7 @@ def path(tmp_path, monkeypatch):
     monkeypatch.setattr(github, "_cache", github.OrderedDict())
     monkeypatch.setattr(watcher, "_ticks", {})
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("unexpected HTTP request"))
+    stub_github_client(monkeypatch, get=httpx.get)
     monkeypatch.setattr(review, "complete_tool", lambda *a, **k: pytest.fail("unexpected model call"))
     db.init_db(path)
     return path
@@ -123,7 +125,7 @@ def test_numeric_pagination_reuses_original_path(path, monkeypatch):
         link = '<https://api.github.com/repositories/123/pulls?page=2>; rel="next"' if page == "1" else ""
         return httpx.Response(200, json=[{"number": int(page)}], headers={"Link": link}, request=req)
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     assert github.list_cached(f"/repos/{REPO}/pulls", {"state": "open", "per_page": 100}) == [
         {"number": 1}, {"number": 2}]
     assert [url.path for url in calls] == [f"/repos/{REPO}/pulls"] * 2
@@ -138,7 +140,7 @@ def test_pagination_loop_detected(path, monkeypatch):
         return httpx.Response(200, json=[], request=httpx.Request("GET", url), headers={
             "Link": '<https://api.github.com/repositories/123/pulls?page=2>; rel="next"'})
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     with pytest.raises(RuntimeError, match="pagination loop"):
         github.list_cached(f"/repos/{REPO}/pulls")
     assert len(calls) == 2
@@ -362,7 +364,7 @@ def test_rate_limit_endpoint_can_refresh_while_paused(path, monkeypatch):
         calls.append(url)
         return httpx.Response(200, json={}, request=httpx.Request("GET", url))
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     with pytest.raises(github.GitHubRateLimited):
         github.get(f"/repos/{REPO}/pulls")
     assert calls == []
