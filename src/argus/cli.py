@@ -1,4 +1,7 @@
-"""Argus command line."""
+"""Argus command line.
+
+The CLI publish-placement command stays GitHub-only.
+"""
 
 import argparse
 import json

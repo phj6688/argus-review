@@ -1,5 +1,7 @@
 """MCP surface over the Argus API, so coding agents call reviews as tools.
 
+The MCP review_diff tool stays GitHub-only.
+
 Thin by design: every tool is one HTTP call to the running argus-api (the
 container owns the DB and the engine); this process holds no state. Runs on
 stdio for the local Claude Code registration:

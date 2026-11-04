@@ -12,6 +12,7 @@ import httpx
 
 from . import repo_policy
 from .diff import LANGUAGE_BY_EXTENSION, FilePatch, split_lines
+from .forge.keys import is_gitlab_key
 from .github import API_VERSION, GITHUB_API, guard_url, observe_response
 from .markdown import code_span, escape_block, escape_inline
 from .repo_policy import validate_repo
@@ -89,6 +90,8 @@ class PublishOutcome:
 
 def enabled_for(repo: str) -> bool:
     """Read the opt-in at call time so an unset flag adds no GitHub reads."""
+    if is_gitlab_key(repo):
+        return False
     return os.environ.get("ARGUS_PUBLISH") in {"1", "dry-run"} and repo.casefold() in repo_allowlist()
 
 

@@ -3,6 +3,7 @@
 import base64
 import binascii
 import json
+import logging
 import os
 import re
 import time
@@ -12,7 +13,10 @@ from itertools import chain
 import httpx
 
 from . import client, github, publish
+from .forge.skips import count_skip, is_gitlab_key, log_skips
 from .repo_policy import env_int, validate_repo
+
+log = logging.getLogger("argus.replies")
 
 MARKER = re.compile(r"<!--\s*argus:reply=(?P<kind>[a-z]+)(?: evidence=(?P<evidence>[\w-]+))?\s*-->\s*\Z")
 _RESOLVE = """mutation($id: ID!) {
@@ -29,6 +33,8 @@ _CHECK = client.ToolSpec("recheck_finding", {
 
 
 def enabled_for(repo):
+    if is_gitlab_key(repo):
+        return False
     return (os.environ.get("ARGUS_PUBLISH") == "1" and publish.enabled_for(repo)
             and os.environ.get("ARGUS_REPLY_LOOP", "1") != "0")
 
@@ -598,6 +604,11 @@ def _finding_loop(conn, finding, head, identities, now, run):
 def run(conn, repo, findings, head, comparisons, now, counters):
     from .acceptance import _failure
 
+    if is_gitlab_key(repo):
+        count_skip(counters)
+        log_skips(log, "replies", 1)
+        return
+    count_skip(counters, 0)
     if not enabled_for(repo):
         return
     identities = [r[0] for r in conn.execute("SELECT bot_login FROM publishing_identities WHERE repo=?", (repo,))]

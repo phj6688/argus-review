@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Route GitHub publishing through the forge adapter and explicitly skip GitLab keys in outcome collection, replies, automarking and evaluation, with skip counters when GitLab is configured. GitHub behavior is unchanged.
 - Read the review path through a GitHub forge adapter and treat forge auth, denial and rate-limit errors as non-retryable by class (GitHub behaviour unchanged).
 - Added GitLab project storage, nullable forge columns and shared trust helpers. GitHub behavior is unchanged.
 - Added a repository key parser and forge aware deny and allow policy. `is_denied` stays pure and denies every GitLab key. GitHub behavior is unchanged.

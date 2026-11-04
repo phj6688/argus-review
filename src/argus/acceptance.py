@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import github, publish, replies
+from .forge.skips import count_skip, is_gitlab_key, log_skips
 from .repo_policy import validate_repo
 
 NOTE = (
@@ -446,6 +447,7 @@ def collect(path=None):
            "bot": replies.counts(), "rechecks_attempted": 0, "writes_attempted": 0}
     _last_runs[str(Path(path or db.db_path()).resolve())] = run
     comparisons = {}
+    skipped = 0
     try:
         with closing(db.connect(path)) as conn:
             _reconcile(conn, path, now, run)
@@ -453,6 +455,10 @@ def collect(path=None):
             for row in conn.execute("SELECT * FROM published_findings WHERE mode='posted'"):
                 by_repo[row["repo"]].append(dict(row))
             for repo, items in by_repo.items():
+                if is_gitlab_key(repo):
+                    skipped += 1
+                    count_skip(run)
+                    continue
                 run["repos"] += 1
                 try:
                     validate_repo(repo)
@@ -516,6 +522,8 @@ def collect(path=None):
         raise
     finally:
         run["finished_at"] = datetime.now(timezone.utc).isoformat()
+        log_skips(log, "outcomes", skipped)
+        count_skip(run, 0)
 
 
 def wilson(successes, total):

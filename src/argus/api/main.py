@@ -303,10 +303,11 @@ def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: i
             log.info("review %s: publishing skipped for %s#%s: %s head SHA",
                      review_id, repo, pr, "invalid" if head else "missing")
             return
-        files = forge_for(repo).change_files(repo, pr)
+        forge = forge_for(repo)
+        files = forge.change_files(repo, pr)
         document = verdict.document(review, db.get_findings(path, review_id),
                                     unverified=db.get_unverified_findings(path, review_id))
-        outcome = publish.publish_review(repo, pr, head, review_id, document, files)
+        outcome = forge.publish(repo, pr, head, review_id, document, files)
     except Exception as error:  # noqa: BLE001 - publishing cannot invalidate a saved review
         outcome = publish.error_outcome(error)
     try:

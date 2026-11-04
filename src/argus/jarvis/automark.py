@@ -23,6 +23,7 @@ Nothing is written unless --commit is passed; the default is a dry-run.
 """
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field
@@ -31,8 +32,11 @@ from pathlib import Path
 import httpx
 
 from ..client import llm_slot
+from ..forge.skips import count_skip, is_gitlab_key, log_skips
 
 from . import judges, live, probes
+
+log = logging.getLogger("argus.automark")
 
 ENV_API_URL = "ARGUS_AUTOMARK_API_URL"
 ENV_JUDGE_URL = "ARGUS_AUTOMARK_JUDGE_URL"
@@ -404,6 +408,12 @@ def _degraded_judge(_payload: dict) -> dict:
 # Finding source (live Argus API) + mark writer (local db)
 # --------------------------------------------------------------------------
 
+class _Findings(list):
+    """Findings plus the count of GitLab reviews dropped before their details were fetched."""
+
+    skipped_gitlab = 0
+
+
 def list_findings_via_api(*, repo: str | None = None, pr: int | None = None,
                           since: int | None = None, base_url: str | None = None) -> list[Finding]:
     """Read findings the way the spec mandates: GET /reviews then /reviews/{id}.
@@ -416,7 +426,9 @@ def list_findings_via_api(*, repo: str | None = None, pr: int | None = None,
     with httpx.Client(base_url=base_url, timeout=httpx.Timeout(20.0, connect=5.0)) as client:
         summaries = client.get("/reviews").json().get("reviews", [])
         chosen = _select_reviews(summaries, repo=repo, pr=pr, since=since)
-        findings: list[Finding] = []
+        findings = _Findings()
+        findings.skipped_gitlab = sum(is_gitlab_key(row.get("repo") or "") for row in summaries)
+        log_skips(log, "automark", findings.skipped_gitlab)
         for summary in chosen:
             detail = client.get(f"/reviews/{summary['id']}").json()
             findings.extend(_findings_from_detail(detail))
@@ -426,6 +438,7 @@ def list_findings_via_api(*, repo: str | None = None, pr: int | None = None,
 def _select_reviews(summaries: list[dict], *, repo, pr, since) -> list[dict]:
     chosen = [
         row for row in summaries
+        if not is_gitlab_key(row.get("repo") or "")
         if (repo is None or row.get("repo") == repo)
         and (pr is None or row.get("pr") == pr)
         and (since is None or _age_to_days(row.get("age")) <= since)
@@ -491,11 +504,20 @@ def run(*, repo: str | None = None, pr: int | None = None, since: int | None = N
     marks. Per-finding IO failures are skipped, never raised. An already-marked
     finding is skipped untouched: auto-marks never overwrite a human or prior label."""
     report = RunReport(commit=commit, threshold=threshold, judge_ok=judge_ok, judge_note=judge_note)
+    # An attribute, not a dataclass field, so asdict() snapshots of a report keep their shape.
+    report.stats = {}
     effective_judge = judge if judge_ok else _degraded_judge
     head_cache: dict[tuple, str] = {}
     content_cache: dict[tuple, str | None] = {}
+    skipped = 0
 
-    for finding in list_findings(repo=repo, pr=pr, since=since):
+    source = list_findings(repo=repo, pr=pr, since=since)
+    selected = getattr(source, "skipped_gitlab", 0)
+    for finding in source:
+        if is_gitlab_key(finding.repo):
+            skipped += 1
+            count_skip(report.stats)
+            continue
         report.scanned += 1
         if finding.has_mark:
             report.skipped.append((finding, "already marked"))
@@ -509,6 +531,8 @@ def run(*, repo: str | None = None, pr: int | None = None, since: int | None = N
         decision = classify(finding, content, head_cache[(finding.repo, finding.pr)],
                             judge=effective_judge, threshold=threshold)
         _record(report, finding, decision, commit, write_mark)
+    log_skips(log, "automark", skipped)
+    count_skip(report.stats, selected)
     return report
 
 
