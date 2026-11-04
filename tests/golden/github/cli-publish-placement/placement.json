@@ -1,0 +1,323 @@
+{
+  "case": "placement",
+  "db_rows": {
+    "findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "src/app.py",
+          10,
+          "major",
+          0.9,
+          "Validate input before saving",
+          "An empty input reaches storage.",
+          "Reject empty input before saving.",
+          null,
+          1,
+          1,
+          0.9,
+          "fp-inline",
+          "llm",
+          11,
+          "contracts",
+          "save(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "src/app.py",
+          100,
+          "major",
+          0.9,
+          "Check the changed location",
+          "An empty input reaches storage.",
+          "Reject empty input before saving.",
+          null,
+          1,
+          1,
+          0.9,
+          "fp-stale",
+          "llm",
+          null,
+          "contracts",
+          "save(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          3,
+          1,
+          "src/app.py",
+          200,
+          "major",
+          0.9,
+          "Check the fallback value",
+          "An empty input reaches storage.",
+          "Reject empty input before saving.",
+          null,
+          1,
+          1,
+          0.9,
+          "fp-summary",
+          "llm",
+          null,
+          "contracts",
+          "save(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "published_findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "repo",
+        "pr",
+        "head_sha",
+        "fingerprint",
+        "severity",
+        "category",
+        "path",
+        "line",
+        "end_line",
+        "title",
+        "placement",
+        "mode",
+        "gh_review_id",
+        "gh_comment_id",
+        "posted_at",
+        "comment_lookups",
+        "unverified",
+        "gh_thread_id",
+        "anchor_status"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "example/app",
+          42,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-inline",
+          "major",
+          "contracts",
+          "src/app.py",
+          10,
+          11,
+          "Validate input before saving",
+          "inline",
+          "posted",
+          301,
+          801,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "example/app",
+          42,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-stale",
+          "major",
+          "contracts",
+          "src/app.py",
+          100,
+          null,
+          "Check the changed location",
+          "inline",
+          "posted",
+          301,
+          802,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ],
+        [
+          3,
+          1,
+          "example/app",
+          42,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-summary",
+          "major",
+          "contracts",
+          "src/app.py",
+          200,
+          null,
+          "Check the fallback value",
+          "summary",
+          "posted",
+          301,
+          null,
+          "<ts>",
+          0,
+          1,
+          null,
+          null
+        ]
+      ]
+    },
+    "publishing_identities": {
+      "columns": [
+        "repo",
+        "bot_login",
+        "first_seen_at",
+        "bot_user_id"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "example-bot",
+          "<ts>",
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          42,
+          "model-a",
+          "done",
+          "<ts>",
+          3,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "files_omitted": 0,
+                "files_reviewed": 1,
+                "lane": "llm",
+                "status": "ran"
+              }
+            ],
+            "level": "full"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "posted",
+          "<ts>",
+          null,
+          2,
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/42/files"
+    }
+  ],
+  "result": {
+    "stderr": [],
+    "stdout": [
+      "posted inline src/app.py:10 commentable=yes fp-inline Validate input before saving",
+      "posted inline src/app.py:100 commentable=no fp-stale Check the changed location",
+      "posted summary src/app.py:200 unverified fp-summary Check the fallback value"
+    ]
+  },
+  "scenario": "cli-publish-placement"
+}

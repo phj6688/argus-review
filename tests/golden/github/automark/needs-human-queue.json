@@ -1,0 +1,367 @@
+{
+  "case": "needs-human-queue",
+  "db_rows": {
+    "findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Uncertain input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "worker.py",
+          2,
+          "major",
+          0.9,
+          "Unknown caller contract",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-2",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "findings_raw": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Uncertain input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "worker.py",
+          2,
+          "major",
+          0.9,
+          "Unknown caller contract",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-2",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          3,
+          "model-a",
+          "done",
+          "<ts>",
+          2,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "files": 1,
+                "lane": "llm",
+                "model": "model-a",
+                "status": "ran"
+              }
+            ],
+            "level": "full"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [
+    {
+      "extra": {},
+      "lane": "judge",
+      "max_tokens": null,
+      "messages": {
+        "description": "Empty input reaches the parser.",
+        "file": "app.py",
+        "line": 2,
+        "severity": "major",
+        "snippet": "   1: def parse_input(value):\n>> 2:     return helper(value)",
+        "title": "Uncertain input check"
+      },
+      "model": null,
+      "system": null,
+      "tool_choice": null,
+      "tools": null
+    },
+    {
+      "extra": {},
+      "lane": "judge",
+      "max_tokens": null,
+      "messages": {
+        "description": "Empty input reaches the parser.",
+        "file": "worker.py",
+        "line": 2,
+        "severity": "major",
+        "snippet": "   1: def work(value):\n>> 2:     return consume(value)",
+        "title": "Unknown caller contract"
+      },
+      "model": null,
+      "system": null,
+      "tool_choice": null,
+      "tools": null
+    }
+  ],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/3"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/app.py"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/worker.py"
+    }
+  ],
+  "result": {
+    "queue_path": "<tmp>/needs-human.jsonl",
+    "queue_rows": [
+      {
+        "confidence": 0.6,
+        "evidence": "The helper implementation is unavailable.",
+        "finding_id": 1,
+        "mark": "real",
+        "tier": "judge"
+      },
+      {
+        "confidence": 0.99,
+        "evidence": "The caller contract is not visible.",
+        "finding_id": 2,
+        "mark": "unsure",
+        "tier": "judge"
+      }
+    ],
+    "queue_text": "{\"finding_id\": 1, \"tier\": \"judge\", \"mark\": \"real\", \"confidence\": 0.6, \"evidence\": \"The helper implementation is unavailable.\"}\n{\"finding_id\": 2, \"tier\": \"judge\", \"mark\": \"unsure\", \"confidence\": 0.99, \"evidence\": \"The caller contract is not visible.\"}\n",
+    "report": {
+      "commit": false,
+      "judge_note": "",
+      "judge_ok": true,
+      "marked": [],
+      "needs_human": [
+        {
+          "confidence": 0.6,
+          "evidence": "The helper implementation is unavailable.",
+          "finding_id": 1,
+          "mark": "real",
+          "marker": "automark:judge",
+          "provenance": "auto:judge",
+          "tier": "judge",
+          "writable": false
+        },
+        {
+          "confidence": 0.99,
+          "evidence": "The caller contract is not visible.",
+          "finding_id": 2,
+          "mark": "unsure",
+          "marker": "automark:judge",
+          "provenance": "auto:judge",
+          "tier": "judge",
+          "writable": false
+        }
+      ],
+      "scanned": 2,
+      "skipped": [],
+      "threshold": 0.75,
+      "would_mark": []
+    }
+  },
+  "scenario": "automark"
+}

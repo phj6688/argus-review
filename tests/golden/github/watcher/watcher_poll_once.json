@@ -1,0 +1,567 @@
+{
+  "case": "watcher_poll_once",
+  "db_rows": {
+    "config": {
+      "columns": [
+        "id",
+        "repo_allowlist",
+        "model",
+        "bug_cap",
+        "min_confidence",
+        "deny",
+        "watch_mode",
+        "owned_repos",
+        "publish_repos"
+      ],
+      "rows": [
+        [
+          1,
+          [
+            {
+              "name": "example/app",
+              "watched": null
+            }
+          ],
+          "model-a",
+          5,
+          0.55,
+          [],
+          "auto",
+          [
+            {
+              "archived": false,
+              "full_name": "example/app",
+              "pushed_at": "<ts>"
+            }
+          ],
+          null
+        ]
+      ]
+    },
+    "pr_heads": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "head_sha",
+        "first_seen_at",
+        "pr_updated_at",
+        "head_committed_at",
+        "draft",
+        "author",
+        "author_type",
+        "base_ref",
+        "status",
+        "skip_reason",
+        "attempts",
+        "last_error_class",
+        "next_attempt_at",
+        "claimed_at",
+        "review_id",
+        "completed_at",
+        "last_listed_at",
+        "is_open",
+        "ended_at",
+        "eligible_at",
+        "eligible_pr_updated_at",
+        "merged_at",
+        "author_association",
+        "baseline",
+        "merged_before_seen",
+        "author_trusted",
+        "author_id"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          7,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "<ts>",
+          "<ts>",
+          "<ts>",
+          0,
+          "maintainer",
+          "User",
+          "main",
+          "done",
+          null,
+          0,
+          null,
+          null,
+          "<ts>",
+          1,
+          "<ts>",
+          "<ts>",
+          1,
+          null,
+          "<ts>",
+          "<ts>",
+          null,
+          "MEMBER",
+          0,
+          0,
+          null,
+          null
+        ],
+        [
+          2,
+          "example/app",
+          8,
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "<ts>",
+          "<ts>",
+          null,
+          0,
+          "contributor",
+          "User",
+          "main",
+          "skipped",
+          "untrusted author association: NONE",
+          0,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "<ts>",
+          1,
+          null,
+          null,
+          null,
+          null,
+          "NONE",
+          0,
+          0,
+          null,
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          7,
+          "model-a",
+          "done",
+          "<ts>",
+          0,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "checks": 0,
+                "eligible": 6,
+                "lane": "probe",
+                "note": "no changed file matches any probe glob",
+                "status": "ran"
+              },
+              {
+                "files_analyzed": 1,
+                "files_changed": 2,
+                "files_eligible": 1,
+                "findings": 0,
+                "findings_preexisting_suppressed": 0,
+                "lane": "ruff",
+                "preexisting_codes": [],
+                "status": "ran",
+                "tool": {
+                  "args": "check --isolated --no-respect-gitignore --ignore-noqa --select E9,F821,S --ignore S101,S105,S603 --output-format json",
+                  "ignored": "S101,S105,S603",
+                  "name": "ruff",
+                  "rules": "E9,F821,S",
+                  "version": "ruff 0.17.1"
+                }
+              },
+              {
+                "files_analyzed": 1,
+                "files_changed": 2,
+                "files_eligible": 1,
+                "findings": 0,
+                "lane": "config",
+                "status": "ran",
+                "tool": {
+                  "ignored": "",
+                  "name": "config",
+                  "parser": "pyyaml 6.0.3",
+                  "rules": "compose-env-shadows-image,compose-datastore-public-bind,config-placeholder-secret,auth-skip-unanchored,compose-duplicate-host-port,image-ignores-lockfile"
+                }
+              },
+              {
+                "context_tokens_estimated": 125,
+                "duplicates_dropped": 0,
+                "evidence_missing": 0,
+                "evidence_not_found": 0,
+                "evidence_removed_line": 0,
+                "evidence_too_short": 0,
+                "evidence_unreadable": 0,
+                "files_full": 2,
+                "files_hunks_only": 0,
+                "files_omitted": 0,
+                "files_read_failed": 0,
+                "files_reviewed": 2,
+                "files_windowed": 0,
+                "files_without_patch": 0,
+                "findings_dropped": 0,
+                "findings_per_pass": [
+                  0
+                ],
+                "findings_reanchored": 0,
+                "findings_received": 0,
+                "findings_repaired": 0,
+                "lane": "llm",
+                "later_pass_errors": 0,
+                "model": "model-a",
+                "passes_run": 1,
+                "status": "ran",
+                "verify_variant": "shipped"
+              },
+              {
+                "lane": "judge",
+                "reason": "ARGUS_JUDGE_LIVE is not 1: the judge is a metered model",
+                "status": "skipped"
+              }
+            ],
+            "level": "full"
+          },
+          "risky",
+          {
+            "changed_lines": 6,
+            "files": 2,
+            "incomplete": false,
+            "matches": [
+              {
+                "path": "compose.yaml",
+                "pattern": "compose.yaml"
+              }
+            ],
+            "matches_total": 1,
+            "max_lines": 300,
+            "reasons": [
+              "tripwire path compose.yaml (compose.yaml)"
+            ],
+            "tier": "risky"
+          },
+          "fix/input",
+          "example-dev",
+          2,
+          3,
+          3,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "watch_attempts": {
+      "columns": [
+        "id",
+        "head_id",
+        "review_id",
+        "finished_at",
+        "error_class"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          1,
+          "<ts>",
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [
+    {
+      "extra": {},
+      "lane": "report_findings",
+      "max_tokens": 8000,
+      "messages": [
+        {
+          "content": "# Rule index (cite rule_id from this list when a finding matches a rule; use the exact id, never invent one)\n- auth-gate: Every public route must sit behind authentication; an anonymous request returns 302/401/403\n- db-integrity: Respect schema constraints; keep the read model and the event log consistent\n- doc-code-consistency: Code must match its docstring / documented contract\n- feature-branch-only: Never commit directly to the default branch; use a feature branch and a reviewed merge\n- input-validation: Validate and bound external input before it reaches storage or logic\n- least-privilege-token: Tokens are read-only and scoped to the repos they need\n- loading-error-states: Every async operation has a loading and an error state\n- loopback-binding: Bind service ports to 127.0.0.1 when only a local reverse proxy needs them\n- no-default-credentials: Do not ship a default or placeholder password for a service; require it from the environment\n- no-innerhtml-loop: Never replace innerHTML in a WS/SSE/polling loop; update textContent only\n- no-open-redirect: Validate redirect targets; never redirect to an unvalidated URL\n- no-secret-in-code: Never commit secrets or edit credential files\n- no-shell-true: Do not run a subprocess with shell=True on untrusted input; pass an argument list\n- null-handling: Handle the None/empty path explicitly; do not assume presence\n- parameterized-sql: Pass values to SQL as bound parameters; never build a query by string formatting\n- pinned-dependencies: Bound dependency versions; an open range lets a fresh resolve break a working build\n- transaction-atomicity: A unit of work commits or rolls back as one; no side-effecting commit, no partial write\n- webhook-signature: Verify a webhook signature with a constant-time comparison before acting on the payload\n\n# Pull request\nTitle: Guard numeric input\nDescription (the author's stated intent and claims; check them against the code):\nHandle empty and zero input.\nCommits:\n- Guard numeric input\n\n# Changed files\n## File: app.py (modified, python, full)\n```\n    1   def divide(value):\n      -     return value\n    2 +     return 10 / value\n    3   \n    4   def display(value):\n      -     return value\n    5 +     return str(value)\n```\n\n## File: compose.yaml (modified, yaml, full)\n```\n    1   services:\n    2     app:\n      -     image: example/app:0.9\n    3 +     image: example/app:1.0\n    4       ports:\n    5         - \"127.0.0.1:8080:8080\"\n```\n\nReview the changes above and report every defect via report_findings.\n\nAnswer by calling the report_findings tool exactly once. Do not reply with text.",
+          "role": "user"
+        }
+      ],
+      "model": "model-a",
+      "system": "You are a senior engineer reviewing a pull request. Find the defects this change introduces or exposes: problems a careful human reviewer would want fixed before merge.\n\nHow to read the input:\n- Each changed file is shown with post-change line numbers in the left column. Lines marked \"+\" were added or changed by this pull request, lines marked \"-\" were removed (they have no line number), and unmarked lines are unchanged context. Some files are shown in full, some as windows around the changes, some as hunks only.\n- Report \"line\" as the number in the left column of the line where the defect is (for a removed line, the number of the next line shown). Report \"end_line\" as the last line of the defective span, or null.\n- The pull request title and description, when present, state what the author intended and claims. Check the code against them, and flag docs, comments, tests, changelogs or descriptions that contradict the code.\n\nWhat to report:\n- Report every defect you can substantiate from the code shown, including ones you are not fully sure of; a separate verification step filters, so coverage matters more than caution here. Do not pad: skip speculative performance concerns without a concrete hot path and cost, pure style or formatting, and issues that live only in unchanged code the change neither touches nor relies on.\n- Work through this checklist on every change. Most defects this reviewer has missed fall in these classes:\n  1. Contracts and consistency: does the change agree with its callers, callees, tests, docs, README, changelog, comments, configuration and the PR description? Environment variables or settings added in code but not where they are deployed or read; migrations that disagree with models or import application code; changed return shapes.\n  2. Error paths: a failure recorded as success (exit code 0, \"ok\", HTTP 200, a passing gate or test on an error path), swallowed exceptions, fallbacks that hide a failure, partial failures, errors misclassified as a different kind.\n  3. Input handling: unvalidated input at a trust boundary, unknown flags or options silently accepted (a misspelled --dry-run that runs live), lenient parsing (number prefixes, truthiness checks that treat an empty value as missing).\n  4. Boundaries: off-by-one, inclusive versus exclusive limits, empty, None, zero, first and last element, a single page treated as the complete result, truncation.\n  5. Time and resources: network or subprocess calls without a timeout, unbounded retries, loops, queues or memory, resources that are never closed.\n  6. Concurrency and durability: read-then-write races, multi-step writes that are not atomic, state that a rollback can undo, retries that are not idempotent.\n  7. Security: injection (SQL, shell, template, HTML), missing or bypassable authorization, secrets in code, logs or docs, path traversal, SSRF, unsafe deserialization, services bound to all interfaces.\n  8. Tests: does each new or changed test exercise the changed behaviour and assert its outcome? Unused setup, assertions that cannot fail, tests that would still pass with the change reverted, a new failure path without a test.\n  9. Data integrity: lossy or unstable serialization, identifiers or hashes that collide or drift, schema drift.\n\nHow to write each finding:\n- title: the defect in one line.\n- description: what is wrong, a concrete scenario (inputs or conditions leading to the wrong outcome), and why it matters. Be specific and brief.\n- evidence: the exact code line or lines from the view that show the defect, copied verbatim without the line-number and marker columns, at most 3 lines.\n- proposed_fix: the concrete code-level change; when the fix is local, include the corrected code (a few lines).\n- category: the checklist class the defect belongs to.\n- severity, by this rubric; when torn between two levels, choose the lower one:\n  - critical: an exploitable security hole, data loss or corruption, or an outage in normal operation.\n  - major: wrong behaviour on a realistic path, a broken contract between components, a failure reported as success, or a missing timeout that can hang a service.\n  - minor: an edge-case bug, a robustness gap, or docs, comments or tests that mislead.\n  - nit: a small maintainability point; report these sparingly.\n- confidence: your honest probability that the defect is real.\n- rule_id: cite one from the rule index only when the finding matches it; never invent one.\n\nReport all findings in one report_findings call.",
+      "tool_choice": {
+        "disable_parallel_tool_use": true,
+        "type": "auto"
+      },
+      "tools": [
+        {
+          "description": "Report the structured result for report_findings.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "findings": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "category": {
+                      "enum": [
+                        "contracts",
+                        "error_paths",
+                        "input_handling",
+                        "boundaries",
+                        "resources",
+                        "concurrency",
+                        "security",
+                        "tests",
+                        "data_integrity",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "description": "0.0 to 1.0",
+                      "type": "number"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "end_line": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "evidence": {
+                      "type": "string"
+                    },
+                    "file": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "description": "1-based line in the changed file",
+                      "type": "integer"
+                    },
+                    "proposed_fix": {
+                      "type": "string"
+                    },
+                    "rule_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "severity": {
+                      "enum": [
+                        "critical",
+                        "major",
+                        "minor",
+                        "nit"
+                      ],
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "file",
+                    "line",
+                    "severity",
+                    "confidence",
+                    "title",
+                    "description",
+                    "proposed_fix",
+                    "end_line",
+                    "category",
+                    "evidence"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "findings"
+            ],
+            "type": "object"
+          },
+          "name": "report_findings",
+          "strict": true
+        }
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "affiliation": "owner",
+        "per_page": "100",
+        "sort": "full_name"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/user/repos"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "per_page": "100",
+        "state": "open"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/commits"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/app.py"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/compose.yaml"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/CLAUDE.md"
+    }
+  ],
+  "result": {
+    "idle": false,
+    "processed": true,
+    "queued": 1
+  },
+  "scenario": "watcher"
+}

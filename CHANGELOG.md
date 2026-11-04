@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A golden snapshot suite under `tests/golden/` pins GitHub requests, prompts, return values and database rows before the forge refactor. `ARGUS_GOLDEN_UPDATE=1` regenerates it.
 - Measurement readers now count GitHub keys only. Operational counters stay forge-wide. The monthly report skip count includes findings plus posted reviews. GitHub-only data produces unchanged measurements.
 - Route GitHub publishing through the forge adapter and explicitly skip GitLab keys in outcome collection, replies, automarking and evaluation, with skip counters when GitLab is configured. GitHub behavior is unchanged.
 - Read the review path through a GitHub forge adapter and treat forge auth, denial and rate-limit errors as non-retryable by class (GitHub behaviour unchanged).
