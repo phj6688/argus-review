@@ -359,6 +359,11 @@ def _llm_file_counts(files: list[FilePatch], rendered: RenderedContext) -> dict:
             "context_tokens_estimated": rendered.estimated_tokens,
             "files_omitted": len(unread),
             "files_without_patch": sum(1 for f in unread if not f.patch)}
+    # The listing itself was incomplete (cap hit, unsafe path, unparseable section), so
+    # `unread` cannot see the files that never arrived. Kept apart from files_omitted
+    # because the posted "omitted: N" line reads that count; the key is absent otherwise.
+    if getattr(files, "unseen", False) is True:
+        counts["files_unseen"] = True
     if rendered.context_blocks:
         counts["context_blocks"] = rendered.context_blocks
     return counts

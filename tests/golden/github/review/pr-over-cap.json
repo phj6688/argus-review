@@ -548,6 +548,7 @@
         "files_omitted": 3000,
         "files_read_failed": 0,
         "files_reviewed": 0,
+        "files_unseen": true,
         "files_windowed": 0,
         "files_without_patch": 3000,
         "lane": "llm",

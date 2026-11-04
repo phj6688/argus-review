@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A golden snapshot suite under `tests/golden/` pins GitHub requests, prompts, return values and database rows before the forge refactor. `ARGUS_GOLDEN_UPDATE=1` regenerates it.
+- A review whose file listing was incomplete (more than 3000 files, an unsafe path, or an unparseable diff section) no longer reports `full` coverage. The reviewer lane records `files_unseen: true`, and when that lane ran the coverage level is `partial` instead of `full`. A skipped reviewer lane keeps its previous coverage level. `files_omitted` and the posted line "Files reviewed: N; omitted: M" are unchanged, and lane records of complete listings are byte-identical. Stored reviews are not rewritten.
 - Measurement readers now count GitHub keys only. Operational counters stay forge-wide. The monthly report skip count includes findings plus posted reviews. GitHub-only data produces unchanged measurements.
 - Route GitHub publishing through the forge adapter and explicitly skip GitLab keys in outcome collection, replies, automarking and evaluation, with skip counters when GitLab is configured. GitHub behavior is unchanged.
 - Read the review path through a GitHub forge adapter and treat forge auth, denial and rate-limit errors as non-retryable by class (GitHub behaviour unchanged).

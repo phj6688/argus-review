@@ -41,6 +41,7 @@
           "files_omitted": 0,
           "files_read_failed": 0,
           "files_reviewed": 0,
+          "files_unseen": true,
           "files_windowed": 0,
           "files_without_patch": 0,
           "lane": "llm",
