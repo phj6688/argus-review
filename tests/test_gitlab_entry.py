@@ -169,7 +169,8 @@ def test_status_success_cache_and_token_sentinel(gitlab_event, monkeypatch):
     monkeypatch.setattr(status, "_identity_cache", None)
     first = status.integration_status()
     assert status.integration_status() == first
-    assert first == {"host": gitlab_event.host, "token": "configured",
+    assert first == {"host": gitlab_event.host,
+                     "baseUrl": "https://" + gitlab_event.host + "/gitlab", "token": "configured",
                      "identity": {"status": "ok", "username": "review-bot", "bot": True},
                      "publish": {"mode": "0", "projectCount": 0}, "allowCount": 1, "refusal": None}
     assert gitlab_event.token not in str(first)

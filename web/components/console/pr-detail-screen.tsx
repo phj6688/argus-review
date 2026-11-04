@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/icons";
 import type { Comment, ReviewDetail, VerifiedFinding } from "@/lib/types";
 import { SEV_LABEL, SEV_TIP, sevVar } from "@/lib/utils";
+import { isGitLabKey, mrUrl, projectLabel, projectPathOrNull } from "@/lib/forge";
+import { ForgeChip } from "./review-bits";
 import { ScreenHeader } from "./screen-header";
 
 type FState = "accepted" | "suppressed" | undefined;
@@ -83,11 +85,13 @@ function BugCard({
   id,
   state,
   onMark,
+  gitlab,
 }: {
   vf: VerifiedFinding;
   id: string;
   state: FState;
   onMark: (id: string, s: FState) => void;
+  gitlab: boolean;
 }) {
   const f = vf.finding;
   const v = vof(vf);
@@ -194,7 +198,7 @@ function BugCard({
               Suppress
             </button>
             <span className="ml-auto text-[11.5px] text-faint max-sm:hidden">
-              posts an inline comment on the PR
+              {gitlab ? "posts an inline comment on the MR" : "posts an inline comment on the PR"}
             </span>
           </>
         )}
@@ -396,7 +400,10 @@ function RunNotes({ detail }: { detail: ReviewDetail }) {
   );
 }
 
-export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
+export function PrDetailScreen({ detail, gitlabBaseUrl }: { detail: ReviewDetail; gitlabBaseUrl?: string | null }) {
+  const gitlab = isGitLabKey(detail.repo);
+  const path = gitlab ? projectPathOrNull(detail) : null;
+  const url = gitlabBaseUrl && path ? mrUrl(gitlabBaseUrl, path, detail.pr) : null;
   const [fstate, setFstate] = useState<Record<string, FState>>({});
   const onMark = (id: string, s: FState) =>
     setFstate((prev) => ({ ...prev, [id]: s }));
@@ -450,7 +457,7 @@ export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
                 style={{ background: decision.color, boxShadow: "0 0 8px var(--crit-60)" }}
               />
               <span
-                data-tip="Argus overall decision on this PR: approve, comment, request changes, or not reviewed (nothing found, but no reviewer read the whole change)."
+                data-tip={`Argus overall decision on this ${gitlab ? "merge request" : "PR"}: approve, comment, request changes, or not reviewed (nothing found, but no reviewer read the whole change).`}
                 className="text-[13px] font-semibold"
                 style={{ color: decision.color }}
               >
@@ -463,8 +470,16 @@ export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
           </div>
         }
       />
-      <div className="mb-2 font-mono text-[13px]">
-        <span className="text-dim">{detail.repo}</span> <span className="text-faint">#{detail.pr}</span>
+      <div className={gitlab ? "mb-2 break-words font-mono text-[13px]" : "mb-2 font-mono text-[13px]"}>
+        <span className="text-dim">{projectLabel(detail)}</span> <span className="text-faint">#{detail.pr}</span>
+        {gitlab && (
+          <span className="ml-2 inline-flex flex-wrap items-center gap-2">
+            <ForgeChip />
+            {url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Open merge request</a>
+            ) : <span className="text-xs text-faint">Link unavailable</span>}
+          </span>
+        )}
       </div>
       {detail.risk && (
         <div
@@ -499,7 +514,7 @@ export function PrDetailScreen({ detail }: { detail: ReviewDetail }) {
       </div>
       <Reveal className="mb-8 flex flex-col gap-[14px]">
         {detail.bugs.map((vf, i) => (
-          <BugCard key={i} vf={vf} id={`b${i}`} state={fstate[`b${i}`]} onMark={onMark} />
+          <BugCard key={i} vf={vf} id={`b${i}`} state={fstate[`b${i}`]} onMark={onMark} gitlab={gitlab} />
         ))}
       </Reveal>
 

@@ -274,7 +274,20 @@ export interface Endpoint {
   description: string;
 }
 
+export interface GitLabStatus {
+  host: string;
+  baseUrl: string;
+  token: "configured" | "missing";
+  identity: { status: "ok"; username: string; bot: boolean }
+    | { status: "failed"; reason: string }
+    | { status: "skipped"; reason: "token_missing" };
+  publish: { mode: "0" | "dry-run" | "1" | "invalid"; projectCount: number };
+  allowCount: number;
+  refusal: string | null;
+}
+
 export interface Integrations {
+  gitlab?: GitLabStatus;
   health: { label: string; status: string; state: "ok" | "warn" | "error" }[];
   warning: string | null;
   github: {

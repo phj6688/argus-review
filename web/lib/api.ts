@@ -239,3 +239,13 @@ export async function putPublishRepos(repos: string[]): Promise<PublishConfig> {
 export async function getIntegrations(): Promise<Integrations> {
   return (await live<Integrations>("/integrations")) ?? integrations;
 }
+
+export async function getIntegrationsClient(signal?: AbortSignal): Promise<Integrations> {
+  const deadline = AbortSignal.timeout(10_000);
+  const res = await fetch(`${CLIENT_API_BASE}/integrations`, {
+    cache: "no-store",
+    signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
+  });
+  if (!res.ok) throw new Error(`argus api /integrations: ${res.status}`);
+  return (await res.json()) as Integrations;
+}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isGitLabKey, projectLabel } from "@/lib/forge";
 import type { LiveReview, ReviewSummary, RiskTier } from "@/lib/types";
 import { cn, SEV_ABBREV, SEV_TALLY_TIP, SEVERITIES, modelChipStyle, sevVar } from "@/lib/utils";
 
@@ -8,6 +9,20 @@ const ACTION = {
   not_posted: { label: "review only", color: "var(--color-faint)", tip: "Argus reviewed this PR but did not post to GitHub: publishing is off for this repo, or there was nothing new." },
   post_failed: { label: "post failed", color: "var(--color-critical)", tip: "The review finished but posting it to GitHub failed." },
 } as const;
+
+function actionTip(tip: string, gitlab: boolean): string {
+  return gitlab ? tip.replace("pull request on GitHub", "merge request on GitLab")
+    .replace("this PR", "this merge request").replaceAll("GitHub", "GitLab") : tip;
+}
+
+export function ForgeChip() {
+  return (
+    <span data-tip="GitLab merge request"
+      className="shrink-0 rounded-[6px] border border-[var(--line-14)] bg-[var(--bone-04)] px-[6px] py-[3px] text-[10px] text-dim">
+      MR
+    </span>
+  );
+}
 
 export function ModelChip({
   model,
@@ -81,7 +96,7 @@ export function ActionLabel({ review }: { review: ReviewSummary }) {
   const a = ACTION[review.action];
   const count = review.action === "posted" && review.posted_comments ? ` · ${review.posted_comments}` : "";
   return (
-    <span data-tip={a.tip} className="text-xs" style={{ color: a.color }}>
+    <span data-tip={actionTip(a.tip, isGitLabKey(review.repo))} className="text-xs" style={{ color: a.color }}>
       {a.label}
       {count}
     </span>
@@ -132,8 +147,9 @@ export function ReviewRow({
       )}
     >
       <div className="flex w-[104px] shrink-0 items-center gap-2 overflow-hidden md:w-[176px]">
-        <span className="truncate font-mono text-xs text-dim">{review.repo}</span>
+        <span className="truncate font-mono text-xs text-dim">{projectLabel(review)}</span>
         <span className="shrink-0 font-mono text-xs text-faint">#{review.pr}</span>
+        {isGitLabKey(review.repo) && <ForgeChip />}
       </div>
       <div className="min-w-0 flex-1 truncate text-sm text-text">{review.title}</div>
       <div className={cn("shrink-0", list ? "md:w-[124px]" : "md:w-[76px]")}>
@@ -182,8 +198,9 @@ export function LiveStrip({ live, variant }: { live: LiveReview | null; variant:
       style={{ background: "var(--accent-04)" }}
     >
       <span className="pulse h-2 w-2 shrink-0 rounded-full bg-accent" />
-      <span className="font-mono text-xs text-dim">{live.repo}</span>
+      <span className="font-mono text-xs text-dim">{projectLabel(live)}</span>
       <span className="font-mono text-xs text-faint">#{live.pr}</span>
+      {isGitLabKey(live.repo) && <ForgeChip />}
       <span className="min-w-0 flex-1 truncate text-[13px] text-text max-sm:hidden">{live.title}</span>
       <span className="ml-auto whitespace-nowrap text-xs text-accent sm:ml-0">
         {list ? `reviewing · ${live.stage}` : "reviewing now…"}

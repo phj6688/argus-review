@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Reveal, RevealItem } from "@/components/ui/reveal";
 import { Segmented } from "@/components/ui/segmented";
 import { EyeMark, SearchIcon } from "@/components/ui/icons";
+import { projectLabel } from "@/lib/forge";
 import type { LiveReview, ReviewSummary, Severity } from "@/lib/types";
 import { LiveStrip, ReviewRow } from "./review-bits";
 import { ScreenHeader } from "./screen-header";
@@ -24,7 +25,7 @@ export function ReviewsScreen({
     const q = search.trim().toLowerCase();
     return reviews.filter((r) => {
       const sevOk = sev === "all" || r.counts[sev] > 0;
-      const qOk = !q || `${r.repo} #${r.pr} ${r.title}`.toLowerCase().includes(q);
+      const qOk = !q || `${r.repo} #${r.pr} ${r.title} ${projectLabel(r)}`.toLowerCase().includes(q);
       return sevOk && qOk;
     });
   }, [reviews, search, sev]);
