@@ -1,6 +1,7 @@
 """Report configured GitLab status without exposing credentials or server errors."""
 
 import hashlib
+import os
 import re
 import threading
 import time
@@ -8,7 +9,7 @@ from pathlib import Path
 
 from argus.api import db, watch_store
 from argus.forge.keys import canonical_host
-from argus.gitlab import client as client_module, config
+from argus.gitlab import client as client_module, config, threads
 from argus.gitlab.entry import _classification
 from argus.repo_policy import gitlab_policy
 
@@ -63,6 +64,11 @@ def integration_status() -> dict:
         enabled = config.watch_enabled()
     except config.GitLabConfigError:
         enabled = False
+    try:
+        replies_enabled = (config.reply_loop() and os.environ.get("ARGUS_REPLY_LOOP", "1") != "0"
+                           and config.effective_publish_mode() == "1")
+    except config.GitLabConfigError:
+        replies_enabled = False
     watch = {"enabled": enabled, "projectCount": 0, "lastPolledAt": None,
              "lastError": None, "trustUnknown": 0, "forkSourceDenied": 0}
     try:
@@ -95,4 +101,5 @@ def integration_status() -> dict:
         "refusal": gitlab_policy().refusal,
         "trustUnknown": watch["trustUnknown"],
         "watch": watch,
+        "replyLoop": {"enabled": replies_enabled, "resolveForbidden": threads.COUNTERS["resolve_forbidden"]},
     }

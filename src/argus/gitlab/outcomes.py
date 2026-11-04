@@ -3,12 +3,12 @@
 from collections import defaultdict
 from datetime import timedelta
 
-from argus import acceptance, github
+from argus import acceptance, github, replies
 from argus.forge.keys import parse_repo_key
 from argus.forge.skips import count_skip
 from argus.forge.types import ChangeRef, RepoRef
 from argus.gitlab import client as client_module, projects
-from argus.gitlab.body import parse_marker_kind
+from argus.gitlab.body import parse_marker_kind, parse_reply_marker
 from argus.gitlab.client import GitLabHTTPError, GitLabRateLimited
 from argus.gitlab.reader import GitLabForge
 from argus.gitlab.threads import is_bot_note, list_threads
@@ -75,8 +75,13 @@ def _thread_outcomes(conn, repo, findings, threads, pull, now, run, client, cach
         pull["closed_at"] and acceptance._stamp(pull["closed_at"]) >= acceptance._stamp(now) - timedelta(days=7)
     )
     for finding, thread in _mapped_threads(conn, repo, findings, threads, run):
+        ref = parse_repo_key(repo)
+        finding.update(thread_resolved=thread.resolved if thread.resolvable else None,
+                       gitlab_thread=thread, gitlab_change=ChangeRef(RepoRef("gitlab", ref.host, None, ref.project_id),
+                                                                    finding["pr"]))
         for note in thread.notes[1:]:
-            if is_bot_note(note, repo, conn=conn) or parse_marker_kind(note.body) is not None:
+            if (is_bot_note(note, repo, conn=conn) or parse_marker_kind(note.body) is not None
+                    or parse_reply_marker(note.body) is not None):
                 continue
             lookup = _MembershipClient(client)
             trusted = author_trusted(repo, note.author_id, client=lookup, cache=cache)
@@ -92,7 +97,8 @@ def _thread_outcomes(conn, repo, findings, threads, pull, now, run, client, cach
                                thread.notes[0].id, now)
 
 
-def collect_repo(conn, repo, findings, now, since_default, run, *, cache: TrustCache, path=None):
+def collect_repo(conn, repo, findings, now, since_default, run, *, cache: TrustCache, path=None, comparisons=None):
+    comparisons = {} if comparisons is None else comparisons
     client = client_module.client()
     decision = projects.live_deny(repo, client=client, db_path=path)
     if not decision.allowed:
@@ -129,7 +135,8 @@ def collect_repo(conn, repo, findings, now, since_default, run, *, cache: TrustC
                 if not thread.notes or not is_bot_note(thread.notes[0], repo, conn=conn):
                     continue
                 for note in thread.notes[1:]:
-                    if is_bot_note(note, repo, conn=conn) or parse_marker_kind(note.body) is not None:
+                    if (is_bot_note(note, repo, conn=conn) or parse_marker_kind(note.body) is not None
+                            or parse_reply_marker(note.body) is not None):
                         continue
                     lookup = _MembershipClient(client)
                     author_trusted(repo, note.author_id, client=lookup, cache=cache)
@@ -143,6 +150,7 @@ def collect_repo(conn, repo, findings, now, since_default, run, *, cache: TrustC
                     (repo, pr, pull["state"], int(pull["merged"]), pull["closed_at"], pull["head_sha"], now.isoformat()),
                 )
                 _thread_outcomes(conn, repo, items, threads, pull, now.isoformat(), run, client, cache)
+            replies.run(conn, repo, items, pull["head_sha"], comparisons, now.isoformat(), run)
         except (GitLabRateLimited, github.GitHubRateLimited):
             raise
         except Exception as error:

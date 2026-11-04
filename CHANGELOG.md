@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- GitLab replies and confirmed fix resolution run behind their own opt-in flag, `ARGUS_GITLAB_REPLY_LOOP` (default off), and the live publishing gates. Replies share the publisher's pacing, recover uncertain writes by marker and keep GitHub limits separate. A refused resolution leaves the reply posted and appears in integrations.
 - GitLab comparisons supply finding re-checks and track ancestry. Incomplete comparisons stay unknown. Acceptance collection and the reply helpers now read comparisons and files through the forge adapter.
 - Acceptance collection records GitLab merge request state, human replies with membership trust, and discussion resolution. Missing discussions record no outcomes, and GitLab failures or rate limits do not interrupt GitHub collection.
 - GitLab thread reader: reads every discussion page, drops system notes, and recognises bot notes by numeric user id, with a username fallback counted in `bot_id_missing` only when the id is not recorded. Nothing calls it yet; the reply loop for GitLab is not part of this change.

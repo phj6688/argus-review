@@ -1161,6 +1161,11 @@ def get_integrations() -> dict:
             result["health"].append({
                 "label": "GitLab watcher", "status": "last poll failed", "state": "warn",
             })
+        if (refused := result["gitlab"]["replyLoop"]["resolveForbidden"]) > 0:
+            result["health"].append({
+                "label": "GitLab replies", "status": f"{refused} resolves refused, raise the bot role to Developer",
+                "state": "warn",
+            })
     return result
 
 

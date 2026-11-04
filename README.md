@@ -386,7 +386,7 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust: 0, 5, 10, 15, 20, 30, 40 or 50. |
 | `ARGUS_GITLAB_WATCH` | off | Poll allowed GitLab projects into the shared review queue. Needs `ARGUS_WATCH_ENABLED`, a URL and a credential. |
 | `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of GitLab polling ticks between full merge request listings. |
-| `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved reply switch. Not used yet. |
+| `ARGUS_GITLAB_REPLY_LOOP` | off | Enable GitLab replies and resolution. Requires both publish modes at `1`, an allowed publishing project and the global reply loop on. |
 | `ARGUS_GITLAB_TIMEOUT_S` | `30.0` | Finite positive request timeout in seconds. |
 | `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, at least 1024. |
 | `ARGUS_DB_PATH` | `./.argus/argus.db` | SQLite file. Compose sets `/data/argus.db`. |
