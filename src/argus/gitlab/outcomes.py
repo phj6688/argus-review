@@ -150,7 +150,12 @@ def collect_repo(conn, repo, findings, now, since_default, run, *, cache: TrustC
                     (repo, pr, pull["state"], int(pull["merged"]), pull["closed_at"], pull["head_sha"], now.isoformat()),
                 )
                 _thread_outcomes(conn, repo, items, threads, pull, now.isoformat(), run, client, cache)
-            replies.run(conn, repo, items, pull["head_sha"], comparisons, now.isoformat(), run)
+            try:
+                replies.run(conn, repo, items, pull["head_sha"], comparisons, now.isoformat(), run)
+            finally:
+                if replies.gitlab_enabled(repo):
+                    with conn:
+                        acceptance._sync_rejections(conn, items, now.isoformat())
         except (GitLabRateLimited, github.GitHubRateLimited):
             raise
         except Exception as error:
