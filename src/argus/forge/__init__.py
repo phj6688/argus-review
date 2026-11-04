@@ -1,6 +1,7 @@
 """Share forge contracts without loading provider implementations."""
 
 from .errors import ForgeAuthError, ForgeDenied, ForgeError, ForgeRateLimited
+from .keys import parse_repo_key
 from .types import (
     ChangeListing,
     ChangeMeta,
@@ -32,6 +33,22 @@ __all__ = [
     "forge_for",
 ]
 
+_REGISTRY: dict[str, object] = {}
+
 
 def forge_for(key: str):
-    raise NotImplementedError("forge_for is wired in a later change")
+    try:
+        ref = parse_repo_key(key)
+    except ValueError:
+        if ":" in key and not key.startswith("gitlab:"):
+            raise ForgeDenied("unknown forge") from None
+        raise
+    if ref.forge == "github":
+        from .github_adapter import github_forge
+
+        return github_forge
+    if ref.forge in _REGISTRY:
+        return _REGISTRY[ref.forge]
+    if ref.forge == "gitlab":
+        raise ForgeDenied("gitlab forge is not enabled")
+    raise ForgeDenied("unknown forge")

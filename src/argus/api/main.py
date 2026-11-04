@@ -35,6 +35,7 @@ from ..review import (
     DEFAULT_BUG_CAP, ENV_FALLBACK_MODEL, ReviewResult, fallback_eligible, fallback_for, run_diff_review,
     run_review,
 )
+from ..forge import forge_for
 from ..forge.keys import parse_entry
 from ..repo_policy import RepoDenied, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
@@ -302,7 +303,7 @@ def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: i
             log.info("review %s: publishing skipped for %s#%s: %s head SHA",
                      review_id, repo, pr, "invalid" if head else "missing")
             return
-        files = diff.fetch_pr_files(repo, pr)
+        files = forge_for(repo).change_files(repo, pr)
         document = verdict.document(review, db.get_findings(path, review_id),
                                     unverified=db.get_unverified_findings(path, review_id))
         outcome = publish.publish_review(repo, pr, head, review_id, document, files)
@@ -375,8 +376,6 @@ def require_provider(model: str, *, allow_fallback: bool = False) -> None:
 
 @app.post("/reviews", response_model=ReviewCreated, status_code=201)
 def create_review(request: ReviewRequest, background: BackgroundTasks) -> ReviewCreated:
-    from ..jarvis import live
-
     path = db.db_path()
     stored = db.get_config(path)
     model = stored["model"] if stored else DEFAULT_MODEL
@@ -384,7 +383,7 @@ def create_review(request: ReviewRequest, background: BackgroundTasks) -> Review
     bug_cap = stored["bug_cap"] if stored else DEFAULT_BUG_CAP
     head_sha = None
     try:
-        head_sha = live._pr_head_sha(request.repo, request.pr)
+        head_sha = forge_for(request.repo).head_sha(request.repo, request.pr)
     except Exception as error:
         log.info("PR head lookup failed for %s#%s (%s)",
                  request.repo, request.pr, type(error).__name__)

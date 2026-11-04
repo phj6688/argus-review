@@ -7,7 +7,7 @@ import sys
 import pytest
 
 import argus.forge as forge
-from argus.forge import ForgeAuthError, ForgeDenied, ForgeError, ForgeRateLimited, forge_for
+from argus.forge import ForgeAuthError, ForgeDenied, ForgeError, ForgeRateLimited
 from argus.github import GitHubAuthError, GitHubDenied, GitHubRateLimited, GraphQLRateLimited
 
 
@@ -123,10 +123,3 @@ def test_forge_exports_the_public_contract():
 
     assert set(forge.__all__) == expected
     assert all(hasattr(forge, name) for name in expected)
-
-
-def test_forge_factory_is_deferred():
-    with pytest.raises(NotImplementedError) as raised:
-        forge_for("owner/name")
-
-    assert str(raised.value) == "forge_for is wired in a later change"
