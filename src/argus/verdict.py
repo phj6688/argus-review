@@ -86,7 +86,9 @@ def coverage_level(lanes: list[dict]) -> str:
                 if lane.get("lane") == LANE_LLM and lane.get("status") == LANE_RAN]
     if reviewed:
         omitted = sum(lane.get("files_omitted") or 0 for lane in reviewed)
-        return COVERAGE_PARTIAL if (omitted or broken) else COVERAGE_FULL
+        # Files the listing never delivered count like omitted ones: not read.
+        unseen = any(lane.get("files_unseen") is True for lane in reviewed)
+        return COVERAGE_PARTIAL if (omitted or unseen or broken) else COVERAGE_FULL
     executed = sum(lane.get("checks") or 0
                    for lane in lanes if lane.get("status") == LANE_RAN)
     return COVERAGE_PARTIAL if executed else COVERAGE_NONE
