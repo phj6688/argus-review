@@ -45,6 +45,8 @@ def trusted_only():
 
 
 def skip_reason(pr, repo=None):
+    if repo is not None and is_gitlab_key(repo) and pr.get("skip_reason") in {"fork_source_denied"}:
+        return pr["skip_reason"]
     user = pr.get("user") or {}
     login = user.get("login", "").lower()
     if pr.get("draft") and not truthy("ARGUS_WATCH_INCLUDE_DRAFTS"):
@@ -533,3 +535,11 @@ def defer_unknown_trust(path, head_id, now=None):
             "AND status='skipped' AND skip_reason='trust_unknown'",
             ((now or utcnow()).isoformat(), head_id),
         )
+
+
+def fork_denied_count(path):
+    with connection(path) as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM pr_heads WHERE is_open=1 "
+            f"AND skip_reason='fork_source_denied' AND {gitlab_key_sql('repo')}",  # nosec B608 - shared predicate
+        ).fetchone()[0]

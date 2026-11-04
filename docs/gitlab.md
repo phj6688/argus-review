@@ -4,7 +4,7 @@ Argus reviews GitLab merge requests the same way it reviews GitHub pull requests
 
 GitLab support is off until you set `ARGUS_GITLAB_URL`. One Argus process talks to one GitLab instance. A GitLab merge request never reads or changes GitHub data, and GitHub behaviour is unchanged.
 
-Not available yet: a GitLab watcher that finds merge requests on its own, and replies to GitLab notes. Their settings (`ARGUS_GITLAB_WATCH`, `ARGUS_GITLAB_RECONCILE_TICKS`, `ARGUS_GITLAB_REPLY_LOOP`) are reserved and start nothing.
+Argus can also poll allowed projects for open merge requests and queue them for review (see [Watcher](#watcher)). Replies to GitLab notes are not available yet: `ARGUS_GITLAB_REPLY_LOOP` is reserved and starts nothing.
 
 ## Setup
 
@@ -60,8 +60,8 @@ Blank values use these defaults. GitLab stays disabled when the URL is unset.
 | `ARGUS_GITLAB_TIMEOUT_S` | `30` | Finite positive request timeout in seconds. |
 | `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, including decoded content. Minimum 1024. |
 | `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust. Accepts 0, 5, 10, 15, 20, 30, 40 or 50. |
-| `ARGUS_GITLAB_WATCH` | off | Reserved. Accepts `1`, `true`, `yes` or `on`. |
-| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Reserved. Positive number of watcher ticks. |
+| `ARGUS_GITLAB_WATCH` | off | Poll allowed projects into the shared review queue. Accepts `1`, `true`, `yes` or `on`. Needs a URL and a credential. |
+| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of GitLab polling ticks between full open merge request listings. |
 | `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved. Accepts `1`, `true`, `yes` or `on`. |
 
 GitLab publishing also uses these shared settings:
@@ -123,6 +123,8 @@ When GitLab is configured, `GET /integrations` adds a `gitlab` block:
 | `publish` | `mode` is `0`, `dry-run`, `1` or `invalid`. `projectCount` counts configured publish entries. |
 | `allowCount` | Number of configured allow entries. |
 | `refusal` | The policy refusal reason, or null when the policy is valid. |
+| `trustUnknown` | Number of open heads skipped because the author's membership could not be resolved. A positive count also adds a health warning. |
+| `watch` | `enabled`, `projectCount`, `lastPolledAt`, `lastError` (one of `gitlab_auth`, `gitlab_denied`, `gitlab_rate_limited`, `gitlab_http` or null), `trustUnknown` and `forkSourceDenied`. Failures also appear as health warnings. Credentials and server error text are never returned. |
 
 The identity comes from `GET /user`. Argus caches a success for 300 seconds and a failure for 60 seconds, and a change of host or token clears the cache. Without `ARGUS_GITLAB_URL` the block is absent and the response is unchanged.
 
@@ -186,6 +188,14 @@ Author trust uses direct or inherited project membership. Developer access (30) 
 
 The recovery sweep retries the oldest open heads that were skipped for unknown trust, within its limit. Unresolved heads, including those without an author id, move to the back of the sweep order so later heads get checked. Resolved membership reuses the queue rules: draft and bot exclusions, completed reviews and attempt limits. `/integrations` reports `gitlab.trustUnknown` and adds a GitLab trust warning when the count is positive. GitHub behaviour is unchanged.
 
+## Watcher
+
+Start the shared watcher with `ARGUS_WATCH_ENABLED=1`, then turn on GitLab polling with `ARGUS_GITLAB_WATCH=1`. Projects come from `ARGUS_GITLAB_ALLOW`. Argus never adds them to the GitHub owner list. GitLab runs after the GitHub pass, even when GitHub is paused or fails, and each forge keeps its own quota pause.
+
+The allow set refreshes every `ARGUS_WATCH_DISCOVERY_TICKS` GitLab ticks. A temporary refresh failure keeps the cached set. A group or project that is permanently unavailable is skipped, so discovery continues with the remaining entries. At startup, when a project re-enters the set, and every `ARGUS_GITLAB_RECONCILE_TICKS` ticks, Argus reads a full listing to recover missed closures. Other ticks use a stored cursor with a five minute overlap. A changed head sha queues another review even when the update timestamp did not move. The cursor advances only after the queue write succeeds.
+
+Because projects are listed explicitly, `ARGUS_WATCH_ACTIVE_DAYS` filters open merge requests by staleness on both full and incremental listings. The draft, bot and trusted-author settings work as they do for GitHub. Merge requests from denied fork sources are skipped. A temporary failure while reading the source project leaves the merge request queued for the worker's live check. Each pass retries at most five heads with unknown membership while GitLab is not paused.
+
 ## Known limits
 
 - The URL guard accepts only branch and tag names that start with a letter or digit and use only letters, digits, dot, underscore, slash and hyphen. A request that carries any other name is refused, for example a branch name with a plus sign or a non-ASCII letter.
@@ -193,7 +203,11 @@ The recovery sweep retries the oldest open heads that were skipped for unknown t
 - There is no automatic invitation. Add the bot to each project yourself.
 - Collapsed, too-large, generated and binary diffs lower coverage.
 - `POST /review-diff`, `publish-preview`, `publish-placement` and `doctor` are GitHub-only.
-- No watcher and no reply loop for GitLab yet.
+- There is no reply loop for GitLab yet.
+- Post-merge reviews of GitLab merge requests do not follow `ARGUS_WATCH_FAST_MERGES`. That setting applies to GitHub only.
+- A full listing returns open merge requests only. With `ARGUS_GITLAB_RECONCILE_TICKS=1`, a merge request that is merged between two polls is closed without a post-merge review. Use a larger value to keep post-merge reviews.
+- The watcher reads one GitLab instance and only the projects in `ARGUS_GITLAB_ALLOW`. It never adds them to the GitHub owner list.
+- A merge request that was merged before the watcher saw it can be skipped as `trust_unknown`. The membership sweep retries open merge requests only, so that skip is not retried.
 - Quick-action behaviour, limits and token tiers can differ on other GitLab versions and on gitlab.com. Test a dry run on your instance first.
 
 ## Measurement filter

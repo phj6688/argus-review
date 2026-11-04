@@ -1157,6 +1157,10 @@ def get_integrations() -> dict:
                 "label": "GitLab trust", "status": f"{unknown} merge requests skipped, membership unknown",
                 "state": "warn",
             })
+        if result["gitlab"]["watch"]["lastError"]:
+            result["health"].append({
+                "label": "GitLab watcher", "status": "last poll failed", "state": "warn",
+            })
     return result
 
 

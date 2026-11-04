@@ -89,7 +89,7 @@ Data lives in the `argus-data` volume. `docker compose down` keeps it. `docker c
 
 ## GitLab
 
-Argus reviews GitLab merge requests through the console, API, CLI and MCP. With publishing enabled, it posts inline discussions and one summary note. Start with one project in dry-run mode. See the [GitLab guide](docs/gitlab.md) for tokens, roles, settings and limits. Watching GitLab for new merge requests and replying to GitLab notes are not available yet.
+Argus reviews GitLab merge requests through the console, API, CLI and MCP. With publishing enabled, it posts inline discussions and one summary note. Start with one project in dry-run mode. See the [GitLab guide](docs/gitlab.md) for tokens, roles, settings and limits. Argus can also watch allowed GitLab projects for new merge requests (`ARGUS_GITLAB_WATCH`). Replying to GitLab notes is not available yet.
 
 ## Quickstart without Docker
 
@@ -384,8 +384,8 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_GITLAB_PUBLISH_PROJECTS` | none | Comma-separated exact project keys for publishing. No wildcards. |
 | `ARGUS_GITLAB_NOTES_PER_MINUTE` | `30` | Positive note limit per minute. |
 | `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust: 0, 5, 10, 15, 20, 30, 40 or 50. |
-| `ARGUS_GITLAB_WATCH` | off | Reserved watcher switch. Not used yet. |
-| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Reserved. Positive number of watcher ticks between reconciliations. |
+| `ARGUS_GITLAB_WATCH` | off | Poll allowed GitLab projects into the shared review queue. Needs `ARGUS_WATCH_ENABLED`, a URL and a credential. |
+| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of GitLab polling ticks between full merge request listings. |
 | `ARGUS_GITLAB_REPLY_LOOP` | off | Reserved reply switch. Not used yet. |
 | `ARGUS_GITLAB_TIMEOUT_S` | `30.0` | Finite positive request timeout in seconds. |
 | `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, at least 1024. |

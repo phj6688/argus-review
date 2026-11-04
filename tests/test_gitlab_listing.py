@@ -6,8 +6,9 @@ import httpx
 import pytest
 
 from argus.api import watch_store
+from argus.forge.keys import gitlab_key
 from argus.gitlab import listing, trust
-from argus.gitlab.client import GitLabAuthError, GitLabRateLimited
+from argus.gitlab.client import GitLabAuthError, GitLabHTTPError, GitLabRateLimited
 from test_gitlab_projects import (
     HOST, KEY, TOKEN, configured as configured, make_client as make_client, payload,
 )
@@ -111,6 +112,63 @@ def test_expansion_entry_failure_does_not_drop_other_entries(make_client, monkey
     assert listing.expand_allow(client=client, db_path=configured) == (KEY,)
     assert f"gitlab:{HOST}/missing" in caplog.text
     assert TOKEN not in caplog.text
+
+
+@pytest.mark.parametrize("code", [403, 404, 301])
+def test_strict_expansion_skips_permanent_project_failure(make_client, monkeypatch, configured, code):
+    other = gitlab_key(HOST, 43)
+    monkeypatch.setenv("ARGUS_GITLAB_ALLOW", f"{KEY},{other}")
+    client, _ = make_client(lambda r: httpx.Response(code) if r.url.path.endswith("/42")
+                            else httpx.Response(200, json=payload(id=43)))
+    assert listing.expand_allow(client=client, db_path=configured, strict=True) == (other,)
+
+
+def test_strict_expansion_raises_on_transient_project_failure(make_client, monkeypatch, configured):
+    monkeypatch.setenv("ARGUS_GITLAB_ALLOW", KEY)
+    client, _ = make_client(lambda _: httpx.Response(503))
+    with pytest.raises(GitLabHTTPError):
+        listing.expand_allow(client=client, db_path=configured, strict=True)
+
+
+@pytest.mark.parametrize("by_path", [False, True], ids=["group", "path"])
+@pytest.mark.parametrize("code", [403, 404, 301])
+def test_strict_expansion_skips_permanent_group_or_path_failure(
+        make_client, monkeypatch, configured, caplog, by_path, code):
+    monkeypatch.setenv("ARGUS_GITLAB_ALLOW", f"gitlab:{HOST}/missing,{KEY}")
+
+    def handle(request):
+        if request.url.path == "/api/v4/projects/42":
+            return httpx.Response(200, json=payload())
+        if by_path and "/groups/" in request.url.path:
+            return httpx.Response(404, text=TOKEN)
+        return httpx.Response(code, text=TOKEN)
+
+    client, requests = make_client(handle)
+    assert listing.expand_allow(client=client, db_path=configured, strict=True) == (KEY,)
+    assert requests[-1].url.path == "/api/v4/projects/42"
+    if by_path or code == 404:
+        assert requests[1].url.path == "/api/v4/projects/missing"
+    assert f"gitlab:{HOST}/missing" in caplog.text
+    assert TOKEN not in caplog.text
+
+
+@pytest.mark.parametrize("by_path", [False, True], ids=["group", "path"])
+@pytest.mark.parametrize("code,error", [
+    (503, GitLabHTTPError), (401, GitLabAuthError), (429, GitLabRateLimited),
+])
+def test_strict_expansion_raises_on_transient_group_or_path_failure(
+        make_client, monkeypatch, configured, by_path, code, error):
+    monkeypatch.setenv("ARGUS_GITLAB_ALLOW", f"gitlab:{HOST}/missing,{KEY}")
+
+    def handle(request):
+        if by_path and "/groups/" in request.url.path:
+            return httpx.Response(404)
+        return httpx.Response(code, text=TOKEN)
+
+    client, requests = make_client(handle)
+    with pytest.raises(error):
+        listing.expand_allow(client=client, db_path=configured, strict=True)
+    assert all(r.url.path != "/api/v4/projects/42" for r in requests)
 
 
 def test_pagination_lists_250_mrs_and_maximum_cursor(make_client):
@@ -235,6 +293,16 @@ def test_invalid_rows_do_not_drop_page_and_timestamps_use_utc(make_client, caplo
     assert result.changes[0]["updated_at"] == "2026-11-04T12:00:00.001000+00:00"
     assert result.cursor == CURSOR
     assert caplog.records
+
+
+@pytest.mark.parametrize("invalid", [{"iid": "bad"}, {"updated_at": "bad"}, {"sha": None}],
+                         ids=["bad_iid", "bad_updated_at", "head_preparing"])
+def test_full_listing_with_skipped_row_is_incomplete(make_client, invalid):
+    client, _ = mr_client(make_client, [mr(**invalid), mr(2)])
+    result = listing.full_listing(KEY, client=client)
+    assert [row["number"] for row in result.changes] == [2]
+    assert result.cursor == CURSOR
+    assert result.complete is False
 
 
 @pytest.mark.parametrize("author", [{}, None, {"id": True}, {"id": "7"}, {"id": 7.0}])
