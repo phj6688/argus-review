@@ -1,0 +1,154 @@
+{
+  "derived": {
+    "accepted": true,
+    "has_position": true,
+    "line_range": {
+      "end": {
+        "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_28",
+        "new_line": 28,
+        "type": "new"
+      },
+      "start": {
+        "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_25",
+        "new_line": 25,
+        "type": "new"
+      }
+    },
+    "new_line": 28,
+    "old_line": null,
+    "position": {
+      "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+      "head_sha": "9ad7432ed9abd598e63ad64b9f53fbcbf3fa860d",
+      "line_range": {
+        "end": {
+          "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_28",
+          "new_line": 28,
+          "type": "new"
+        },
+        "start": {
+          "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_25",
+          "new_line": 25,
+          "type": "new"
+        }
+      },
+      "new_line": 28,
+      "new_path": "spike/pos.py",
+      "old_line": null,
+      "old_path": "spike/pos.py",
+      "position_type": "text",
+      "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+    },
+    "resolvable": true,
+    "resolved": false,
+    "resolved_by": null,
+    "type": "DiffNote"
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "zero",
+    "question": 5
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": {
+      "body": "Finding text.",
+      "position": {
+        "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+        "head_sha": "9ad7432ed9abd598e63ad64b9f53fbcbf3fa860d",
+        "line_range": {
+          "end": {
+            "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_28",
+            "new_line": 28,
+            "type": "new"
+          },
+          "start": {
+            "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_25",
+            "new_line": 25,
+            "type": "new"
+          }
+        },
+        "new_line": 28,
+        "new_path": "spike/pos.py",
+        "old_path": "spike/pos.py",
+        "position_type": "text",
+        "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+      }
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/76/discussions"
+  },
+  "response": {
+    "body": {
+      "id": "aac6aad48637e3d89f6e1feae2f38e08833e65b8",
+      "individual_note": false,
+      "notes": [
+        {
+          "author": {
+            "avatar_url": "<AVATAR_URL>",
+            "id": 2,
+            "locked": false,
+            "name": "Argus Bot",
+            "public_email": null,
+            "state": "active",
+            "username": "argus-bot",
+            "web_url": "https://gitlab.example.test/argus-bot"
+          },
+          "body": "Finding text.",
+          "commands_changes": {},
+          "commit_id": null,
+          "confidential": false,
+          "created_at": "2026-11-02T22:17:08.170Z",
+          "id": 92,
+          "imported": false,
+          "imported_from": "none",
+          "internal": false,
+          "noteable_id": 81,
+          "noteable_iid": 76,
+          "noteable_type": "MergeRequest",
+          "position": {
+            "base_sha": "8481bfc10b3b22f6c198f28d9b687ccddeb9f10b",
+            "head_sha": "9ad7432ed9abd598e63ad64b9f53fbcbf3fa860d",
+            "line_range": {
+              "end": {
+                "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_28",
+                "new_line": 28,
+                "type": "new"
+              },
+              "start": {
+                "line_code": "9c61853d209a9cfb0fdec6b642b7a460bf09c277_0_25",
+                "new_line": 25,
+                "type": "new"
+              }
+            },
+            "new_line": 28,
+            "new_path": "spike/pos.py",
+            "old_line": null,
+            "old_path": "spike/pos.py",
+            "position_type": "text",
+            "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+          },
+          "project_id": 1,
+          "resolvable": true,
+          "resolved": false,
+          "resolved_at": null,
+          "resolved_by": null,
+          "suggestions": [],
+          "system": false,
+          "type": "DiffNote",
+          "updated_at": "2026-11-02T22:17:08.170Z"
+        }
+      ],
+      "resolvable": true,
+      "resolved": false
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"e49364a1f15ebb219b6e613b01754c41\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

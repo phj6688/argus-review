@@ -1,0 +1,32 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diff_backslash_render",
+    "question": 9
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": {
+      "gfm": true,
+      "project": "argus-test/sub-a/sub-b/demo-app",
+      "text": "\\@argus-dev"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/markdown"
+  },
+  "response": {
+    "body": {
+      "html": "<p data-sourcepos=\"1:1-1:11\" dir=\"auto\"><span data-escaped-char=\"\" data-sourcepos=\"1:1-1:2\">@</span>argus-dev</p>"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"4a4053fc31510d47e1b51612fb4efb8d\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
+from conftest import stub_github_client
 from fastapi.testclient import TestClient
 
 from argus import cli, diff, publish
@@ -29,6 +30,7 @@ def database(tmp_path, monkeypatch, caplog):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(httpx, "get", Mock(side_effect=AssertionError("unexpected HTTP")))
     monkeypatch.setattr(httpx, "post", Mock(side_effect=AssertionError("unexpected HTTP")))
+    stub_github_client(monkeypatch, get=httpx.get, post=httpx.post)
     db.init_db(path)
     loggers = [logging.getLogger(name) for name in ("argus.api", "argus.db")]
     for logger in loggers:
@@ -368,6 +370,7 @@ def test_patch_fetch_uses_read_token_publishing_uses_separate_write_token(databa
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
         monkeypatch.setattr(httpx, "get", http.get)
+        stub_github_client(monkeypatch, get=http.get)
         monkeypatch.setattr(httpx, "post", http.post)
         rid = create(database)
         main.run_one_review(database, rid, "owner/repo", 42, result)
@@ -404,8 +407,9 @@ def test_list_reviews_omits_payload_and_preserves_other_fields(database):
     after = main.list_reviews()
     assert "publish_payload" not in after["reviews"][0]
     for key, value in before["reviews"][0].items():
-        if not key.startswith("publish"):
+        if not key.startswith("publish") and key != "action":
             assert after["reviews"][0][key] == value
+    assert (before["reviews"][0]["action"], after["reviews"][0]["action"]) == ("not_posted", "dry_run")
 
 
 def test_list_reviews_works_without_payload_column(tmp_path):

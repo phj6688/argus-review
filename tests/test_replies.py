@@ -5,8 +5,9 @@ import time
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
-from argus import acceptance, client, github, replies
+from argus import acceptance, client, github, publish, replies
 from argus.api import db
 import test_acceptance as fixtures
 from test_acceptance import rows, seed
@@ -60,6 +61,8 @@ def test_denied_before_request(live, monkeypatch, operation):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp")
     owner = "acme-corp"
     monkeypatch.setenv("ARGUS_PUBLISH_REPOS", f"owner/repo,{owner}/repo")
+    # The allowlist now screens denied owners itself; bypass it to keep exercising the transport guard.
+    monkeypatch.setattr(publish, "repo_allowlist", publish.env_repo_allowlist)
     before = github.refusal_count()
     with pytest.raises(github.GitHubDenied):
         if operation == "reply":
@@ -386,7 +389,7 @@ def test_recheck_file_uses_read_token(live, monkeypatch):
         assert kw["params"]["ref"] in {"a" * 40, "b" * 40}
         return httpx.Response(200, json={"encoding": "base64",
             "content": base64.b64encode(b"return value").decode()}, request=httpx.Request("GET", url))
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     monkeypatch.setattr(client, "complete_tool", lambda *a: {"verdict": "fixed", "quote": "return value"})
     assert replies.recheck("owner/repo", {"path": "app.py", "line": 1, "head_sha": "a" * 40,
         "comparison": {"status": "ahead", "files": [file_entry(filename="app.py",

@@ -1,0 +1,183 @@
+{
+  "case": "classify-error",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [],
+  "result": [
+    {
+      "case": "head-moved",
+      "classification": "head_moved",
+      "error": {
+        "message": "The reviewed head changed.",
+        "raised": "HeadMoved"
+      }
+    },
+    {
+      "case": "github-rate-limited",
+      "classification": "github_rate_limited",
+      "error": {
+        "message": "GitHub rate limited until 1768435260.0",
+        "raised": "GitHubRateLimited"
+      }
+    },
+    {
+      "case": "github-auth",
+      "classification": "github_auth",
+      "error": {
+        "message": "Credentials were rejected.",
+        "raised": "GitHubAuthError"
+      }
+    },
+    {
+      "case": "github-denied",
+      "classification": "github_denied",
+      "error": {
+        "message": "Repository access was refused.",
+        "raised": "GitHubDenied"
+      }
+    },
+    {
+      "case": "timeout",
+      "classification": "timeout",
+      "error": {
+        "message": "Request timed out.",
+        "raised": "TimeoutError"
+      }
+    },
+    {
+      "case": "read-timeout",
+      "classification": "timeout",
+      "error": {
+        "message": "Response timed out.",
+        "raised": "ReadTimeout"
+      }
+    },
+    {
+      "case": "named-timeout",
+      "classification": "timeout",
+      "error": {
+        "message": "Request expired.",
+        "raised": "GatewayTimeout"
+      }
+    },
+    {
+      "case": "interrupted",
+      "classification": "interrupted",
+      "error": {
+        "message": "The process stopped.",
+        "raised": "InterruptedError"
+      }
+    },
+    {
+      "case": "tool-call",
+      "classification": "tool_call",
+      "error": {
+        "message": "The requested call is missing.",
+        "raised": "ToolCallMismatch"
+      }
+    },
+    {
+      "case": "github-http",
+      "classification": "github_http",
+      "error": {
+        "message": "Request returned 503.",
+        "raised": "HTTPStatusError"
+      },
+      "request_url": "https://api.github.com/repos/example/app/pulls/42",
+      "status_code": 503
+    },
+    {
+      "case": "status-503",
+      "classification": "gateway_overloaded",
+      "error": {
+        "message": "Request returned 503.",
+        "raised": "StatusFailure"
+      },
+      "status_code": 503
+    },
+    {
+      "case": "status-529",
+      "classification": "gateway_overloaded",
+      "error": {
+        "message": "Request returned 529.",
+        "raised": "StatusFailure"
+      },
+      "status_code": 529
+    },
+    {
+      "case": "status-500",
+      "classification": "gateway_error",
+      "error": {
+        "message": "Request returned 500.",
+        "raised": "StatusFailure"
+      },
+      "status_code": 500
+    },
+    {
+      "case": "response-status-500",
+      "classification": "gateway_error",
+      "error": {
+        "message": "Response was rejected.",
+        "raised": "RuntimeError"
+      },
+      "status_code": 500
+    },
+    {
+      "case": "overloaded-message",
+      "classification": "gateway_overloaded",
+      "error": {
+        "message": "The gateway is overloaded.",
+        "raised": "RuntimeError"
+      }
+    },
+    {
+      "case": "api-named",
+      "classification": "gateway_error",
+      "error": {
+        "message": "Request was rejected.",
+        "raised": "APIError"
+      }
+    },
+    {
+      "case": "cli-error",
+      "classification": "gateway_error",
+      "error": {
+        "message": "Command failed.",
+        "raised": "CliError"
+      }
+    },
+    {
+      "case": "unbound-request",
+      "classification": "internal",
+      "error": {
+        "message": "The request failed before sending.",
+        "raised": "RequestError"
+      }
+    },
+    {
+      "case": "validation",
+      "classification": "validation",
+      "error": {
+        "message": "Invalid value.",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "case": "runtime",
+      "classification": "internal",
+      "error": {
+        "message": "Unexpected failure.",
+        "raised": "RuntimeError"
+      }
+    },
+    {
+      "case": "key-error",
+      "classification": "internal",
+      "error": {
+        "message": "'missing'",
+        "raised": "KeyError"
+      }
+    }
+  ],
+  "scenario": "policy"
+}

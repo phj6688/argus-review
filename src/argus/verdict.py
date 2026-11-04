@@ -19,6 +19,7 @@ found is evidence found, so a probe hit requests changes however thin the lane s
 
 import json
 
+from . import risk_tier
 from .redact import redact
 
 TIER_DETERMINISTIC = "deterministic"
@@ -85,7 +86,9 @@ def coverage_level(lanes: list[dict]) -> str:
                 if lane.get("lane") == LANE_LLM and lane.get("status") == LANE_RAN]
     if reviewed:
         omitted = sum(lane.get("files_omitted") or 0 for lane in reviewed)
-        return COVERAGE_PARTIAL if (omitted or broken) else COVERAGE_FULL
+        # Files the listing never delivered count like omitted ones: not read.
+        unseen = any(lane.get("files_unseen") is True for lane in reviewed)
+        return COVERAGE_PARTIAL if (omitted or unseen or broken) else COVERAGE_FULL
     executed = sum(lane.get("checks") or 0
                    for lane in lanes if lane.get("status") == LANE_RAN)
     return COVERAGE_PARTIAL if executed else COVERAGE_NONE
@@ -169,6 +172,7 @@ def document(review: dict, findings: list[dict], baseline: list[str] | None = No
         "verdict": decision(findings, coverage),
         "review_id": review["id"],
         "coverage": coverage,
+        "risk": risk_tier.from_row(review),
         "source": {
             "kind": review.get("source_kind") or "pr",
             "repo": review.get("repo") or None,

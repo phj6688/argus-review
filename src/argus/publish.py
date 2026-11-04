@@ -10,7 +10,9 @@ from pathlib import Path
 
 import httpx
 
+from . import repo_policy
 from .diff import LANGUAGE_BY_EXTENSION, FilePatch, split_lines
+from .forge.keys import is_gitlab_key
 from .github import API_VERSION, GITHUB_API, guard_url, observe_response
 from .markdown import code_span, escape_block, escape_inline
 from .repo_policy import validate_repo
@@ -84,14 +86,57 @@ class PublishOutcome:
     gh_review_id: int | None = None
     bot_login: str | None = None
     posted_at: str | None = None
+    bot_user_id: int | None = None
 
 
 def enabled_for(repo: str) -> bool:
     """Read the opt-in at call time so an unset flag adds no GitHub reads."""
+    if is_gitlab_key(repo):
+        return False
     return os.environ.get("ARGUS_PUBLISH") in {"1", "dry-run"} and repo.casefold() in repo_allowlist()
 
 
 def repo_allowlist() -> set[str]:
+    repos, deny = _dashboard_state()
+    if repos is not None:
+        return {name.casefold() for name in repos}
+    # Env entries get the same screening as stored ones, so a denied or malformed name is
+    # never shown, never sent to GitHub, and cannot make the first dashboard save fail.
+    return {name for name in env_repo_allowlist() if _well_formed_and_allowed(name, deny)}
+
+
+def _well_formed_and_allowed(name: str, deny) -> bool:
+    try:
+        repo_policy.validate_repo(name, deny)
+    except ValueError:  # RepoDenied is a ValueError
+        return False
+    return True
+
+
+def _dashboard_state() -> tuple[list[str] | None, list[str]]:
+    try:
+        from .api import db
+
+        repos, deny = db.get_publish_state()
+    except Exception:
+        # Fail closed: an unreadable dashboard list must not fall back to the env list, which
+        # could re-enable posting that the operator removed from the dashboard.
+        log.warning("publish: dashboard repo list is unreadable, posting is blocked until it is")
+        return [], []
+    if repos is None:
+        return None, deny
+    return [name for name in repos if _well_formed_and_allowed(name, deny)], deny
+
+
+def _dashboard_repos() -> list[str] | None:
+    return _dashboard_state()[0]
+
+
+def repo_allowlist_source() -> str:
+    return "dashboard" if _dashboard_repos() is not None else "env"
+
+
+def env_repo_allowlist() -> set[str]:
     return {name.strip().casefold() for name in os.environ.get("ARGUS_PUBLISH_REPOS", "").split(",")
             if name.strip()}
 
@@ -236,6 +281,11 @@ def render_review(
         "Tier counts: " + "; ".join(f"{tier}: {tiers[tier]}" for tier in
                                     ("deterministic", "consensus", "single_critic", "disputed")),
     ]
+    if risk := document.get("risk"):
+        line = risk["label"]
+        if risk["tier"] == "risky" and risk.get("reasons"):
+            line += " Reasons: " + "; ".join(_risk_reason(reason) for reason in risk["reasons"])
+        body.append(line)
     if outside:
         body.append(_summary_findings("Outside the diff", outside))
     if overflow:
@@ -268,6 +318,13 @@ def render_review(
         body.append(section)
     body.extend(footer(listed))
     return {"commit_id": head_sha, "event": "COMMENT", "body": "\n\n".join(body), "comments": comments}
+
+
+def _risk_reason(reason: str) -> str:
+    match = re.fullmatch(r"tripwire path (.+) \((.*)\)", reason)
+    if match:
+        return f"tripwire path {code_span(match[1])} ({escape_inline(match[2])})"
+    return escape_inline(reason)
 
 
 def _list_all(http, url: str, headers: dict) -> list[dict]:
@@ -450,6 +507,8 @@ def publish_review(
         if not (payload["comments"] or new_confirmed or new_unverified):
             if any(review_marker(review.get("body") or "") for review in reviews):
                 return PublishOutcome("skipped", already_posted=already, reason="nothing new", payload=payload)
+        if not enabled_for(repo):
+            return PublishOutcome("skipped", already_posted=already, reason="repository left the posting list", payload=payload)
         guard_url(f"{url}/reviews")
         response = transport.post(f"{url}/reviews", json=payload, headers=headers, timeout=15.0)
         observe_response(response, record_quota=False)
@@ -458,6 +517,8 @@ def publish_review(
                                     outside_only=True, **options)
             reason = "GitHub returned 422; moved inline comments to Outside the diff"
             log.info("review %s: %s", review_id, reason)
+            if not enabled_for(repo):
+                return PublishOutcome("skipped", already_posted=already, reason="repository left the posting list", payload=payload)
             guard_url(f"{url}/reviews")
             response = transport.post(f"{url}/reviews", json=payload, headers=headers, timeout=15.0)
             observe_response(response, record_quota=False)

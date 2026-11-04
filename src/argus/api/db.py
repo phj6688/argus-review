@@ -8,11 +8,14 @@ service uses the repo data dir by default.
 import json
 import logging
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import verdict
+from ..forge import keys
+from ..forge.types import RepoRecord, RepoRef
 from ..publish import PublishOutcome
 from ..redact import redact
 from ..repo_policy import valid_catalogue_name
@@ -141,6 +144,36 @@ CREATE TABLE IF NOT EXISTS publishing_identities (
     repo TEXT NOT NULL, bot_login TEXT NOT NULL, first_seen_at TEXT NOT NULL,
     PRIMARY KEY(repo, bot_login)
 );
+
+-- Keep GitLab identity stable across project renames in forge_projects.
+-- Reuse the gh_* columns so existing references and constraints stay intact:
+-- published_findings.gh_review_id is the integer summary note id;
+-- gh_comment_id is the integer first note id of the finding discussion;
+-- gh_thread_id is the 40-hex discussion id, known at creation.
+-- bot_actions.gh_comment_id is the reply note id. The publisher records the
+-- numeric publishing_identities.bot_user_id so the thread reader can filter
+-- the bot's own notes by id, falling back to username only when the id is NULL.
+-- pr always holds the merge request iid, never the global merge request id.
+-- GitHub rows leave the new nullable columns NULL.
+CREATE TABLE IF NOT EXISTS forge_projects (
+    repo_key TEXT NOT NULL PRIMARY KEY,
+    forge TEXT NOT NULL,
+    host TEXT NOT NULL,
+    project_id INTEGER NOT NULL,
+    path_with_namespace TEXT,
+    default_branch TEXT,
+    archived INTEGER,
+    visibility TEXT,
+    checked_at TEXT,
+    CHECK(forge = 'gitlab' AND repo_key = 'gitlab:' || host || '#' || project_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_forge_projects_host_id ON forge_projects(host, project_id);
+
+CREATE TABLE IF NOT EXISTS gitlab_poll_cursors (
+    repo_key TEXT PRIMARY KEY, updated_after TEXT, last_full_reconcile TEXT,
+    last_error TEXT, last_polled_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS outcome_cursors (
     repo TEXT PRIMARY KEY, since TEXT NOT NULL, last_collected_at TEXT
 );
@@ -255,7 +288,7 @@ def init_db(path: str | None = None) -> None:
         for name in ("head_sha", "error", "completed_at", "error_class",
                      "source_kind", "base_sha", "diff_hash", "baseline_json",
                      "model_used", "fallback_from", "fallback_reason",
-                     "coverage_json"):
+                     "coverage_json", "risk_tier", "risk_json"):
             _ensure_column(conn, "reviews", name)
         for name, decl in (("branch", "TEXT"), ("author", "TEXT"),
                            ("files_changed", "INTEGER"), ("lines_added", "INTEGER"),
@@ -294,6 +327,15 @@ def init_db(path: str | None = None) -> None:
         _ensure_column(conn, "config", "deny", "TEXT NOT NULL DEFAULT '[]'")
         _ensure_column(conn, "config", "watch_mode")
         _ensure_column(conn, "config", "owned_repos", "TEXT NOT NULL DEFAULT '[]'")
+        _ensure_column(conn, "config", "publish_repos")
+        for table, name, decl in (
+            ("pr_heads", "author_trusted", "INTEGER"),
+            ("pr_heads", "author_id", "INTEGER"),
+            ("reply_texts", "author_trusted", "INTEGER"),
+            ("published_findings", "anchor_status", "TEXT"),
+            ("publishing_identities", "bot_user_id", "INTEGER"),
+        ):
+            _ensure_column(conn, table, name, decl)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_reviews_head ON reviews(repo, pr, head_sha)")
         row = conn.execute("SELECT repo_allowlist FROM config WHERE watch_mode IS NULL").fetchone()
         if row:
@@ -324,6 +366,74 @@ def _ensure_column(conn: sqlite3.Connection, table: str, name: str,
     columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
     if name not in columns:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+
+def upsert_forge_project(
+    conn: sqlite3.Connection, ref: RepoRef, record: RepoRecord, *, visibility: str | None = None,
+) -> None:
+    conn.execute(
+        "INSERT INTO forge_projects "
+        "(repo_key, forge, host, project_id, path_with_namespace, default_branch, archived, visibility, checked_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(repo_key) DO UPDATE SET "
+        "path_with_namespace=excluded.path_with_namespace, default_branch=excluded.default_branch, "
+        "archived=excluded.archived, visibility=COALESCE(excluded.visibility, forge_projects.visibility), "
+        "checked_at=excluded.checked_at",
+        (keys.gitlab_key(ref.host, ref.project_id), ref.forge, ref.host, ref.project_id,
+         record.path, record.default_branch, int(record.archived) if record.archived is not None else None,
+         visibility, _now_iso()),
+    )
+
+
+def forge_project(conn: sqlite3.Connection, key: str) -> dict | None:
+    row = conn.execute("SELECT * FROM forge_projects WHERE repo_key=?", (key,)).fetchone()
+    return dict(row) if row is not None else None
+
+
+_POLL_UNSET = object()
+
+
+def gitlab_poll_cursor(conn: sqlite3.Connection, repo_key: str) -> dict | None:
+    if not keys.is_gitlab_key(repo_key):
+        raise ValueError("poll cursors require a GitLab key")
+    row = conn.execute("SELECT * FROM gitlab_poll_cursors WHERE repo_key=?", (repo_key,)).fetchone()
+    return dict(row) if row is not None else None
+
+
+def set_gitlab_poll_cursor(conn: sqlite3.Connection, repo_key: str, **fields) -> None:
+    if not keys.is_gitlab_key(repo_key):
+        raise ValueError("poll cursors require a GitLab key")
+    allowed = ("updated_after", "last_full_reconcile", "last_error", "last_polled_at")
+    if fields.keys() - set(allowed):
+        raise ValueError("unknown poll cursor field")
+    values = {name: value for name in allowed
+              if (value := fields.get(name, _POLL_UNSET)) is not _POLL_UNSET}
+    columns = ",".join(("repo_key", *values))
+    marks = ",".join("?" for _ in range(len(values) + 1))
+    update = "DO UPDATE SET " + ",".join(f"{name}=excluded.{name}" for name in values) if values else "DO NOTHING"
+    conn.execute(
+        f"INSERT INTO gitlab_poll_cursors ({columns}) VALUES ({marks}) "
+        f"ON CONFLICT(repo_key) {update}",  # nosec B608 - allowlisted column names
+        (repo_key, *values.values()),
+    )
+
+
+def bot_user_id(conn: sqlite3.Connection, repo: str) -> int | None:
+    row = conn.execute(
+        "SELECT bot_user_id FROM publishing_identities "
+        "WHERE repo=? AND bot_user_id IS NOT NULL ORDER BY first_seen_at DESC LIMIT 1",
+        (repo,),
+    ).fetchone()
+    return row[0] if row is not None else None
+
+
+def bot_login(conn: sqlite3.Connection, repo: str) -> str | None:
+    row = conn.execute(
+        "SELECT bot_login FROM publishing_identities "
+        "WHERE repo=? ORDER BY first_seen_at DESC LIMIT 1",
+        (repo,),
+    ).fetchone()
+    return row[0] if row is not None else None
 
 
 def create_review(
@@ -585,10 +695,13 @@ def save_result(path: str | None, review_id: int, result: ReviewResult) -> None:
         conn.execute(
             "UPDATE reviews SET status = ?, raw_count = ?, dropped = ?, "
             "completed_at = ?, coverage_json = ?, branch = ?, author = ?, "
-            "files_changed = ?, lines_added = ?, lines_removed = ? WHERE id = ?",
+            "files_changed = ?, lines_added = ?, lines_removed = ?, "
+            "risk_tier = ?, risk_json = ? WHERE id = ?",
             (STATUS_DONE, result.raw_count, result.dropped, _now_iso(),
              _coverage_json(result), result.branch, result.author,
-             result.files_changed, result.lines_added, result.lines_removed, review_id),
+             result.files_changed, result.lines_added, result.lines_removed,
+             result.risk_tier["tier"] if result.risk_tier is not None else None,
+             json.dumps(result.risk_tier) if result.risk_tier is not None else None, review_id),
         )
         if result.head_sha:
             row = conn.execute("SELECT head_sha FROM reviews WHERE id = ?", (review_id,)).fetchone()
@@ -631,28 +744,67 @@ def save_result(path: str | None, review_id: int, result: ReviewResult) -> None:
         conn.close()
 
 
+def _redact_json(value):
+    if isinstance(value, dict):
+        return {
+            (redact(key) if isinstance(key, str) else key): "[redacted]" if (
+                isinstance(key, str) and isinstance(item, str) and re.fullmatch(
+                    r"api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|password", key, re.IGNORECASE
+                )
+            ) else _redact_json(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact_json(item) for item in value]
+    if isinstance(value, str):
+        return redact(value)
+    return value
+
+
+def _bound_payload(payload: str) -> str:
+    if len(payload) > 200_000:
+        # Keep oversized records valid JSON and make the loss explicit. ASCII
+        # JSON makes the character limit equal the stored UTF-8 byte limit.
+        original = payload
+        low, high = 0, 200_000
+        while low < high:
+            middle = (low + high + 1) // 2
+            candidate = json.dumps({"truncated": True, "original_bytes": len(original),
+                                    "preview": original[:middle]})
+            if len(candidate) <= 200_000:
+                low = middle
+            else:
+                high = middle - 1
+        payload = json.dumps({"truncated": True, "original_bytes": len(original),
+                              "preview": original[:low]})
+    return payload
+
+
 def save_publish_outcome(path: str | None, review_id: int, outcome: PublishOutcome) -> None:
     """Record publishing separately so posting cannot change the review's status."""
     payload = None
-    if outcome.payload is not None:
-        payload = json.dumps(outcome.payload)
-        if len(payload) > 200_000:
-            # Keep oversized records valid JSON and make the loss explicit. ASCII
-            # JSON makes the character limit equal the stored UTF-8 byte limit.
-            original = payload
-            low, high = 0, 200_000
-            while low < high:
-                middle = (low + high + 1) // 2
-                candidate = json.dumps({"truncated": True, "original_bytes": len(original),
-                                        "preview": original[:middle]})
-                if len(candidate) <= 200_000:
-                    low = middle
-                else:
-                    high = middle - 1
-            payload = json.dumps({"truncated": True, "original_bytes": len(original),
-                                  "preview": original[:low]})
     conn = connect(path)
     try:
+        review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
+        if review and keys.is_gitlab_key(review["repo"]):
+            if outcome.payload is not None:
+                # Truncation can hide credential keys or leave unrecognizable secret fragments.
+                payload = _bound_payload(json.dumps(_redact_json(outcome.payload), ensure_ascii=True))
+            conn.execute(
+                "UPDATE reviews SET publish_status = ?, published_at = ?, publish_error = ?, "
+                "published_comments = ?, publish_payload = ? WHERE id = ?",
+                (outcome.status, (outcome.posted_at or _now_iso()) if outcome.status == "posted" else None,
+                 redact(outcome.reason), outcome.comments_posted, payload, review_id),
+            )
+            if outcome.status in {"posted", "dry_run"} or (
+                outcome.status == "error" and outcome.reason == "partial_post"
+                and (outcome.gh_review_id is not None or any(_gitlab_confirmed(item, outcome) for item in outcome.items))
+            ):
+                _save_published_items(conn, review_id, outcome, review)
+            conn.commit()
+            return
+        if outcome.payload is not None:
+            payload = _bound_payload(json.dumps(outcome.payload))
         conn.execute(
             "UPDATE reviews SET publish_status = ?, published_at = ?, publish_error = ?, "
             "published_comments = ?, publish_payload = ? WHERE id = ?",
@@ -666,11 +818,14 @@ def save_publish_outcome(path: str | None, review_id: int, outcome: PublishOutco
         conn.close()
 
 
-def _save_published_items(conn, review_id, outcome):
-    review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
+def _save_published_items(conn, review_id, outcome, review=None):
+    if review is None:
+        review = conn.execute("SELECT repo, pr, head_sha FROM reviews WHERE id=?", (review_id,)).fetchone()
+    if keys.is_gitlab_key(review["repo"]):
+        return _save_gitlab_items(conn, review_id, outcome, review)
     mode = "dry_run" if outcome.status == "dry_run" else "posted"
     if outcome.bot_login:
-        conn.execute("INSERT OR IGNORE INTO publishing_identities VALUES (?, ?, ?)",
+        conn.execute("INSERT OR IGNORE INTO publishing_identities (repo, bot_login, first_seen_at) VALUES (?, ?, ?)",
                      (review["repo"], outcome.bot_login, outcome.posted_at or _now_iso()))
     for item in outcome.items:
         # Review ids increase over time; the newest review's rendering wins regardless of write order.
@@ -692,6 +847,50 @@ def _save_published_items(conn, review_id, outcome):
              item["severity"], item.get("category"), item["file"], item["line"], item.get("end_line"),
              item["title"], item["placement"], mode, outcome.gh_review_id, item.get("gh_comment_id"),
              outcome.posted_at or _now_iso(), int(item.get("unverified", False))),
+        )
+
+
+def _gitlab_confirmed(item, outcome):
+    if item["placement"] == "summary":
+        return outcome.gh_review_id is not None
+    return item.get("gh_comment_id") is not None and bool(item.get("gh_thread_id"))
+
+
+def _save_gitlab_items(conn, review_id, outcome, review):
+    mode = "dry_run" if outcome.status == "dry_run" else "posted"
+    posted_at = outcome.posted_at or _now_iso()
+    if outcome.bot_login:
+        conn.execute(
+            "INSERT INTO publishing_identities (repo, bot_login, first_seen_at, bot_user_id) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(repo, bot_login) DO UPDATE SET "
+            "bot_user_id = COALESCE(excluded.bot_user_id, publishing_identities.bot_user_id)",
+            (review["repo"], outcome.bot_login, posted_at, outcome.bot_user_id),
+        )
+    for item in outcome.items:
+        if mode == "posted" and not _gitlab_confirmed(item, outcome):
+            continue
+        conn.execute(
+            "INSERT INTO published_findings "
+            "(review_id,repo,pr,head_sha,fingerprint,severity,category,path,line,end_line,title,"
+            "placement,mode,gh_review_id,gh_comment_id,gh_thread_id,anchor_status,posted_at,unverified) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(repo,pr,fingerprint,head_sha,mode) DO UPDATE SET "
+            "gh_review_id=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.gh_review_id,published_findings.gh_review_id) ELSE excluded.gh_review_id END, "
+            "gh_comment_id=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.gh_comment_id,published_findings.gh_comment_id) ELSE excluded.gh_comment_id END, "
+            "gh_thread_id=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.gh_thread_id,published_findings.gh_thread_id) ELSE excluded.gh_thread_id END, "
+            "anchor_status=CASE WHEN excluded.placement=published_findings.placement "
+            "THEN COALESCE(excluded.anchor_status,published_findings.anchor_status) ELSE excluded.anchor_status END, "
+            "placement=excluded.placement, unverified=excluded.unverified, review_id=excluded.review_id, "
+            "severity=excluded.severity, category=excluded.category, path=excluded.path, line=excluded.line, "
+            "end_line=excluded.end_line, title=excluded.title, posted_at=excluded.posted_at "
+            "WHERE excluded.review_id >= published_findings.review_id",
+            (review_id, review["repo"], review["pr"], review["head_sha"], item["fingerprint"],
+             item["severity"], item.get("category"), item["file"], item["line"], item.get("end_line"),
+             item["title"], item["placement"], mode, outcome.gh_review_id, item.get("gh_comment_id"),
+             item.get("gh_thread_id"), item.get("anchor_status"), posted_at, int(item.get("unverified", False))),
         )
 
 
@@ -857,7 +1056,99 @@ def get_config(path: str | None = None) -> dict | None:
     data["repos"] = json.loads(data.pop("repo_allowlist"))
     data["deny"] = json.loads(data.get("deny") or "[]")
     data["owned_repos"] = json.loads(data.get("owned_repos") or "[]")
+    data["publish_repos"] = _parse_publish_repos(data.get("publish_repos"))
     return data
+
+
+def _parse_publish_repos(value) -> list[str] | None:
+    if value is None:
+        return None
+    try:
+        repos = json.loads(value)
+    except (ValueError, TypeError):
+        return None
+    return repos if isinstance(repos, list) and all(isinstance(repo, str) for repo in repos) else None
+
+
+class PublishReposUnreadable(RuntimeError):
+    """The stored publish list exists but cannot be trusted (locked DB, corrupt value)."""
+
+
+def _strict_publish_repos(value) -> list[str] | None:
+    if value is None:
+        return None
+    try:
+        repos = json.loads(value)
+    except (ValueError, TypeError) as error:
+        raise PublishReposUnreadable("stored publish list is not valid JSON") from error
+    if not isinstance(repos, list) or not all(isinstance(repo, str) for repo in repos):
+        raise PublishReposUnreadable("stored publish list is not a list of names")
+    return repos
+
+
+def _read_publish_row(conn: sqlite3.Connection):
+    """(publish_repos, deny) for the singleton row, or None. A database from before the
+    publish column keeps its deny policy: the deny column is read on its own, and only a
+    schema that has no deny column either reads as an empty policy."""
+    try:
+        return conn.execute("SELECT publish_repos, deny FROM config WHERE id = 1").fetchone()
+    except sqlite3.OperationalError as error:
+        if "no such column" not in str(error):
+            raise
+    try:
+        row = conn.execute("SELECT deny FROM config WHERE id = 1").fetchone()
+    except sqlite3.OperationalError as error:
+        if "no such column" not in str(error):
+            raise
+        row = conn.execute("SELECT 1 FROM config WHERE id = 1").fetchone()
+        return None if row is None else (None, None)
+    return None if row is None else (None, row[0])
+
+
+def get_publish_state(path: str | None = None) -> tuple[list[str] | None, list[str]]:
+    """Return (dashboard publish list or None, config deny list) from one read-only query.
+
+    None means the list was never set (no file, table, column, row or a NULL value), so the
+    caller may fall back to the environment. Anything else that stops the read raises
+    PublishReposUnreadable: falling back then could re-enable posting an operator turned off."""
+    target = Path(path or db_path())
+    if not target.is_file():
+        return None, []
+    try:
+        # Read-only mode also prevents creation if the file disappears after the check.
+        conn = sqlite3.connect(f"{target.resolve().as_uri()}?mode=ro", uri=True, timeout=2.0)
+        try:
+            row = _read_publish_row(conn)
+        finally:
+            conn.close()
+    except sqlite3.OperationalError as error:
+        if "no such table" in str(error):
+            return None, []
+        raise PublishReposUnreadable("publish list could not be read") from error
+    if row is None:
+        return None, []
+    repos = _strict_publish_repos(row[0])
+    # An unreadable deny list would silently lift exclusions, on the stored list and on the env one.
+    try:
+        deny = json.loads(row[1] or "[]")
+    except (ValueError, TypeError) as error:
+        raise PublishReposUnreadable("stored deny list is not valid JSON") from error
+    if not isinstance(deny, list) or not all(isinstance(entry, str) for entry in deny):
+        raise PublishReposUnreadable("stored deny list is not a list of names")
+    return repos, deny
+
+
+def get_publish_repos(path: str | None = None) -> list[str] | None:
+    return get_publish_state(path)[0]
+
+
+def set_publish_repos(path: str | None, repos: list[str]) -> None:
+    conn = connect(path)
+    try:
+        conn.execute("UPDATE config SET publish_repos = ? WHERE id = 1", (json.dumps(repos),))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def save_config(

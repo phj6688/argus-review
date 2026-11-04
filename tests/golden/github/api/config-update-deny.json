@@ -1,0 +1,144 @@
+{
+  "case": "config-update-deny",
+  "db_rows": {
+    "config": {
+      "columns": [
+        "id",
+        "repo_allowlist",
+        "model",
+        "bug_cap",
+        "min_confidence",
+        "deny",
+        "watch_mode",
+        "owned_repos",
+        "publish_repos"
+      ],
+      "rows": [
+        [
+          1,
+          [
+            {
+              "name": "example/app",
+              "watched": true
+            }
+          ],
+          "model-a",
+          7,
+          0.7,
+          [
+            "acme-org/private",
+            "example/blocked"
+          ],
+          "manual",
+          [],
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [],
+  "result": {
+    "loaded": {
+      "json": {
+        "bugCap": 7,
+        "deny": [
+          "acme-org/private",
+          "example/blocked"
+        ],
+        "hard_denied_owners": [
+          "denied-org"
+        ],
+        "hiddenCount": 0,
+        "minConfidence": 0.7,
+        "modelOptions": [
+          "model-a"
+        ],
+        "models": [
+          {
+            "caption": "reports every candidate",
+            "model": "model-a",
+            "name": "Deep review",
+            "tier": "deep"
+          },
+          {
+            "caption": "skeptical adjudicator, drops the unverifiable",
+            "model": "model-a",
+            "name": "Verification",
+            "tier": "deep"
+          }
+        ],
+        "publish": {
+          "botLogin": null,
+          "mode": "off",
+          "repos": [],
+          "source": "env",
+          "tokenConfigured": true
+        },
+        "repos": [
+          {
+            "effective_watched": false,
+            "name": "example/app",
+            "stored_watched": true,
+            "watched": true,
+            "watched_source": "operator"
+          }
+        ],
+        "totalRepos": 1,
+        "watch_mode": "manual"
+      },
+      "status": 200
+    },
+    "updated": {
+      "json": {
+        "bugCap": 7,
+        "deny": [
+          "acme-org/private",
+          "example/blocked"
+        ],
+        "hard_denied_owners": [
+          "denied-org"
+        ],
+        "hiddenCount": 0,
+        "minConfidence": 0.7,
+        "modelOptions": [
+          "model-a"
+        ],
+        "models": [
+          {
+            "caption": "reports every candidate",
+            "model": "model-a",
+            "name": "Deep review",
+            "tier": "deep"
+          },
+          {
+            "caption": "skeptical adjudicator, drops the unverifiable",
+            "model": "model-a",
+            "name": "Verification",
+            "tier": "deep"
+          }
+        ],
+        "publish": {
+          "botLogin": null,
+          "mode": "off",
+          "repos": [],
+          "source": "env",
+          "tokenConfigured": true
+        },
+        "repos": [
+          {
+            "effective_watched": false,
+            "name": "example/app",
+            "stored_watched": true,
+            "watched": true,
+            "watched_source": "operator"
+          }
+        ],
+        "totalRepos": 1,
+        "watch_mode": "manual"
+      },
+      "status": 200
+    }
+  },
+  "scenario": "api"
+}

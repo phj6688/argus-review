@@ -1,0 +1,73 @@
+{
+  "derived": {
+    "counts": {
+      "binary": 0,
+      "collapsed": 0,
+      "deleted_file": 0,
+      "generated_file": 0,
+      "new_file": 0,
+      "renamed_file": 0,
+      "too_large": 0
+    },
+    "files": [
+      {
+        "diff_head": "Binary files a/assets/logo.png and b/assets/logo.png differ\n",
+        "diff_len": 60,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": false,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "assets/logo.png"
+      }
+    ]
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diffs_binary",
+    "question": 2
+  },
+  "request": {
+    "auth": "admin",
+    "method": "GET",
+    "params": {
+      "per_page": 100
+    },
+    "path": "/projects/1/merge_requests/71/diffs"
+  },
+  "response": {
+    "body": [
+      {
+        "a_mode": "100644",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "Binary files a/assets/logo.png and b/assets/logo.png differ\n",
+        "generated_file": false,
+        "new_file": false,
+        "new_path": "assets/logo.png",
+        "old_path": "assets/logo.png",
+        "renamed_file": false,
+        "too_large": false
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"685b6b09e1533a0a2100128ea1f17cad\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/71/diffs?id=1&merge_request_iid=71&page=1&per_page=100&unidiff=false>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/71/diffs?id=1&merge_request_iid=71&page=1&per_page=100&unidiff=false>; rel=\"last\"",
+      "vary": "Accept-Encoding, Origin",
+      "x-next-page": "",
+      "x-page": "1",
+      "x-per-page": "100",
+      "x-prev-page": "",
+      "x-total": "1",
+      "x-total-pages": "1"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

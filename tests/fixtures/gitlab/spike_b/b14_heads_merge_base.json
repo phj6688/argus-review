@@ -1,0 +1,49 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "heads_merge_base",
+    "question": 14
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": null,
+    "method": "GET",
+    "params": {
+      "refs[]": [
+        "b0bf72360f4c833a1da99e75a48ac64746f75e7e",
+        "d628105c2d56440465af8aecd25e5013668d9495"
+      ]
+    },
+    "path": "/projects/1/repository/merge_base"
+  },
+  "response": {
+    "body": {
+      "author_email": "<EMAIL>",
+      "author_name": "Argus Dev",
+      "authored_date": "2026-11-02T23:26:53.000+01:00",
+      "committed_date": "2026-11-02T23:26:53.000+01:00",
+      "committer_email": "<EMAIL>",
+      "committer_name": "Argus Dev",
+      "created_at": "2026-11-02T23:26:53.000+01:00",
+      "extended_trailers": {},
+      "id": "dc1021d39f033a89eff6fd6193f63466a5698e80",
+      "message": "Change commented line\n",
+      "parent_ids": [
+        "6ac9c8484ebbae854acc004f283fc7b23b08c6d5"
+      ],
+      "short_id": "dc1021d3",
+      "title": "Change commented line",
+      "trailers": {},
+      "web_url": "https://gitlab.example.test/argus-test/sub-a/sub-b/demo-app/-/commit/dc1021d39f033a89eff6fd6193f63466a5698e80"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"a47afa009305742e2c4833581053d67a\"",
+      "vary": "Accept-Encoding, Origin"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

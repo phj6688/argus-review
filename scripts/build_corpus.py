@@ -2,6 +2,7 @@
 """Build (freeze) a Jarvis corpus version from the sweep fixture + an Argus db.
 
 v0 = the frozen 239-row manual sweep (positive backbone) + any operator marks.
+Argus database inputs come through CorpusLoader for GitHub repositories only.
 Read-only against the Argus db; writes only the separate Jarvis db. Re-running is
 idempotent per source, so this IS the freeze: same inputs reproduce the same v0.
 

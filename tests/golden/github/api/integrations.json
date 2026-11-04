@@ -1,0 +1,198 @@
+{
+  "case": "integrations",
+  "db_rows": {
+    "config": {
+      "columns": [
+        "id",
+        "repo_allowlist",
+        "model",
+        "bug_cap",
+        "min_confidence",
+        "deny",
+        "watch_mode",
+        "owned_repos",
+        "publish_repos"
+      ],
+      "rows": [
+        [
+          1,
+          [],
+          "model-a",
+          5,
+          0.55,
+          [],
+          "auto",
+          [],
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [],
+  "result": {
+    "json": {
+      "api": {
+        "auth": "proxy",
+        "baseUrl": "http://127.0.0.1:8350",
+        "endpoints": [
+          {
+            "description": "Argus vs CodeRabbit.",
+            "method": "GET",
+            "path": "/benchmark"
+          },
+          {
+            "description": "Return stored operator config when set, else the engine defaults (DEFAULT_MODEL, DEFAULT_BUG_CAP, MIN_CONFIDENCE, empty repo allowlist).",
+            "method": "GET",
+            "path": "/config"
+          },
+          {
+            "description": "Persist the operator config (singleton) and echo back the stored shape.",
+            "method": "PUT",
+            "path": "/config"
+          },
+          {
+            "description": "Replace the set of repositories Argus may post reviews to.",
+            "method": "PUT",
+            "path": "/config/publish-repos"
+          },
+          {
+            "description": "",
+            "method": "GET",
+            "path": "/docs"
+          },
+          {
+            "description": "",
+            "method": "GET",
+            "path": "/docs/oauth2-redirect"
+          },
+          {
+            "description": "Record the operator's ground-truth label on a finding (the only real precision signal; the engine's own verdict is not ground truth).",
+            "method": "POST",
+            "path": "/findings/{finding_id}/mark"
+          },
+          {
+            "description": "Shallow: report the model reviews will use (stored config, else the env default) and whether a model provider is configured, with no network call.",
+            "method": "GET",
+            "path": "/health"
+          },
+          {
+            "description": "Integration status from the running config: credentials are reported as set or missing.",
+            "method": "GET",
+            "path": "/integrations"
+          },
+          {
+            "description": "",
+            "method": "GET",
+            "path": "/openapi.json"
+          },
+          {
+            "description": "",
+            "method": "GET",
+            "path": "/redoc"
+          },
+          {
+            "description": "daily/weekly/monthly rollup. reviews/findings/severity/topRepos/volume are DB-computed over the window; acted/merged/category need GitHub + labeling instrumentation that is not wired, so those are documented placeholders.",
+            "method": "GET",
+            "path": "/reports/{period}"
+          },
+          {
+            "description": "Pre-PR review surface for agents. mode=fast runs only the deterministic lanes synchronously (sub-10s, no LLM) and returns the full verdict document. mode=full behaves like POST /reviews: 201 {id, status} and the verdict lands at GET /reviews/{id}/verdict when the run completes.",
+            "method": "POST",
+            "path": "/review-diff"
+          },
+          {
+            "description": "Overview/reviews-screen feed: a LiveReview (the one running row, if any) plus the done/error rows as ReviewSummary objects.",
+            "method": "GET",
+            "path": "/reviews"
+          },
+          {
+            "description": "",
+            "method": "POST",
+            "path": "/reviews"
+          },
+          {
+            "description": "One review as a ReviewDetail: findings split into bugs/nits (by is_bug), each a VerifiedFinding. branch, author and the diff stats appear when the run recorded them. model_used, fallback_from and fallback_reason say which model answered, and error carries the failure text of an errored run.",
+            "method": "GET",
+            "path": "/reviews/{review_id}"
+          },
+          {
+            "description": "The machine-facing verdict document for any review (PR or diff): findings with fingerprints, lanes, judge opinions and evidence tiers, plus the derived decision.",
+            "method": "GET",
+            "path": "/reviews/{review_id}/verdict"
+          },
+          {
+            "description": "Overview counters + 14-day trend series. prsReviewed/openFindings/bugVsNit/ avgComments/trends are DB-computed; rate deltas need historical snapshots we do not keep yet.",
+            "method": "GET",
+            "path": "/stats"
+          }
+        ]
+      },
+      "github": {
+        "publishing": {
+          "autoInvite": false,
+          "mode": "dry-run",
+          "repoCount": 1,
+          "source": "env",
+          "tokenConfigured": true
+        },
+        "token": "configured",
+        "watcher": {
+          "enabled": false,
+          "intervalSeconds": 60,
+          "owners": [
+            "acme-org",
+            "example"
+          ],
+          "watchedRepos": 0
+        }
+      },
+      "health": [
+        {
+          "label": "GitHub token",
+          "state": "ok",
+          "status": "configured"
+        },
+        {
+          "label": "PR watcher",
+          "state": "warn",
+          "status": "off"
+        },
+        {
+          "label": "Publishing",
+          "state": "ok",
+          "status": "dry-run · 1 repo"
+        },
+        {
+          "label": "Model provider",
+          "state": "ok",
+          "status": "gateway · model-a"
+        },
+        {
+          "label": "REST API",
+          "state": "ok",
+          "status": "healthy"
+        },
+        {
+          "label": "Auth",
+          "state": "ok",
+          "status": "proxy"
+        }
+      ],
+      "mcp": {
+        "config": "{\n  \"mcpServers\": {\n    \"argus\": {\n      \"command\": \"docker\",\n      \"args\": [\"compose\", \"-f\", \"/path/to/argus/docker-compose.yml\",\n               \"exec\", \"-T\", \"-e\", \"ARGUS_API=http://127.0.0.1:8000\",\n               \"argus-api\", \"/opt/venv/bin/argus-mcp\"]\n    }\n  }\n}",
+        "resources": [],
+        "status": "stdio",
+        "tools": [
+          "review_diff",
+          "review_pr",
+          "get_verdict",
+          "mark_finding"
+        ]
+      },
+      "warning": null
+    },
+    "status": 200
+  },
+  "scenario": "api"
+}

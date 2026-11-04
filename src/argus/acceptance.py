@@ -5,12 +5,17 @@ import math
 import os
 import re
 import sqlite3
-from collections import defaultdict
+from collections import Counter, defaultdict
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import github, publish, replies
+from .forge.errors import ForgeRateLimited
+from .forge import forge_for
+from .forge.keys import github_key_sql, gitlab_key_sql
+from .forge.skips import count_skip, gitlab_configured, is_gitlab_key, log_skips
+from .forge.trust_sql import is_trusted
 from .repo_policy import validate_repo
 
 NOTE = (
@@ -38,6 +43,10 @@ NOTE = (
     "reference corpus does. Compare inline findings only. Summary findings have no "
     "reply thread. Unverified items are review-body items and are excluded from "
     "the inline comparison like other body items. The final group holds closed pull requests only."
+)
+GITLAB_NOTE = (
+    "The CodeRabbit comparison is GitHub-only. GitLab rates are not comparable with GitHub rates "
+    "without a note: resolve controls and outdated threads behave differently."
 )
 log = logging.getLogger("argus.acceptance")
 _last_runs = {}
@@ -157,7 +166,7 @@ def _stamp(value):
 
 
 def _record(conn, finding_id, kind, value, evidence_id, now, occurred_at=None, body=None,
-            author_association=None, author_login=None):
+            author_association=None, author_login=None, *, author_trusted=None):
     conn.execute(
         "INSERT INTO finding_outcomes(finding_id,kind,value,evidence_id,observed_at,occurred_at) "
         "VALUES (?, ?, ?, ?, ?, ?) "
@@ -167,15 +176,19 @@ def _record(conn, finding_id, kind, value, evidence_id, now, occurred_at=None, b
     )
     if kind == "reply" and body is not None:
         conn.execute(
-            "INSERT INTO reply_texts(finding_id,evidence_id,body,author_association,author_login) "
-            "VALUES (?,?,?,?,?) ON CONFLICT(finding_id,evidence_id) DO UPDATE SET "
-            "body=excluded.body,author_association=excluded.author_association,author_login=excluded.author_login",
-            (finding_id, str(evidence_id), body, author_association, author_login),
+            "INSERT INTO reply_texts(finding_id,evidence_id,body,author_association,author_login,author_trusted) "
+            "VALUES (?,?,?,?,?,?) ON CONFLICT(finding_id,evidence_id) DO UPDATE SET "
+            "body=excluded.body,author_association=excluded.author_association,author_login=excluded.author_login,"
+            "author_trusted=COALESCE(excluded.author_trusted, reply_texts.author_trusted)",
+            (finding_id, str(evidence_id), body, author_association, author_login, author_trusted),
         )
 
 
-def _signals(outcomes, actions=(), original_head=None):
-    trusted_replies = sorted((o for o in outcomes if o["kind"] == "reply" and replies.trusted(o, {})),
+def _signals(outcomes, actions=(), original_head=None, *, repo=None):
+    trusted_replies = sorted((o for o in outcomes if o["kind"] == "reply" and (
+        is_trusted(repo, o["author_trusted"], o["author_association"])
+        if repo is not None and is_gitlab_key(repo) else replies.trusted(o, {})
+    )),
                      key=lambda o: (_stamp(o["occurred_at"] or o["observed_at"]), int(o["evidence_id"])))
     resolutions = sorted((o for o in outcomes if o["kind"] == "resolved"),
                          key=lambda o: _stamp(o["observed_at"]))
@@ -194,12 +207,12 @@ def _sync_rejections(conn, findings, now):
     for finding in findings:
         finding = dict(finding)
         outcomes = conn.execute(
-            "SELECT o.*,t.author_association,t.author_login FROM finding_outcomes o "
+            "SELECT o.*,t.author_association,t.author_trusted,t.author_login FROM finding_outcomes o "
             "LEFT JOIN reply_texts t ON o.kind='reply' AND o.finding_id=t.finding_id AND o.evidence_id=t.evidence_id "
             "WHERE o.finding_id=?", (finding["id"],),
         ).fetchall()
         actions = conn.execute("SELECT * FROM bot_actions WHERE finding_id=?", (finding["id"],)).fetchall()
-        label, _, reply = _signals(outcomes, actions, finding["head_sha"])
+        label, _, reply = _signals(outcomes, actions, finding["head_sha"], repo=finding["repo"])
         changed_resolved = (any(o["kind"] == "addressed" and o["value"] == "true" for o in outcomes)
                             and any(o["kind"] == "resolved" and o["value"] == "true" for o in outcomes))
         fixed = any(a["kind"] == "recheck" and a["value"] == "fixed"
@@ -299,9 +312,7 @@ def _comparisons(conn, repo, pr, findings, head, comparisons, now, run):
             if head != old:
                 key = (repo, old, head)
                 if key not in comparisons:
-                    response = github.get(f"/repos/{repo}/compare/{old}...{head}")
-                    response.raise_for_status()
-                    comparisons[key] = response.json()
+                    comparisons[key] = forge_for(repo).compare(repo, old, head)
                     if comparisons[key].get("status") in {"behind", "diverged"}:
                         run["compares_not_ancestor"] += 1
                 comparison = comparisons[key]
@@ -310,11 +321,11 @@ def _comparisons(conn, repo, pr, findings, head, comparisons, now, run):
                     changed = None
                     if comparison.get("status") == "identical":
                         changed = False
-                    elif comparison.get("status") == "ahead":
+                    elif comparison.get("status") == "ahead" and comparison.get("complete", True):
                         changed = region_changed(finding, comparison["files"])
                     value = "unknown" if changed is None else str(changed).lower()
                     _record(conn, finding["id"], "addressed", value, head, now)
-        except github.GitHubRateLimited:
+        except ForgeRateLimited:
             raise
         except Exception as error:
             _failure(run, repo, error, pr)
@@ -446,6 +457,8 @@ def collect(path=None):
            "bot": replies.counts(), "rechecks_attempted": 0, "writes_attempted": 0}
     _last_runs[str(Path(path or db.db_path()).resolve())] = run
     comparisons = {}
+    skipped = 0
+    gitlab_trust_cache = None
     try:
         with closing(db.connect(path)) as conn:
             _reconcile(conn, path, now, run)
@@ -453,6 +466,26 @@ def collect(path=None):
             for row in conn.execute("SELECT * FROM published_findings WHERE mode='posted'"):
                 by_repo[row["repo"]].append(dict(row))
             for repo, items in by_repo.items():
+                if is_gitlab_key(repo):
+                    if not gitlab_configured() or run.get("gitlab_paused"):
+                        skipped += 1
+                        count_skip(run)
+                        continue
+                    from .gitlab import outcomes
+
+                    try:
+                        if gitlab_trust_cache is None:
+                            gitlab_trust_cache = outcomes.TrustCache()
+                        outcomes.collect_repo(conn, repo, items, now, since_default, run,
+                                              cache=gitlab_trust_cache, path=path, comparisons=comparisons)
+                    except github.GitHubRateLimited:
+                        raise
+                    except outcomes.GitLabRateLimited:
+                        log.warning("outcomes: gitlab paused repo=%s", repo)
+                        run["gitlab_paused"] = True
+                    except Exception as error:
+                        _failure(run, repo, error)
+                    continue
                 run["repos"] += 1
                 try:
                     validate_repo(repo)
@@ -516,6 +549,8 @@ def collect(path=None):
         raise
     finally:
         run["finished_at"] = datetime.now(timezone.utc).isoformat()
+        log_skips(log, "outcomes", skipped)
+        count_skip(run, 0)
 
 
 def wilson(successes, total):
@@ -547,15 +582,16 @@ def report(conn, since=None):
     if since:
         since = _stamp(since).isoformat()
     findings = conn.execute(
-        "SELECT * FROM published_findings WHERE mode='posted' "
+        f"SELECT * FROM published_findings WHERE {github_key_sql('repo')} AND mode='posted' "  # nosec B608 - validated identifier
         "AND (? IS NULL OR julianday(posted_at)>=julianday(?))", (since, since),
     ).fetchall()
+    # Outcomes and actions only contribute through the selected finding ids.
     outcomes = defaultdict(list)
     has_reply_texts = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='reply_texts'").fetchone()
     outcome_query = (
-        "SELECT o.*,t.author_association FROM finding_outcomes o "
+        "SELECT o.*,t.author_association,t.author_trusted FROM finding_outcomes o "
         "LEFT JOIN reply_texts t ON o.kind='reply' AND o.finding_id=t.finding_id AND o.evidence_id=t.evidence_id"
-        if has_reply_texts else "SELECT *,NULL AS author_association FROM finding_outcomes"
+        if has_reply_texts else "SELECT *,NULL AS author_association,NULL AS author_trusted FROM finding_outcomes"
     )
     for row in conn.execute(outcome_query):
         outcomes[row["finding_id"]].append(row)
@@ -572,10 +608,10 @@ def report(conn, since=None):
         else:
             bot["replies" if row["kind"] == "reply" else "resolutions"] += 1
     closed = {(row["repo"], row["pr"]) for row in conn.execute(
-        "SELECT repo, pr FROM outcome_prs WHERE state='closed'"
+        f"SELECT repo, pr FROM outcome_prs WHERE state='closed' AND {github_key_sql('repo')}"  # nosec B608 - validated identifier
     )}
 
-    def grouped(selected):
+    def grouped(selected, *, trust_repo=False, repo_labels=None):
         repos, severities = defaultdict(list), defaultdict(list)
         placements = {"inline": [], "summary": []}
         unverified = []
@@ -585,10 +621,12 @@ def report(conn, since=None):
             if finding["placement"] == "summary":
                 signals = [o for o in signals if o["kind"] == "addressed"]
             checks = actions[finding["id"]] if finding["placement"] == "inline" else []
-            label, loose, _ = _signals(signals, checks, finding["head_sha"])
+            label, loose, _ = _signals(signals, checks, finding["head_sha"],
+                                       repo=finding["repo"] if trust_repo else None)
             item = (label, loose)
             all_items.append(item)
-            repos[finding["repo"]].append(item)
+            repo = finding["repo"]
+            repos[repo_labels.get(repo, repo) if repo_labels else repo].append(item)
             severities[finding["severity"]].append(item)
             placements[finding["placement"]].append(item)
             if "unverified" in finding.keys() and finding["unverified"]:
@@ -599,12 +637,47 @@ def report(conn, since=None):
                 "unverified": _counts(unverified)}
 
     identities = defaultdict(list)
-    for repo, login in conn.execute("SELECT repo, bot_login FROM publishing_identities ORDER BY repo, bot_login"):
+    for repo, login in conn.execute(
+        f"SELECT repo, bot_login FROM publishing_identities WHERE {github_key_sql('repo')} "  # nosec B608 - validated identifier
+        "ORDER BY repo, bot_login"
+    ):
         identities[repo].append(login)
-    last = conn.execute("SELECT MAX(last_collected_at) FROM outcome_cursors").fetchone()[0]
-    return {**grouped(findings),
-            "final": grouped(f for f in findings if (f["repo"], f["pr"]) in closed),
-            "bot": bot, "bot_logins": dict(identities), "last_collection_at": last, "note": NOTE}
+    last = conn.execute(
+        f"SELECT MAX(last_collected_at) FROM outcome_cursors WHERE {github_key_sql('repo')}"  # nosec B608 - validated identifier
+    ).fetchone()[0]
+    result = {**grouped(findings),
+              "final": grouped(f for f in findings if (f["repo"], f["pr"]) in closed),
+              "bot": bot, "bot_logins": dict(identities), "last_collection_at": last, "note": NOTE}
+    if gitlab_configured() and conn.execute(
+        f"SELECT 1 FROM published_findings WHERE {gitlab_key_sql('repo')} AND mode='posted' LIMIT 1"  # nosec B608 - validated identifier
+    ).fetchone():
+        gitlab_findings = conn.execute(
+            f"SELECT * FROM published_findings WHERE {gitlab_key_sql('repo')} AND mode='posted' "  # nosec B608 - validated identifier
+            "AND placement='inline' AND anchor_status='anchored' "
+            "AND (? IS NULL OR julianday(posted_at)>=julianday(?))", (since, since),
+        ).fetchall()
+        failures = dict.fromkeys(("rejected_400", "rejected_500", "downgraded"), 0)
+        for status, count in conn.execute(
+            f"SELECT anchor_status, COUNT(*) FROM published_findings WHERE {gitlab_key_sql('repo')} "  # nosec B608 - validated identifier
+            "AND mode='posted' AND anchor_status IN ('rejected_400','rejected_500','downgraded') "
+            "AND (? IS NULL OR julianday(posted_at)>=julianday(?)) GROUP BY anchor_status", (since, since),
+        ):
+            failures[status] = count
+        gitlab_closed = {(row["repo"], row["pr"]) for row in conn.execute(
+            f"SELECT repo, pr FROM outcome_prs WHERE state='closed' AND {gitlab_key_sql('repo')}"  # nosec B608 - validated identifier
+        )}
+        projects = dict(conn.execute("SELECT repo_key, path_with_namespace FROM forge_projects"))
+        repo_labels = {f["repo"]: projects.get(f["repo"]) or f["repo"] for f in gitlab_findings}
+        label_counts = Counter(repo_labels.values())
+        repo_labels = {repo: label if label_counts[label] == 1 else repo for repo, label in repo_labels.items()}
+        result["gitlab"] = {
+            **grouped(gitlab_findings, trust_repo=True, repo_labels=repo_labels),
+            "final": grouped((f for f in gitlab_findings if (f["repo"], f["pr"]) in gitlab_closed),
+                             trust_repo=True, repo_labels=repo_labels),
+            **failures,
+        }
+        result["note"] = NOTE + " " + GITLAB_NOTE
+    return result
 
 
 def stats(path=None, since=None):
