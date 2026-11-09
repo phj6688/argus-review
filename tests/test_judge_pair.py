@@ -2,7 +2,7 @@
 
 import pytest
 
-from argus.jarvis import automark, judges
+from argus import automark, judges
 from argus.schema import Finding, Severity
 
 

@@ -1,20 +1,19 @@
-"""Jarvis audit CLIs: the trust substrate for any later autonomy.
+"""Finding audit helpers.
 
-`jarvis explain <finding_id>` traces one finding to its review, operator mark, and
-corpus membership. `jarvis why-quiet <repo> <pr>` says why Argus said nothing on a
+`argus explain <finding_id>` traces one finding to its review, operator mark, and
+corpus membership. `argus why-quiet <repo> <pr>` says why Argus said nothing on a
 PR: never reviewed, failed, ran clean, or actually had findings. Both are
 read-only.
 """
 
-import argparse
 import sqlite3
 
-from ..api import db as argus_db
-from . import automark, corpus
+from . import corpus
+from .api import db as argus_db
 
 
 def explain_finding(finding_id: int, *, argus_path: str | None = None,
-                    jarvis_path: str | None = None) -> str:
+                    corpus_path: str | None = None) -> str:
     finding = _finding_with_review(argus_path, finding_id)
     if finding is None:
         return f"No finding #{finding_id} found."
@@ -25,7 +24,7 @@ def explain_finding(finding_id: int, *, argus_path: str | None = None,
         f"(severity {finding['severity']}, model-confidence {finding['confidence']})",
         f"  verifier: {_verdict(finding)}   rule: {finding['rule_id'] or 'none'}",
         f"  operator: {_mark_line(_latest_mark(argus_path, finding_id))}",
-        f"  corpus:   {_corpus_line(_corpus_rows(jarvis_path, finding_id))}",
+        f"  corpus:   {_corpus_line(_corpus_rows(corpus_path, finding_id))}",
     ])
 
 
@@ -54,7 +53,7 @@ def _quiet_reason(argus_path: str | None, review: sqlite3.Row) -> str:
         return (f"ran clean: 0 findings reported "
                 f"(raw_count={review['raw_count']}, dropped={review['dropped']}). "
                 "Quiet because nothing survived verification and the thresholds.")
-    return f"not quiet: reported {count} finding(s). Use `jarvis explain` on each."
+    return f"not quiet: reported {count} finding(s). Use `argus explain` on each."
 
 
 def _finding_with_review(argus_path: str | None, finding_id: int) -> sqlite3.Row | None:
@@ -81,8 +80,8 @@ def _latest_mark(argus_path: str | None, finding_id: int) -> sqlite3.Row | None:
         conn.close()
 
 
-def _corpus_rows(jarvis_path: str | None, finding_id: int) -> list[sqlite3.Row]:
-    conn = corpus.connect(jarvis_path)
+def _corpus_rows(corpus_path: str | None, finding_id: int) -> list[sqlite3.Row]:
+    conn = corpus.connect(corpus_path)
     try:
         return conn.execute(
             "SELECT source, label, confidence, corpus_version FROM corpus "
@@ -125,7 +124,7 @@ def _verdict(finding: sqlite3.Row) -> str:
 def _mark_line(mark: sqlite3.Row | None) -> str:
     if mark is None:
         return "unlabeled (no operator ground truth)"
-    note = f' — "{mark["note"]}"' if mark["note"] else ""
+    note = f' - "{mark["note"]}"' if mark["note"] else ""
     return f"{mark['mark']} by {mark['marker'] or 'unknown'}{note} ({mark['marked_at']})"
 
 
@@ -135,38 +134,3 @@ def _corpus_line(rows: list[sqlite3.Row]) -> str:
     return "; ".join(f"{r['source']}/{r['label']}/{r['confidence']} in {r['corpus_version']}"
                      for r in rows)
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(prog="jarvis")
-    subcommands = parser.add_subparsers(dest="command", required=True)
-
-    explain = subcommands.add_parser("explain", help="Trace a finding's provenance")
-    explain.add_argument("finding_id", type=int)
-
-    quiet = subcommands.add_parser("why-quiet", help="Why Argus was quiet on a PR")
-    quiet.add_argument("repo", help="owner/name, e.g. example/app")
-    quiet.add_argument("pr", type=int)
-
-    mark = subcommands.add_parser(
-        "automark", help="Auto-label findings (probe/locate/decorrelated judge)")
-    mark.add_argument("--repo", default=None, help="owner/name; default: all repos")
-    mark.add_argument("--pr", type=int, default=None, help="only this PR number")
-    mark.add_argument("--since", type=int, default=None,
-                      help="only reviews within the last N days (approx)")
-    mark.add_argument("--commit", action="store_true",
-                      help="write the marks; default is a dry-run that prints them")
-    mark.add_argument("--threshold", type=float, default=automark.DEFAULT_THRESHOLD,
-                      help="min judge confidence to write a real/fp mark (default 0.75)")
-
-    args = parser.parse_args()
-    if args.command == "explain":
-        print(explain_finding(args.finding_id))
-    elif args.command == "why-quiet":
-        print(why_quiet(args.repo, args.pr))
-    elif args.command == "automark":
-        automark.run_cli(repo=args.repo, pr=args.pr, since=args.since,
-                         threshold=args.threshold, commit=args.commit)
-
-
-if __name__ == "__main__":
-    main()

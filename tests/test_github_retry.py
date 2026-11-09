@@ -87,7 +87,7 @@ def test_review_diff_repeated_compare_failure_returns_422(monkeypatch, tmp_path)
 
 
 def test_fetch_file_at_repeated_server_error_returns_none(monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     get = Mock(side_effect=[response(500), response(500)])
     stub_github_client(monkeypatch, get=get)
@@ -97,7 +97,7 @@ def test_fetch_file_at_repeated_server_error_returns_none(monkeypatch):
 
 
 def test_pr_meta_repeated_commits_error_returns_empty_messages(monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     pull_url = "https://api.github.com/repos/o/r/pulls/1"
     commits_url = f"{pull_url}/commits"

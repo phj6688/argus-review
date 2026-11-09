@@ -54,6 +54,24 @@ def main() -> None:
     placement.add_argument("review_id", type=int)
     placement.add_argument("--db", metavar="PATH", help="Review database path (default: ARGUS_DB_PATH)")
 
+    explain = subcommands.add_parser("explain", help="Trace a finding's provenance")
+    explain.add_argument("finding_id", type=int)
+
+    quiet = subcommands.add_parser("why-quiet", help="Why Argus was quiet on a PR")
+    quiet.add_argument("repo", help="owner/name, e.g. example/app")
+    quiet.add_argument("pr", type=int)
+
+    automark = subcommands.add_parser(
+        "automark", help="Auto-label findings (probe/locate/decorrelated judge)")
+    automark.add_argument("--repo", default=None, help="owner/name; default: all repos")
+    automark.add_argument("--pr", type=int, default=None, help="only this PR number")
+    automark.add_argument("--since", type=int, default=None,
+                          help="only reviews within the last N days (approx)")
+    automark.add_argument("--commit", action="store_true",
+                          help="write the marks; default is a dry-run that prints them")
+    automark.add_argument("--threshold", type=float, default=None,
+                          help="min judge confidence to write a real/fp mark (default 0.75)")
+
     try:
         args = parser.parse_args(_normalize_args(sys.argv[1:]))
         _dispatch(args)
@@ -107,7 +125,7 @@ def _failure_line(error: Exception) -> str:
 
 
 def _dispatch(args: argparse.Namespace) -> None:
-    if hasattr(args, "repo"):
+    if hasattr(args, "repo") and args.command not in {"why-quiet", "automark"}:
         if is_gitlab_key(args.repo):
             args.repo = gitlab_entry.canonical_repo(args.repo)
             from .api import db
@@ -128,6 +146,17 @@ def _dispatch(args: argparse.Namespace) -> None:
         _run_publish_preview(args.review_id, args.db)
     elif args.command == "publish-placement":
         _run_publish_placement(args.review_id, args.db)
+    elif args.command == "explain":
+        from . import cli_findings
+        print(cli_findings.explain_finding(args.finding_id))
+    elif args.command == "why-quiet":
+        from . import cli_findings
+        print(cli_findings.why_quiet(args.repo, args.pr))
+    elif args.command == "automark":
+        from . import automark
+        threshold = args.threshold if args.threshold is not None else automark.DEFAULT_THRESHOLD
+        automark.run_cli(repo=args.repo, pr=args.pr, since=args.since,
+                         threshold=threshold, commit=args.commit)
 
 
 def _run_publish_placement(review_id: int, path: str | None) -> None:

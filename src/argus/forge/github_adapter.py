@@ -41,17 +41,17 @@ class GitHubForge:
 
         The typed ChangeMeta arrives with the GitLab reader.
         """
-        import argus.jarvis.live as _live
+        import argus.live as _live
 
         return _live._pr_meta(repo, number)
 
     def head_sha(self, repo: str, number: int) -> str:
-        import argus.jarvis.live as _live
+        import argus.live as _live
 
         return _live._pr_head_sha(repo, number)
 
     def read_file(self, repo: str, path: str, ref: str) -> str | None:
-        import argus.jarvis.live as _live
+        import argus.live as _live
 
         return _live._fetch_file_at(repo, path, ref)
 

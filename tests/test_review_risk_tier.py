@@ -2,7 +2,7 @@ import pytest
 
 from argus import client, review
 from argus.diff import FileList, FilePatch
-from argus.jarvis import live
+from argus import live
 from argus.schema import Review
 
 
@@ -15,7 +15,7 @@ def test_fast_review_labels_tripwire_without_any_model_client(monkeypatch):
     monkeypatch.setattr(client, "build_client", unavailable)
     monkeypatch.setattr(client, "_openai_request", unavailable)
     monkeypatch.setattr(client, "_openrouter_request", unavailable)
-    monkeypatch.setattr("argus.jarvis.automark.judge_finding", unavailable)
+    monkeypatch.setattr("argus.automark.judge_finding", unavailable)
     files = FileList([FilePatch("deploy/docker-compose.prod.yml", "modified", "@@ -1 +1 @@\n+x")])
     result = review.run_diff_review(files, fast=True)
     assert result.risk_tier["tier"] == "risky"

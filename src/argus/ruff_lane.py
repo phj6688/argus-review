@@ -30,7 +30,7 @@ import os
 import subprocess
 import sys
 
-from ..schema import Finding, Severity, Verdict, VerifiedFinding
+from .schema import Finding, Severity, Verdict, VerifiedFinding
 
 LANE = "ruff"
 

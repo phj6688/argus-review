@@ -133,7 +133,7 @@ def test_default_db_path_is_outside_the_tracked_data_folder(monkeypatch):
 
 @pytest.fixture
 def client(db_path, monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     monkeypatch.setattr(live, "_pr_head_sha", lambda *a: None)
     with TestClient(main.app) as test_client:

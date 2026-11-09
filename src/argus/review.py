@@ -469,7 +469,7 @@ def run_review(
     repo: str, pr: int, model: str = DEFAULT_MODEL, bug_cap: int = DEFAULT_BUG_CAP,
     *, expected_head_sha: str | None = None, verify_variant: str | None = None,
 ) -> ReviewResult:
-    from .jarvis import live
+    from . import live
 
     from .repo_policy import validate_repo
 
@@ -554,7 +554,7 @@ def run_diff_review(
     no LLM calls — the sub-10s gate an agent can block on mid-loop. The full mode
     is the same pipeline as a PR review minus PR-only enrichment (Linear intent).
     """
-    from .jarvis import live
+    from . import live
 
     from .repo_policy import validate_repo
 
@@ -758,7 +758,7 @@ def _ruff_lane(files: list[FilePatch], repo: str | None,
     the tool reports having looked at, so a lane cannot balance its own books
     against a denominator it chose.
     """
-    from .jarvis import ruff_lane
+    from . import ruff_lane
 
     record: dict = {"lane": ruff_lane.LANE, "files_changed": len(files)}
     candidates = ruff_lane.eligible(files)
@@ -770,7 +770,7 @@ def _ruff_lane(files: list[FilePatch], repo: str | None,
         return [], {**record, "status": verdict.LANE_SKIPPED,
                     "reason": NO_WHOLE_FILES, "files_analyzed": 0}
 
-    from .jarvis import live
+    from . import live
 
     found: list[VerifiedFinding] = []
     analysed = 0
@@ -819,7 +819,7 @@ def _config_lane(files: list[FilePatch], repo: str | None,
     would not parse is an error, because "unreadable" and "clean" are different
     claims and only one of them is evidence.
     """
-    from .jarvis import config_lane
+    from . import config_lane
 
     record: dict = {"lane": config_lane.LANE, "files_changed": len(files)}
     candidates = config_lane.eligible(files)
@@ -889,7 +889,7 @@ def _judge_lane(bug_items: list[VerifiedFinding], patches: dict[str, str],
     because nothing recorded its absence, so it now reports whether it ran, which
     judge answered, and why it did not.
     """
-    from .jarvis import automark, judges
+    from . import automark, judges
 
     if os.environ.get(JUDGE_LIVE_ENV) != "1":
         return _judge_skipped(f"{JUDGE_LIVE_ENV} is not 1: the judge is a metered model")
@@ -940,7 +940,7 @@ def _suppress_known_fps(repo: str, pr: int, findings: list) -> list:
     Lazy import to avoid the import cycle; a load failure keeps every finding
     rather than risking a swallowed real one.
     """
-    from .jarvis import live
+    from . import live
 
     try:
         kept, suppressed = live.suppress_known_fps(repo, findings)
@@ -958,7 +958,7 @@ def _intent_for_prompt(repo: str, pr: int, meta: dict | None = None) -> str | No
     Imported lazily to avoid the review <- live <- corpus <- api.db <- review
     cycle. A Linear or GitHub failure degrades to no intent, never a failed review.
     """
-    from .jarvis import live
+    from . import live
 
     try:
         return live.intent_section(repo, pr, meta)
@@ -982,7 +982,7 @@ def _probe_lane(
     claims. Imported lazily to avoid the review <- live <- corpus <- api.db <-
     review import cycle.
     """
-    from .jarvis import live
+    from . import live
 
     try:
         scan = live.probe_scan(repo, pr, files, head_sha, read)

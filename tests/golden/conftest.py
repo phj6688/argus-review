@@ -50,13 +50,13 @@ def isolated_environment(monkeypatch, tmp_path, api_auth_mode, model_provider):
         monkeypatch.setenv('ARGUS_GOLDEN_UPDATE', update)
 
     modules = ('github', 'publish', 'publish_access', 'review', 'client', 'context', 'rules',
-               'replies', 'acceptance', 'jarvis.live', 'jarvis.automark', 'evalkit.labels',
+               'replies', 'acceptance', 'live', 'automark', 'evalkit.labels',
                'evalkit.monthly', 'api.db', 'api.watch_store', 'api.watch_config', 'api.watcher', 'api.main')
     for name in modules:
         importlib.import_module('argus.' + name)
     from argus import client, github, publish, publish_access, review, rules
     from argus.api import main, watcher
-    from argus.jarvis import live
+    from argus import live
 
     frozen_time = SimpleNamespace(**{**vars(time), 'time': lambda: NOW.timestamp(),
                                     'monotonic': lambda: 1000.0, 'sleep': lambda *_: None})

@@ -28,7 +28,7 @@ GitHub PR (or raw diff)
     skeptical pass tries to refute each finding; unconfirmed ones are dropped
         |
         v
-[4] Lanes         jarvis/ (ruff_lane, config_lane, probes, judges)
+[4] Lanes         the argus package (ruff_lane, config_lane, probes, judges)
     deterministic checks, optional second-opinion judge
         |
         v

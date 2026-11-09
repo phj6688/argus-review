@@ -4,7 +4,7 @@ import base64
 import json
 
 from argus.api import db, main
-from argus.jarvis import automark
+from argus import automark
 
 from .test_golden_acceptance import HEAD, REPO, seed_review
 

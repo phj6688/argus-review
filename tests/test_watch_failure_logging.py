@@ -11,7 +11,7 @@ import pytest
 from argus import review
 from argus.api import db, main
 from argus.errors import HeadMoved
-from argus.jarvis import automark, judges
+from argus import automark, judges
 from argus.schema import Finding, Verdict, VerifiedFinding
 
 

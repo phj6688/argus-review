@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Baseline eval for Jarvis increment 1: build v0, measure, write ONE eval_runs row.
+"""Baseline eval: build v0, measure, write ONE eval_runs row.
 
 Argus database inputs come through CorpusLoader for GitHub repositories only.
 
@@ -11,8 +11,8 @@ reviewer to the corpus (a later, gated change), so that VETO is not yet
 evaluable. This row records what IS measured: corpus size, probe count, intent
 recovery (M1), and the probe lane's corpus coverage + live false-positive rate.
 
-Read-only against the Argus db; writes only the Jarvis db. Usage:
-  python scripts/eval_baseline.py --argus-db PATH [--jarvis-db PATH] [--sweep PATH]
+Read-only against the Argus db; writes only the corpus db. Usage:
+  python scripts/eval_baseline.py --argus-db PATH [--corpus-db PATH] [--sweep PATH]
                                   [--scan-root PATH] (default: ARGUS_SCAN_ROOT or cwd)
 """
 
@@ -25,11 +25,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from argus.jarvis import corpus, probes  # noqa: E402
+from argus import corpus, probes  # noqa: E402
 
 _REPO = Path(__file__).resolve().parents[1]
 _DEFAULT_SWEEP = _REPO / "data" / "fixtures" / "manual_sweep_labels.jsonl"
-_DEFAULT_JARVIS = _REPO / "data" / "jarvis.db"
+_DEFAULT_CORPUS = _REPO / "data" / "corpus.db"
 
 # M1 from the routing census (collab-audit CSV, 196 merged PRs): recoverable
 # ENG id in title/body/commits. 0.658 overall, 0.849 on the 12 adopting repos.
@@ -41,8 +41,8 @@ def _incidents() -> list[dict]:
              "evidence": p.note} for p in probes.INCIDENT_PROBES]
 
 
-def _corpus_counts(jarvis_db: str) -> tuple[int, int]:
-    conn = corpus.connect(jarvis_db)
+def _corpus_counts(corpus_db: str) -> tuple[int, int]:
+    conn = corpus.connect(corpus_db)
     try:
         positives = conn.execute(
             "SELECT COUNT(*) FROM corpus WHERE label='tp'").fetchone()[0]
@@ -53,7 +53,7 @@ def _corpus_counts(jarvis_db: str) -> tuple[int, int]:
     return positives, negatives
 
 
-def _live_probe_hits(scan_root: str, jarvis_db: str) -> int:
+def _live_probe_hits(scan_root: str, corpus_db: str) -> int:
     # The root itself may be a checkout (the default is the current directory);
     # .git is a file in a worktree, so test for existence, not for a directory.
     targets = [scan_root] if os.path.exists(os.path.join(scan_root, ".git")) else []
@@ -61,16 +61,16 @@ def _live_probe_hits(scan_root: str, jarvis_db: str) -> int:
                 if os.path.isdir(os.path.join(scan_root, d, ".git"))]
     total = 0
     for target in targets:
-        hits = probes.run_probes(probes.INCIDENT_PROBES, target, log_path=jarvis_db,
+        hits = probes.run_probes(probes.INCIDENT_PROBES, target, log_path=corpus_db,
                                  ref=os.path.basename(os.path.abspath(target)))
         total += len(hits)
     return total
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Jarvis increment-1 baseline eval")
+    parser = argparse.ArgumentParser(description="Baseline eval")
     parser.add_argument("--argus-db", default=os.environ.get("ARGUS_DB_PATH"))
-    parser.add_argument("--jarvis-db", default=str(_DEFAULT_JARVIS))
+    parser.add_argument("--corpus-db", default=str(_DEFAULT_CORPUS))
     parser.add_argument("--sweep", default=str(_DEFAULT_SWEEP))
     parser.add_argument("--scan-root", default=os.environ.get("ARGUS_SCAN_ROOT") or str(Path.cwd()))
     parser.add_argument("--ran-at", default=datetime.now(timezone.utc).isoformat())
@@ -79,15 +79,15 @@ def main() -> int:
         print("error: set --argus-db or ARGUS_DB_PATH (read-only source)", file=sys.stderr)
         return 2
 
-    corpus.init_corpus_db(args.jarvis_db)
-    loader = corpus.CorpusLoader(args.jarvis_db, args.argus_db)
+    corpus.init_corpus_db(args.corpus_db)
+    loader = corpus.CorpusLoader(args.corpus_db, args.argus_db)
     loader.load_manual_sweep(args.sweep)
     loader.load_marks()
     n_incidents = loader.load_incidents(_incidents())
 
-    positives, negatives = _corpus_counts(args.jarvis_db)
+    positives, negatives = _corpus_counts(args.corpus_db)
     n_probes = len(probes.INCIDENT_PROBES)
-    live_hits = _live_probe_hits(args.scan_root, args.jarvis_db)
+    live_hits = _live_probe_hits(args.scan_root, args.corpus_db)
 
     # Probe-lane recall over the positive corpus: the lane catches its incident
     # classes (validated 1:1), ~none of the diverse sweep bugs. Strict LOO over
@@ -104,7 +104,7 @@ def main() -> int:
                    "deterministic lane alone, which is precision-first by design",
     }
 
-    conn = corpus.connect(args.jarvis_db)
+    conn = corpus.connect(args.corpus_db)
     try:
         conn.execute(
             "INSERT INTO eval_runs (corpus_version, n_positives, n_negatives, n_probes, "

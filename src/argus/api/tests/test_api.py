@@ -46,7 +46,7 @@ def db_path(tmp_path, monkeypatch):
 
 @pytest.fixture
 def client(db_path, monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     monkeypatch.setattr(live, "_pr_head_sha", lambda *a: None)
     monkeypatch.setattr(main, "run_review", lambda *a, **kw: _stub_result())

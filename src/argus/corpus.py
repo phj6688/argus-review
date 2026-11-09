@@ -11,11 +11,11 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..api import db as argus_db
-from ..forge.keys import github_key_sql
+from .api import db as argus_db
+from .forge.keys import github_key_sql
 
-ENV_DB_PATH = "JARVIS_DB_PATH"
-_DEFAULT_DB = Path(__file__).resolve().parents[3] / "data" / "jarvis.db"
+ENV_DB_PATH = "ARGUS_CORPUS_DB_PATH"
+_DEFAULT_DB = Path(__file__).resolve().parents[2] / "data" / "corpus.db"
 
 # The sweep is a frozen one-time pass (data/fixtures/README.md). Its date is the
 # row's validation instant, since no per-row timestamp exists in the fixture.
@@ -114,7 +114,7 @@ class _Row:
 class CorpusLoader:
     """Builds one corpus version from the live Argus db plus the sweep fixture."""
 
-    jarvis_path: str
+    corpus_path: str
     argus_path: str
     version: str = DEFAULT_VERSION
 
@@ -135,7 +135,7 @@ class CorpusLoader:
         return self._replace("incident", rows)
 
     def counts_by_source(self) -> dict[str, int]:
-        conn = connect(self.jarvis_path)
+        conn = connect(self.corpus_path)
         try:
             rows = conn.execute(
                 "SELECT source, COUNT(*) AS n FROM corpus WHERE corpus_version = ? "
@@ -146,7 +146,7 @@ class CorpusLoader:
         return {row["source"]: row["n"] for row in rows}
 
     def labeled_count(self) -> int:
-        conn = connect(self.jarvis_path)
+        conn = connect(self.corpus_path)
         try:
             row = conn.execute(
                 "SELECT COUNT(*) AS n FROM corpus WHERE corpus_version = ? "
@@ -199,7 +199,7 @@ class CorpusLoader:
                     {**raw, "finding_id": finding_id})
 
     def _replace(self, source: str, rows: list[_Row]) -> int:
-        conn = connect(self.jarvis_path)
+        conn = connect(self.corpus_path)
         try:
             conn.execute(
                 "DELETE FROM corpus WHERE source = ? AND corpus_version = ?",

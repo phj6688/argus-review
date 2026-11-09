@@ -170,7 +170,7 @@ def _record(log_path: str, rows: list[tuple]) -> None:
 
 
 # Each probe covers a failure class validated against vulnerable and fixed
-# code shapes in test_jarvis_probe_catalog.
+# code shapes in test_probe_catalog.
 # The FileProbe `absent` marker is what the fix added, so a probe fires on the
 # known-bad shape and goes silent on the known-good shape.
 INCIDENT_PROBES: list = [

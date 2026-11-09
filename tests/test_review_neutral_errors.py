@@ -6,7 +6,7 @@ from conftest import stub_github_client
 from argus import github, review
 from argus.errors import HeadMoved
 from argus.forge.errors import ForgeAuthError, ForgeDenied, ForgeRateLimited
-from argus.jarvis import live
+from argus import live
 from argus.schema import Finding, Severity
 
 

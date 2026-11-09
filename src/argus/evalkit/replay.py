@@ -18,7 +18,7 @@ from pathlib import Path
 
 from argus import client, context, providers, review
 from argus.client import DEFAULT_MODEL
-from argus.jarvis import live
+from argus import live
 from argus.schema import Verdict, VerifiedFinding
 
 from .cases import Case, load_cases

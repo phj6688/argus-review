@@ -6,7 +6,7 @@ Fixtures cover tenant scoping, proxy trust, pricing, admin access, and navigatio
 
 import pytest
 
-from argus.jarvis import probes
+from argus import probes
 
 CYPHER_BAD = '''\
 async def execute_cypher(req, user=Depends(get_current_user)):

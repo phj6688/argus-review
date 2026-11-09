@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from argus import context, github, review
 from argus.api import db, main, watch_metrics, watch_store, watcher
 from argus.diff import FilePatch
-from argus.jarvis import live
+from argus import live
 
 NOW = datetime(2026, 10, 14, 12, tzinfo=timezone.utc)
 REPO = "example/a"

@@ -31,8 +31,8 @@ from pathlib import Path
 
 import httpx
 
-from ..client import llm_slot
-from ..forge.skips import count_skip, is_gitlab_key, log_skips
+from .client import llm_slot
+from .forge.skips import count_skip, is_gitlab_key, log_skips
 
 from . import judges, live, probes
 
@@ -581,7 +581,7 @@ def _note(decision: Decision) -> str:
 # --------------------------------------------------------------------------
 
 def _default_queue_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "data" / "automark_needs_human.jsonl"
+    return Path(__file__).resolve().parents[2] / "data" / "automark_needs_human.jsonl"
 
 
 def write_needs_human_queue(report: RunReport, path: str | None = None) -> str:

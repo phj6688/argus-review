@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from argus import cli, diff, publish
 from argus.api import db, main
-from argus.jarvis import live
+from argus import live
 from argus.review import ReviewResult
 from argus.schema import Finding, Severity, Verdict, VerifiedFinding
 

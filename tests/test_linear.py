@@ -1,6 +1,6 @@
 """Behaviour tests for the minimal Linear GraphQL client (fetch issue by id)."""
 
-from argus.jarvis import linear
+from argus import linear
 
 
 class _Resp:

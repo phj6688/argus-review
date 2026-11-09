@@ -8,7 +8,7 @@ relative, not absolute.
 
 import pytest
 
-from argus.jarvis import judges
+from argus import judges
 
 
 @pytest.fixture()

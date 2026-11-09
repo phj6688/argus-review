@@ -7,7 +7,7 @@ import pytest
 from conftest import stub_github_client
 from argus import diff, errors, forge, github, review
 from argus.forge.errors import ForgeDenied
-from argus.jarvis import live
+from argus import live
 from argus.schema import Review
 
 

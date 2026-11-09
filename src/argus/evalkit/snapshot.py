@@ -11,7 +11,7 @@ from pathlib import Path
 
 from argus import github
 from argus.diff import FilePatch, added_lines
-from argus.jarvis.live import PR_COMMITS_PAGE, _fetch_file_at, decode_file_text
+from argus.live import PR_COMMITS_PAGE, _fetch_file_at, decode_file_text
 
 from .cases import Case, normalize_path
 
