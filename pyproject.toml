@@ -35,7 +35,6 @@ Issues = "https://github.com/phj6688/argus-review/issues"
 
 [project.scripts]
 argus = "argus.cli:main"
-jarvis = "argus.jarvis.cli:main"
 argus-mcp = "argus.mcp_server:main"
 
 [build-system]

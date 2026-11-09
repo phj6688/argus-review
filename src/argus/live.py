@@ -18,13 +18,13 @@ from contextlib import closing
 from pathlib import Path
 from typing import NamedTuple
 
-from .. import github
-from ..context import FileReader
-from ..diff import FilePatch, fetch_pr_files
-from ..schema import Finding, Severity, Verdict, VerifiedFinding
+from . import github
+from .context import FileReader
+from .diff import FilePatch, fetch_pr_files
+from .schema import Finding, Severity, Verdict, VerifiedFinding
 from . import intent, linear, probes
 
-log = logging.getLogger("argus.jarvis.live")
+log = logging.getLogger("argus.live")
 
 ENV_KNOWN_FPS_PATH = "ARGUS_KNOWN_FPS_PATH"
 _KNOWN_FP_KEYS: set | None = None
@@ -84,7 +84,7 @@ def invalidate_live_fps():
 
 
 def _live_fp_keys():
-    from ..api.db import db_path
+    from .api.db import db_path
 
     path = Path(db_path()).resolve()
     cached = _LIVE_FP_CACHE.get(path)

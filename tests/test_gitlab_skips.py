@@ -14,7 +14,7 @@ from argus.api import db
 from argus.evalkit import labels, monthly
 from argus.forge.keys import gitlab_key
 from argus.gitlab import client as client_module
-from argus.jarvis import automark
+from argus import automark
 
 REPO = gitlab_key("gitlab.example.com", 12)
 HEAD = "a" * 40

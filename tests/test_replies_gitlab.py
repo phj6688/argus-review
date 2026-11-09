@@ -12,7 +12,7 @@ from argus.api import db
 from argus.forge.keys import gitlab_key
 from argus.gitlab import client as client_module, projects, publisher, threads
 from argus.gitlab.pacing import NotePacer
-from argus.jarvis import live
+from argus import live
 from argus.schema import Finding, Severity
 from test_acceptance_gitlab_collect import STAMP, collect, github_finding, rows, seed
 import test_acceptance_gitlab_collect as collection_tests

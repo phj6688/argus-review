@@ -14,7 +14,7 @@ import re
 
 import yaml
 
-from ..schema import Finding, Severity, Verdict, VerifiedFinding
+from .schema import Finding, Severity, Verdict, VerifiedFinding
 
 LANE = "config"
 

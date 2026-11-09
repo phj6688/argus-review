@@ -176,9 +176,10 @@ def test_forge_failure_is_redacted(gitlab_event, monkeypatch, capsys):
     assert output.out == output.err == ""
 
 
-# Recorded from the parent tree before changing the parser call.
+# Recorded from the parent tree before changing the parser call. The top-level help is not
+# pinned by bytes: its usage line wraps differently across Python versions once the
+# subcommand list is long. test_top_level_help_keeps_original_commands covers it instead.
 PARENT_CLI_OUTPUT = [
-    (["--help"], "e668d60fb32354cd7631e98dcce6fcbba5282f35ab9b6359ed1dd5598a278dc0"),
     (["review", "--help"], "fd5e13c8306b94d811e09cd6f6e1ff16745452ae4a24314c8bcdf1c6c0e71043"),
     (["compress", "--help"], "44fda7ad6139a4081e1812b5fbb86816c82d32b33e300d39e2a155000bc27171"),
     (["review"], "8c5a98be070fbb8b4cb6007448119e4ddfdd3cae03cf89e9c3267bbb2edefee5"),
@@ -192,3 +193,13 @@ def test_github_help_and_usage_bytes_unchanged(monkeypatch, capsys, args, expect
     code, message, output = invoke(monkeypatch, capsys, *args)
     assert message == ""
     assert hashlib.sha256(json.dumps([output.out, output.err, code]).encode()).hexdigest() == expected
+
+
+def test_top_level_help_keeps_original_commands(monkeypatch, capsys):
+    monkeypatch.delenv("ARGUS_GITLAB_URL", raising=False)
+    code, message, output = invoke(monkeypatch, capsys, "--help")
+    assert code == 0 and message == "" and output.err == ""
+    text = " ".join(output.out.split())
+    for command in ("compress", "doctor", "review", "publish-preview", "publish-placement",
+                    "explain", "why-quiet", "automark"):
+        assert command in text

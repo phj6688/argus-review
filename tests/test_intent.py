@@ -1,9 +1,9 @@
-"""Behaviour tests for the Jarvis intent adapter (TASK recovery + prompt slot)."""
+"""Behaviour tests for the intent adapter (TASK recovery + prompt slot)."""
 
 import pytest
 
-from argus.jarvis import intent
-from argus.jarvis.intent import PullRequest
+from argus import intent
+from argus.intent import PullRequest
 
 
 @pytest.fixture(autouse=True)

@@ -202,7 +202,7 @@ def _signals(outcomes, actions=(), original_head=None, *, repo=None):
 
 
 def _sync_rejections(conn, findings, now):
-    from .jarvis.live import _norm, invalidate_live_fps
+    from .live import _norm, invalidate_live_fps
 
     for finding in findings:
         finding = dict(finding)

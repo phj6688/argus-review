@@ -10,7 +10,7 @@ import pytest
 from argus import review as review_mod
 from argus import verdict
 from argus.diff import FilePatch
-from argus.jarvis import judges
+from argus import judges
 from argus.review import run_diff_review
 from argus.schema import Finding, Review, Severity, Verdict
 
@@ -67,7 +67,7 @@ def test_a_gpt_reviewer_gets_the_claude_judge_and_it_is_recorded(
         seen["reviewer"] = reviewer_model
         return {"verdict": "real", "confidence": 0.9}
 
-    from argus.jarvis import automark
+    from argus import automark
     monkeypatch.setattr(automark, "judge_finding", _judge)
 
     result = run_diff_review(_files(), repo=None, model="gpt-6.1-sol")
@@ -82,7 +82,7 @@ def test_a_gpt_reviewer_gets_the_claude_judge_and_it_is_recorded(
 
 def test_a_claude_reviewer_gets_the_gpt_judge(reviewing, both_judges, monkeypatch):
     monkeypatch.setenv(review_mod.JUDGE_LIVE_ENV, "1")
-    from argus.jarvis import automark
+    from argus import automark
     monkeypatch.setattr(automark, "judge_finding",
                         lambda f, s, reviewer_model=None: {"verdict": "real", "confidence": 0.8})
     result = run_diff_review(_files(), repo=None, model="claude-opus-5-5")

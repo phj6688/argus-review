@@ -13,7 +13,7 @@ from conftest import stub_github_client
 
 from argus import acceptance, client, github, replies
 from argus.api import db
-from argus.jarvis import live
+from argus import live
 from test_acceptance import seed
 from reply_helpers import file_entry
 

@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from argus import github, review
-from argus.jarvis import live
+from argus import live
 from argus.diff import FilePatch
 from argus.evalkit import replay
 from argus.evalkit.snapshot import Snapshot, patch_digest

@@ -23,7 +23,7 @@ from argus import acceptance
 from argus.api import benchmark, db, main, metrics, watch_metrics
 from argus.evalkit import monthly
 from argus.forge.keys import gitlab_key
-from argus.jarvis import corpus
+from argus import corpus
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = ROOT / "tests/fixtures/measurement_github_only.json"
@@ -165,11 +165,11 @@ def collect_outputs(path):
                     out[route] = body
             finally:
                 client.close()
-            jarvis_path = str(scratch / "corpus.db")
-            corpus.init_corpus_db(jarvis_path)
-            loader = corpus.CorpusLoader(jarvis_path, path)
+            corpus_path = str(scratch / "corpus.db")
+            corpus.init_corpus_db(corpus_path)
+            loader = corpus.CorpusLoader(corpus_path, path)
             out["corpus.load_marks"] = loader.load_marks()
-            with contextlib.closing(corpus.connect(jarvis_path)) as conn:
+            with contextlib.closing(corpus.connect(corpus_path)) as conn:
                 out["corpus.marks"] = [dict(row) for row in conn.execute("SELECT * FROM corpus ORDER BY id")]
             out["corpus.finding_index"] = sorted([list(key), value] for key, value in loader._finding_index().items())
             stdout = io.StringIO()
@@ -326,7 +326,7 @@ FILTERED = {
     "src/argus/api/watch_metrics.py": "Coverage measures the GitHub baseline.",
     "src/argus/evalkit/labels.py": "Acceptance labels measure GitHub findings.",
     "src/argus/evalkit/monthly.py": "Monthly reports measure the GitHub baseline.",
-    "src/argus/jarvis/corpus.py": "Ground truth for the GitHub baseline.",
+    "src/argus/corpus.py": "Ground truth for the GitHub baseline.",
     "scripts/export_known_fps.py": "False-positive exports feed the GitHub baseline.",
 }
 OPERATIONAL = {
@@ -335,8 +335,8 @@ OPERATIONAL = {
     "src/argus/api/db.py": "Store inserts, id lookups and console lists serve every forge.",
     "src/argus/replies.py": "Per-repository operations already skip GitLab.",
     "src/argus/cli.py": "Lookups select a specific review id.",
-    "src/argus/jarvis/cli.py": "Lookups select a specific review id.",
-    "src/argus/jarvis/live.py": "False-positive suppression is keyed by repository.",
+    "src/argus/cli_findings.py": "Lookups select a specific review id.",
+    "src/argus/live.py": "False-positive suppression is keyed by repository.",
     "src/argus/gitlab/outcomes.py": "Collects outcomes for one GitLab repository key at a time.",
 }
 EXTRA = ()

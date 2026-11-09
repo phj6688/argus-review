@@ -1,4 +1,4 @@
-"""Behaviour tests for the Jarvis corpus spine (v0 loader)."""
+"""Behaviour tests for the corpus spine (v0 loader)."""
 
 import json
 import sqlite3
@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 from argus.api import db
-from argus.jarvis import corpus
+from argus import corpus
 
 
 def _seed_finding(argus_path: str, repo: str, file: str, line: int, title: str) -> int:
@@ -48,20 +48,20 @@ def argus_path(tmp_path, monkeypatch) -> str:
 
 
 @pytest.fixture
-def jarvis_path(tmp_path) -> str:
-    return str(tmp_path / "jarvis.db")
+def corpus_path(tmp_path) -> str:
+    return str(tmp_path / "corpus.db")
 
 
-def test_init_creates_corpus_tables(jarvis_path):
-    corpus.init_corpus_db(jarvis_path)
-    conn = sqlite3.connect(jarvis_path)
+def test_init_creates_corpus_tables(corpus_path):
+    corpus.init_corpus_db(corpus_path)
+    conn = sqlite3.connect(corpus_path)
     names = {row[0] for row in
              conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"corpus", "eval_runs", "probe_eval_log"} <= names
     assert "knob_history" not in names  # retired: ENG-511 STOP, no writers ever
 
 
-def test_load_manual_sweep_links_findings_and_labels(argus_path, jarvis_path, tmp_path):
+def test_load_manual_sweep_links_findings_and_labels(argus_path, corpus_path, tmp_path):
     fid = _seed_finding(argus_path, "example/app", "a.py", 10, "bug A")
     _seed_finding(argus_path, "example/app", "b.py", 20, "nit B")
     rows = [
@@ -70,12 +70,12 @@ def test_load_manual_sweep_links_findings_and_labels(argus_path, jarvis_path, tm
         _sweep_row("example/app", "gone.py", 99, "vanished", "real"),
     ]
     sweep = _write_sweep(tmp_path, rows)
-    corpus.init_corpus_db(jarvis_path)
+    corpus.init_corpus_db(corpus_path)
 
-    inserted = corpus.CorpusLoader(jarvis_path, argus_path).load_manual_sweep(sweep)
+    inserted = corpus.CorpusLoader(corpus_path, argus_path).load_manual_sweep(sweep)
 
     assert inserted == 3
-    conn = sqlite3.connect(jarvis_path)
+    conn = sqlite3.connect(corpus_path)
     conn.row_factory = sqlite3.Row
     got = list(conn.execute(
         "SELECT source, confidence, lane, label, corpus_version, payload_json "
@@ -89,28 +89,28 @@ def test_load_manual_sweep_links_findings_and_labels(argus_path, jarvis_path, tm
     assert payloads[2]["finding_id"] is None  # unmatched row keeps null lineage
 
 
-def test_cant_locate_is_unknown_and_not_labeled(argus_path, jarvis_path, tmp_path):
+def test_cant_locate_is_unknown_and_not_labeled(argus_path, corpus_path, tmp_path):
     _seed_finding(argus_path, "example/app", "c.py", 30, "maybe C")
     sweep = _write_sweep(tmp_path, [_sweep_row("example/app", "c.py", 30, "maybe C", "cant_locate")])
-    corpus.init_corpus_db(jarvis_path)
-    loader = corpus.CorpusLoader(jarvis_path, argus_path)
+    corpus.init_corpus_db(corpus_path)
+    loader = corpus.CorpusLoader(corpus_path, argus_path)
 
     loader.load_manual_sweep(sweep)
 
     assert loader.labeled_count() == 0
-    conn = sqlite3.connect(jarvis_path)
+    conn = sqlite3.connect(corpus_path)
     assert list(conn.execute("SELECT label FROM corpus"))[0][0] == "unknown"
 
 
-def test_load_marks_is_gold(argus_path, jarvis_path, tmp_path):
+def test_load_marks_is_gold(argus_path, corpus_path, tmp_path):
     fid = _seed_finding(argus_path, "example/app", "d.py", 40, "real D")
     db.add_mark(argus_path, fid, "real", marker="alice")
-    corpus.init_corpus_db(jarvis_path)
+    corpus.init_corpus_db(corpus_path)
 
-    inserted = corpus.CorpusLoader(jarvis_path, argus_path).load_marks()
+    inserted = corpus.CorpusLoader(corpus_path, argus_path).load_marks()
 
     assert inserted == 1
-    conn = sqlite3.connect(jarvis_path)
+    conn = sqlite3.connect(corpus_path)
     conn.row_factory = sqlite3.Row
     row = conn.execute("SELECT source, confidence, label FROM corpus").fetchone()
     assert row["source"] == "marks"
@@ -118,30 +118,30 @@ def test_load_marks_is_gold(argus_path, jarvis_path, tmp_path):
     assert row["label"] == "tp"
 
 
-def test_load_manual_sweep_is_idempotent(argus_path, jarvis_path, tmp_path):
+def test_load_manual_sweep_is_idempotent(argus_path, corpus_path, tmp_path):
     _seed_finding(argus_path, "example/app", "a.py", 10, "bug A")
     sweep = _write_sweep(tmp_path, [_sweep_row("example/app", "a.py", 10, "bug A", "real")])
-    corpus.init_corpus_db(jarvis_path)
-    loader = corpus.CorpusLoader(jarvis_path, argus_path)
+    corpus.init_corpus_db(corpus_path)
+    loader = corpus.CorpusLoader(corpus_path, argus_path)
 
     loader.load_manual_sweep(sweep)
     loader.load_manual_sweep(sweep)
 
-    conn = sqlite3.connect(jarvis_path)
+    conn = sqlite3.connect(corpus_path)
     assert list(conn.execute("SELECT COUNT(*) FROM corpus"))[0][0] == 1
 
 
-def test_load_incidents_are_gold_probe_lane_positives(argus_path, jarvis_path):
+def test_load_incidents_are_gold_probe_lane_positives(argus_path, corpus_path):
     incidents = [
         {"id": "unscoped_cypher", "severity": "critical", "description": "cross-tenant cypher",
          "evidence": "A query without per-user scoping exposes another tenant's graph"},
         {"id": "client_price", "severity": "critical", "description": "client-trusted price",
          "evidence": "A client-supplied price bypasses server-side pricing"},
     ]
-    corpus.init_corpus_db(jarvis_path)
-    inserted = corpus.CorpusLoader(jarvis_path, argus_path).load_incidents(incidents)
+    corpus.init_corpus_db(corpus_path)
+    inserted = corpus.CorpusLoader(corpus_path, argus_path).load_incidents(incidents)
     assert inserted == 2
-    conn = sqlite3.connect(jarvis_path)
+    conn = sqlite3.connect(corpus_path)
     conn.row_factory = sqlite3.Row
     rows = list(conn.execute(
         "SELECT source, confidence, lane, label, payload_json FROM corpus "
@@ -152,12 +152,12 @@ def test_load_incidents_are_gold_probe_lane_positives(argus_path, jarvis_path):
     assert json.loads(rows[0]["payload_json"])["id"] == "unscoped_cypher"
 
 
-def test_counts_by_source(argus_path, jarvis_path, tmp_path):
+def test_counts_by_source(argus_path, corpus_path, tmp_path):
     fid = _seed_finding(argus_path, "example/app", "a.py", 10, "bug A")
     db.add_mark(argus_path, fid, "real", marker="alice")
     sweep = _write_sweep(tmp_path, [_sweep_row("example/app", "a.py", 10, "bug A", "real")])
-    corpus.init_corpus_db(jarvis_path)
-    loader = corpus.CorpusLoader(jarvis_path, argus_path)
+    corpus.init_corpus_db(corpus_path)
+    loader = corpus.CorpusLoader(corpus_path, argus_path)
 
     loader.load_manual_sweep(sweep)
     loader.load_marks()

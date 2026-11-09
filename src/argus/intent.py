@@ -8,14 +8,14 @@ issues yield an explicit 'intent unknown' rather than a guessed goal.
 The Linear fetch itself is an injected seam: this module decides which issue to
 fetch and turns a fetched issue into a prompt slot, but does not own the client.
 The 84.9% recoverability that justifies title+body+commit parsing was measured
-across the 12 adopting repos (see JARVIS_INCREMENT_1.md, M1).
+across the 12 adopting repos.
 """
 
 import os
 import re
 from dataclasses import dataclass, field
 
-from ..repo_policy import TRUSTED_ASSOCIATIONS
+from .repo_policy import TRUSTED_ASSOCIATIONS
 
 STATUS_RECOVERED = "recovered"
 STATUS_UNKNOWN = "intent_unknown"

@@ -1,4 +1,4 @@
-"""Behaviour tests for the Jarvis auto-marker.
+"""Behaviour tests for the auto-marker.
 
 The judge, GitHub fetch, and db writer are injected, so nothing here makes a live
 call. Covers the tier ladder (probe/locate/judge), threshold gating, the
@@ -9,7 +9,7 @@ non-Anthropic guard, and the human-only precision/corpus filters.
 import pytest
 
 from argus.api import db
-from argus.jarvis import automark, corpus
+from argus import automark, corpus
 
 # A checkout route with a client-supplied price and no server re-pricing: fires
 # the client_trusted_price incident probe at line 1 (mirrors the live probe test).
@@ -299,13 +299,13 @@ def test_mark_precision_excludes_auto_marks_by_default(argus_path):
 
 
 def test_corpus_load_marks_ignores_auto_marks(argus_path, tmp_path):
-    jarvis_path = str(tmp_path / "jarvis.db")
-    corpus.init_corpus_db(jarvis_path)
+    corpus_path = str(tmp_path / "corpus.db")
+    corpus.init_corpus_db(corpus_path)
     human = _seed_finding(argus_path, "a.py")
     auto = _seed_finding(argus_path, "b.py")
     db.add_mark(argus_path, human, "real", marker="alice")
     db.add_mark(argus_path, auto, "real", marker=automark.MARKER_PROBE)
 
-    inserted = corpus.CorpusLoader(jarvis_path, argus_path).load_marks()
+    inserted = corpus.CorpusLoader(corpus_path, argus_path).load_marks()
 
     assert inserted == 1  # only the human gold mark enters the corpus

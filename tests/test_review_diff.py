@@ -2,7 +2,7 @@
 
 from argus import review as review_mod
 from argus.diff import FilePatch
-from argus.jarvis import live
+from argus import live
 from argus.review import run_diff_review
 from argus.schema import Finding, Review, Severity, Verdict
 
@@ -73,7 +73,7 @@ def test_judge_lane_off_by_default(monkeypatch):
     def boom(*args, **kwargs):
         raise AssertionError("judge must not run when the lane is off")
 
-    monkeypatch.setattr("argus.jarvis.automark.judge_finding", boom)
+    monkeypatch.setattr("argus.automark.judge_finding", boom)
     finding = Finding(file="src/app.py", line=2, severity=Severity.major,
                       confidence=0.7, title="t", description="d", proposed_fix="p")
     monkeypatch.setattr(review_mod, "_deep_review",
@@ -87,7 +87,7 @@ def test_judge_lane_off_by_default(monkeypatch):
 def _configure_judge_pair(monkeypatch):
     """Both judges available, so selection has a real choice to make. The default
     reviewer is Claude, so the lane must pick the GPT judge."""
-    from argus.jarvis import judges
+    from argus import judges
     monkeypatch.setenv(judges.ENV_BASE_URL, "http://gateway.test/v1/chat/completions")
     monkeypatch.setenv(judges.ENV_ANTHROPIC_MODEL, "claude-opus-5-5")
     monkeypatch.setenv(judges.ENV_ANTHROPIC_KEY, "claude-key")
@@ -110,7 +110,7 @@ def test_judge_lane_agreement_disagreement_and_failure(monkeypatch):
             raise answer
         return answer
 
-    monkeypatch.setattr("argus.jarvis.automark.judge_finding", fake_judge)
+    monkeypatch.setattr("argus.automark.judge_finding", fake_judge)
     findings = [
         Finding(file="src/app.py", line=2, severity=Severity.major, confidence=0.9,
                 title=f"bug {n}", description="d", proposed_fix="p")
@@ -130,7 +130,7 @@ def test_judge_lane_sanitizes_unknown_verdicts(monkeypatch):
     monkeypatch.setenv(review_mod.JUDGE_LIVE_ENV, "1")
     _configure_judge_pair(monkeypatch)
     monkeypatch.setattr(
-        "argus.jarvis.automark.judge_finding",
+        "argus.automark.judge_finding",
         lambda finding, snippet, reviewer_model=None: {"verdict": "MAYBE?", "confidence": 7})
     finding = Finding(file="src/app.py", line=2, severity=Severity.critical,
                       confidence=0.9, title="t", description="d", proposed_fix="p")

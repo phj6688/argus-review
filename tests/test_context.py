@@ -544,7 +544,7 @@ def test_constructor_class_context_does_not_leak_across_hunks():
 def test_review_source_hook_is_only_called_for_mirror_settings(monkeypatch, entrypoint):
     from types import SimpleNamespace
     from argus import review
-    from argus.jarvis import live
+    from argus import live
     files, contents = pairing_fixture()
     calls, prompts = [], []
     source = FixtureSource([('caller.py', 2, '    load_x()')],

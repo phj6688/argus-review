@@ -1,11 +1,11 @@
-"""Behaviour tests for the Jarvis probe engine (glob + regex + decay log)."""
+"""Behaviour tests for the probe engine (glob + regex + decay log)."""
 
 import sqlite3
 
 import pytest
 
-from argus.jarvis import corpus, probes
-from argus.jarvis.probes import FileProbe, Probe
+from argus import corpus, probes
+from argus.probes import FileProbe, Probe
 
 
 def _write(root, rel: str, text: str) -> None:
@@ -78,22 +78,22 @@ def test_probe_skips_test_fixture_dirs(tmp_path):
 
 
 @pytest.fixture
-def jarvis_path(tmp_path) -> str:
-    path = str(tmp_path / "jarvis.db")
+def corpus_path(tmp_path) -> str:
+    path = str(tmp_path / "corpus.db")
     corpus.init_corpus_db(path)
     return path
 
 
-def test_run_probes_logs_path_matched_and_fired(tmp_path, jarvis_path):
+def test_run_probes_logs_path_matched_and_fired(tmp_path, corpus_path):
     _write(tmp_path, "deploy/nginx.conf", "allow 127.0.0.1;\n")  # will fire
     _write(tmp_path, "src/app.py", "x = 1\n")                    # glob matches, no fire
     fires = Probe("loopback_trust", "**/nginx*.conf", r"allow\s+127\.", "critical")
     quiet = Probe("debug_print", "**/*.py", r"console\.log", "major")  # matches .py, no hit
     nomatch = Probe("no_files", "**/*.rs", r"unsafe", "major")          # glob matches nothing
 
-    probes.run_probes([fires, quiet, nomatch], str(tmp_path), log_path=jarvis_path)
+    probes.run_probes([fires, quiet, nomatch], str(tmp_path), log_path=corpus_path)
 
-    conn = sqlite3.connect(jarvis_path)
+    conn = sqlite3.connect(corpus_path)
     conn.row_factory = sqlite3.Row
     rows = {r["probe_id"]: r for r in
             conn.execute("SELECT probe_id, path_matched, fired FROM probe_eval_log")}

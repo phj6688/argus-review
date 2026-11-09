@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from argus.diff import FilePatch
-from argus.jarvis import live
+from argus import live
 from argus.schema import Finding, Review, Severity, Verdict, VerifiedFinding
 
 
@@ -215,7 +215,7 @@ def test_known_fp_keys_empty_when_path_unset(monkeypatch, caplog, argus_logs, va
     else:
         monkeypatch.setenv("ARGUS_KNOWN_FPS_PATH", value)
     monkeypatch.setattr(live, "_KNOWN_FP_KEYS", None)
-    with caplog.at_level("DEBUG", logger="argus.jarvis.live"):
+    with caplog.at_level("DEBUG", logger="argus.live"):
         assert live._known_fp_keys() == set()
     assert "suppression from a file is off" in caplog.text
 
@@ -223,7 +223,7 @@ def test_known_fp_keys_empty_when_path_unset(monkeypatch, caplog, argus_logs, va
 def test_known_fp_keys_empty_when_path_missing(tmp_path, monkeypatch, caplog, argus_logs):
     monkeypatch.setenv("ARGUS_KNOWN_FPS_PATH", str(tmp_path / "missing.jsonl"))
     monkeypatch.setattr(live, "_KNOWN_FP_KEYS", None)
-    with caplog.at_level("DEBUG", logger="argus.jarvis.live"):
+    with caplog.at_level("DEBUG", logger="argus.live"):
         assert live._known_fp_keys() == set()
         assert live._known_fp_keys() == set()
     assert "suppression from a file is off" in caplog.text

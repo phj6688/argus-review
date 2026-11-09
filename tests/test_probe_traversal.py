@@ -3,7 +3,7 @@ review-diff filename (parsed verbatim from the `+++ b/<path>` header) cannot
 write outside the tree as the container user. Benign nested paths still work."""
 import os
 
-from argus.jarvis.probes import INCIDENT_PROBES, scan_contents
+from argus.probes import INCIDENT_PROBES, scan_contents
 
 
 def _snapshot(root):
@@ -33,7 +33,7 @@ def test_benign_nested_path_still_materialises(monkeypatch):
     # Prove containment did not break normal operation: a safe nested file is
     # written and visible to the probe engine (whole-file read succeeds).
     seen = {}
-    import argus.jarvis.probes as probes_mod
+    import argus.probes as probes_mod
 
     real_run = probes_mod.run_probes
 

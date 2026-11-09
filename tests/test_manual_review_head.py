@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from argus import github, review
 from argus.api import db, main
-from argus.jarvis import live
+from argus import live
 
 REPO = "example/a"
 HEAD = "a" * 40

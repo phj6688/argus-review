@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from argus import github, repo_policy
 from argus.api import db, main, watch_config, watch_store, watcher
-from argus.jarvis import live
+from argus import live
 
 
 @pytest.fixture

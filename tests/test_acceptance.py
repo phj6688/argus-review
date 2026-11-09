@@ -224,7 +224,7 @@ def test_stats_exclude_dry_run_and_apply_since(database):
 
 
 def test_rejection_suppresses_same_file_and_normalized_title(database):
-    from argus.jarvis import live
+    from argus import live
     from argus.schema import Finding
 
     fid = seed(database)
@@ -244,7 +244,7 @@ def test_rejection_suppresses_same_file_and_normalized_title(database):
 
 
 def test_live_suppression_cache_expires(database, monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     live.invalidate_live_fps()
     clock = [100.0]
