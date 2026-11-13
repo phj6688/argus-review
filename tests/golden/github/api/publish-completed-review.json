@@ -275,7 +275,7 @@
             "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: full\n\nFiles reviewed: 1; omitted: 0\n\nSeverity counts: Critical: 0; Major: 1; Minor: 0; Nit: 0\n\nTier counts: deterministic: 0; consensus: 0; single_critic: 1; disputed: 0\n\nBelow posting threshold: 0\n\nAlready posted: 0\n\n<!-- argus:review=1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
             "comments": [
               {
-                "body": "_Input handling_ | _Major_ | _single_critic_\n\n**Missing input check**\n\nThe input is accepted without validation\\.\n\n```python\nreturn accept(value)\n```\n\n**Suggested fix:** Validate the value before using it\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 2: Missing input check. Validate the value before using it\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-api-input -->",
+                "body": "_Input handling_ | _Major_ | _single_critic_\n\n**Missing input check**\n\nThe input is accepted without validation\\.\n\n```python\nreturn accept(value)\n```\n\n**Suggested fix:** Validate the value before using it\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 2: Missing input check. Validate the value before using it\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:loc=argusloc:ac2c31f83b9c6625cc276bdbafc0d3c0 -->\n\n<!-- argus:fp=fp-api-input -->",
                 "line": 2,
                 "path": "src/app.py",
                 "side": "RIGHT"
@@ -356,7 +356,7 @@
         "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: full\n\nFiles reviewed: 1; omitted: 0\n\nSeverity counts: Critical: 0; Major: 1; Minor: 0; Nit: 0\n\nTier counts: deterministic: 0; consensus: 0; single_critic: 1; disputed: 0\n\nBelow posting threshold: 0\n\nAlready posted: 0\n\n<!-- argus:review=1 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
         "comments": [
           {
-            "body": "_Input handling_ | _Major_ | _single_critic_\n\n**Missing input check**\n\nThe input is accepted without validation\\.\n\n```python\nreturn accept(value)\n```\n\n**Suggested fix:** Validate the value before using it\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 2: Missing input check. Validate the value before using it\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-api-input -->",
+            "body": "_Input handling_ | _Major_ | _single_critic_\n\n**Missing input check**\n\nThe input is accepted without validation\\.\n\n```python\nreturn accept(value)\n```\n\n**Suggested fix:** Validate the value before using it\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 2: Missing input check. Validate the value before using it\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:loc=argusloc:ac2c31f83b9c6625cc276bdbafc0d3c0 -->\n\n<!-- argus:fp=fp-api-input -->",
             "line": 2,
             "path": "src/app.py",
             "side": "RIGHT"
@@ -365,7 +365,7 @@
         "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "event": "COMMENT"
       },
-      "body_sha256": "b501dd5d37f4e853a9f5018e426d74aa2857160a55529e117d9a529efcc92cac",
+      "body_sha256": "3ea7201bd060006bf4276d89d4823917471f8dd68a11c04d19f0a39dda3bb279",
       "headers": {
         "accept": "application/vnd.github+json",
         "authorization": "Bearer <publish-token>",

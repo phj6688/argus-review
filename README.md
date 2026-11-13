@@ -251,7 +251,7 @@ Use subscription mode for personal use on your own repositories. Use an API key 
 
 - `ARGUS_FALLBACK_MODEL` runs a second attempt when a review fails on the primary model. The switch is recorded on the review: `model_used` names the model that answered, and `fallback_from` and `fallback_reason` say why it changed. The API (`GET /reviews` and `GET /reviews/{id}`), the verdict document and the console review page show them. It covers `POST /reviews`, the watcher and `argus review`. A GitHub failure, such as a bad token or a rate limit, never triggers it. Choose a model from a different provider, or both fail together.
 - `ARGUS_MODEL_OPTIONS` is a comma-separated list of models that the console config screen offers. `PUT /config` rejects any model that is not in the list, the default, or the stored model. Once you save the config screen, the stored model wins over `ARGUS_MODEL`.
-- Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. Judges use a chat completions URL. An OpenRouter example:
+- Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. If every judge call fails, the coverage record marks the judge lane `error` and the coverage level is at most `partial`. Judges use a chat completions URL. An OpenRouter example:
 
   ```bash
   ARGUS_JUDGE_LIVE=1
@@ -376,6 +376,7 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_PUBLISH_TOKEN` | none | Write token of the bot account. |
 | `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the Config page invite the bot with `GITHUB_TOKEN` (needs Administration:write). |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. |
+| `ARGUS_PUBLISH_REPEAT_KEY` | `on` | `off`, `shadow` or `on`. With `on`, a reworded repeat of an earlier inline comment goes in the review body, not inline. See [publishing](docs/publishing.md#reworded-repeats). |
 | `ARGUS_GITLAB_URL` | none | HTTPS origin with an optional path prefix. No credentials, query or fragment. |
 | `ARGUS_GITLAB_TOKEN` | none | GitLab credential. |
 | `ARGUS_GITLAB_CA_BUNDLE` | none | Optional CA bundle path. |

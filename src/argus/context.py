@@ -1,4 +1,4 @@
-"""Numbered post-image views, packed from whole files down to patch hunks."""
+"""Numbered post-image views, reserving patch coverage before richer context."""
 
 import ast
 import keyword
@@ -17,6 +17,10 @@ from .tokens import HeuristicEstimator, TokenEstimator
 FULL_FILE_MAX_LINES = 600
 WINDOW_LINES = 30
 REVIEW_CONTEXT_BUDGET_TOKENS = 120_000
+# Avoid fetching more files when less than a small context window remains.
+MIN_UPGRADE_TOKENS = 200
+# Failed upgrades free nothing; a long run of fruitless reads means the budget is spent.
+MAX_FRUITLESS_READS = 8
 PAIRING_BUDGET_SHARE = 0.10
 CALLEES_BUDGET_SHARE = 0.05
 CALLERS_BUDGET_SHARE = 0.05
@@ -81,6 +85,7 @@ class RenderedContext:
     views: dict[str, str] = field(default_factory=dict)
     context_blocks: dict[str, dict] = field(default_factory=dict)
     pairing_entries: list[PairingEntry] = field(default_factory=list)
+    patchless: list[str] = field(default_factory=list)
 
 
 def cached_reader(read: FileReader | None) -> FileReader | None:
@@ -660,29 +665,121 @@ def render_review_context(
     estimator = estimator or HeuristicEstimator()
     if any(context_setting(name) for name in _BLOCK_SHARES):
         read = cached_reader(read)
-    result = RenderedContext(deleted=[f.filename for f in files if f.status == REMOVED_STATUS])
+    patchless = [f for f in files if f.status != REMOVED_STATUS and not f.patch]
+    result = RenderedContext(deleted=[f.filename for f in files if f.status == REMOVED_STATUS],
+                             patchless=[f.filename for f in patchless])
     blocks: list[str] = []
+    accepted: list[FilePatch] = []
+    overflow: list[tuple[int, FilePatch, str]] = []
+    ranks: list[int] = []
+    tokens = 0
     candidates = sorted((f for f in files if f.status != REMOVED_STATUS and f.patch), key=_rank)
-    for file in candidates:
+    for rank, file in enumerate(candidates):
         hunks = _block(file, 'hunks', [_line(*line) for line in _patch_lines(file.patch)])
-        if estimator.estimate('\n\n'.join([*blocks, hunks])) > budget_tokens:
-            result.overflow.append(file.filename)
+        cost = estimator.estimate('\n\n'.join([*blocks, hunks]))
+        if cost > budget_tokens:
+            overflow.append((rank, file, hunks))
             continue
-        for mode, block in _file_views(file, read, result):
-            cost = estimator.estimate('\n\n'.join([*blocks, block]))
-            if cost <= budget_tokens:
-                blocks.append(block)
-                getattr(result, mode).append(file.filename)
-                result.views[file.filename] = block
+        blocks.append(hunks)
+        accepted.append(file)
+        ranks.append(rank)
+        tokens = cost
+
+    modes = ['hunks_only'] * len(accepted)
+    full_views: dict[int, str | None] = {}
+
+    def upgrade(index: int, mode: str, block: str) -> bool:
+        nonlocal tokens
+        previous = blocks[index]
+        blocks[index] = block
+        cost = estimator.estimate('\n\n'.join(blocks))
+        if cost <= budget_tokens:
+            modes[index], tokens = mode, cost
+            return True
+        blocks[index] = previous
+        return False
+
+    if read is not None:
+        fruitless = 0
+        for index, file in enumerate(accepted):
+            if _generated(file.filename):
+                continue
+            if budget_tokens - tokens < MIN_UPGRADE_TOKENS:
                 break
-        else:
-            result.overflow.append(file.filename)
+            # Retain missing views too, so failed reads are not retried in the second sweep.
+            views = dict(_file_views(file, read, result))
+            full_views[index] = views.get('full')
+            upgraded = False
+            if 'windowed' in views:
+                # Signature outlines can make a window larger than the whole file.
+                if ('full' in views
+                        and estimator.estimate(views['full']) <= estimator.estimate(views['windowed'])):
+                    upgraded = upgrade(index, 'full', views['full'])
+                if not upgraded:
+                    upgraded = upgrade(index, 'windowed', views['windowed'])
+            fruitless = 0 if upgraded else fruitless + 1
+            if fruitless >= MAX_FRUITLESS_READS:
+                break
+        fruitless = 0
+        for index, file in enumerate(accepted):
+            if modes[index] == 'full' or _generated(file.filename):
+                continue
+            newly_read = index not in full_views
+            views = {}
+            if newly_read:
+                if budget_tokens - tokens < MIN_UPGRADE_TOKENS:
+                    break
+                views = dict(_file_views(file, read, result))
+                full_views[index] = views.get('full')
+            block = full_views[index]
+            upgraded = block is not None and upgrade(index, 'full', block)
+            if not upgraded and modes[index] == 'hunks_only' and 'windowed' in views:
+                upgraded = upgrade(index, 'windowed', views['windowed'])
+            if upgraded:
+                fruitless = 0
+            elif newly_read:
+                fruitless += 1
+            if fruitless >= MAX_FRUITLESS_READS:
+                break
+
+    if overflow:
+        index = 0
+        for rank, file, hunks in overflow:
+            while index < len(accepted) and ranks[index] < rank:
+                index += 1
+            blocks.insert(index, hunks)
+            cost = estimator.estimate('\n\n'.join(blocks))
+            if cost > budget_tokens:
+                blocks.pop(index)
+                result.overflow.append(file.filename)
+                continue
+            accepted.insert(index, file)
+            ranks.insert(index, rank)
+            modes.insert(index, 'hunks_only')
+            tokens = cost
+            index += 1
+
+    for file, mode, block in zip(accepted, modes, blocks):
+        getattr(result, mode).append(file.filename)
+        result.views[file.filename] = block
     if result.deleted:
         note = '## Deleted files:\n' + '\n'.join(result.deleted)
         if estimator.estimate('\n\n'.join([*blocks, note])) <= budget_tokens:
             blocks.append(note)
+    # With no patch-bearing file the reviewer lane is skipped, so the prompt is never sent.
+    patchless_note = ''
+    if patchless and result.views:
+        patchless_note = ('## Changed files without a patch (content not shown):\n'
+                          + '\n'.join(f'{f.filename} ({f.status})' for f in patchless))
+        if estimator.estimate('\n\n'.join([*blocks, patchless_note])) > budget_tokens:
+            patchless_note = (f'## Changed files without a patch: {len(patchless):,} '
+                              '(names omitted, over budget)')
+            if estimator.estimate('\n\n'.join([*blocks, patchless_note])) > budget_tokens:
+                patchless_note = ''
     if result.overflow:
         blocks.append('## Other modified files (over budget, names only):\n' + '\n'.join(result.overflow))
+    if patchless_note:
+        blocks.append(patchless_note)
     result.prompt = '\n\n'.join(blocks)
     _append_context_blocks(result, files, read, budget_tokens, estimator, source)
     result.estimated_tokens = estimator.estimate(result.prompt)

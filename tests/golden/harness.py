@@ -39,6 +39,9 @@ def to_json(value):
         # The nullable GitLab identity does not change existing GitHub snapshots.
         if isinstance(value, PublishOutcome) and value.bot_user_id is None:
             fields.pop('bot_user_id')
+        # The repeat count stays out of snapshots until a repeat occurs.
+        if isinstance(value, PublishOutcome) and value.location_repeats == 0:
+            fields.pop('location_repeats')
         return to_json(fields)
     if isinstance(value, dict):
         return {str(key): to_json(item) for key, item in value.items()}

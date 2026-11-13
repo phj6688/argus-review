@@ -34,6 +34,7 @@ def test_judge_failure_causes_are_counted_logged_and_saved(tmp_path, monkeypatch
     assert record["failure_causes"] == {"http_503": 2, "ReadTimeout": 1, "ValueError": 1}
     assert record["failures"] == 4
     assert record["checks"] == 1
+    assert record["status"] == "ran"
     assert all(item.judge is None for item in items[:4])
     assert [r.getMessage() for r in dict.fromkeys(caplog.records)] == [
         "judge lane: 4/5 second opinions failed (http_503 x2, ReadTimeout x1, ValueError x1); "
