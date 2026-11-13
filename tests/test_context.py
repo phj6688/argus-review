@@ -76,11 +76,12 @@ def test_generated_files_never_read_full_content(name):
 
 def test_degrades_without_dropping_a_smaller_form():
     content = '\n'.join('x = ' + '1' * 100 for _ in range(500))
-    files = [FilePatch('a.py', 'modified', '@@ -250 +250 @@\n-x\n+x')]
-    assert render(files, lambda _: content).full == ['a.py']
-    assert render(files, lambda _: content, 4000).windowed == ['a.py']
-    assert render(files, lambda _: content, 100).hunks_only == ['a.py']
-    assert render(files, lambda _: content, 1).overflow == ['a.py']
+    files = [FilePatch(name, 'modified', '@@ -250 +250 @@\n-x\n+x')
+             for name in ('a.py', 'b.py')]
+    assert render(files, lambda _: content).full == ['a.py', 'b.py']
+    assert render(files, lambda _: content, 4500).windowed == ['a.py', 'b.py']
+    assert render(files, lambda _: content, 100).hunks_only == ['a.py', 'b.py']
+    assert render(files, lambda _: content, 1).overflow == ['a.py', 'b.py']
 
 
 def test_ranking_and_partition():
@@ -92,14 +93,21 @@ def test_ranking_and_partition():
     result = render(files)
     assert result.hunks_only == ['b.py', 'a.py', 'README.md', 'dist/a.py']
     assert result.deleted == ['gone']
+    assert result.patchless == ['binary']
+    assert result.prompt.endswith('## Changed files without a patch (content not shown):\nbinary (added)')
     assert Counter(result.full + result.windowed + result.hunks_only + result.overflow) == \
         Counter(['a.py', 'b.py', 'README.md', 'dist/a.py'])
 
 
 def test_failed_read_falls_back_to_hunks():
+    reads = []
     def read(_):
+        reads.append(_)
         raise OSError('unavailable')
-    assert render([FilePatch('a.py', 'modified', PATCH)], read).hunks_only == ['a.py']
+    result = render([FilePatch('a.py', 'modified', PATCH)], read)
+    assert result.hunks_only == ['a.py']
+    assert result.files_read_failed == 1
+    assert reads == ['a.py']
 
 
 @pytest.mark.parametrize('count,mode', [(600, 'full'), (601, 'windowed')])
@@ -162,9 +170,11 @@ def test_overflow_files_are_not_read():
     reads = []
     result = render(files, lambda path: reads.append(path) or "first\nkeep\nnew\ntail\n",
                     budget=baseline.estimated_tokens)
-    assert reads == ["0.py"]
-    assert result.views == baseline.views
-    assert result.prompt.startswith(baseline.prompt)
+    assert reads == []
+    hunks = render(files[:1])
+    assert result.views == hunks.views
+    assert result.hunks_only == ['0.py']
+    assert result.prompt.startswith(hunks.prompt)
     assert result.overflow == [f"{i}.py" for i in range(1, 20)]
 
 
@@ -629,3 +639,252 @@ def test_changed_symbols_survives_unparsable_python_source():
 
     # Python 3.11 raises ValueError for a NUL byte, where later versions raise SyntaxError.
     assert context.changed_symbols([file], lambda _: 'a\x00b\n') == {'nul.py': ['changed_name']}
+
+
+def greedy_reference(files, read, budget_tokens, estimator=None, *, source=None):
+    """Frozen packing algorithm before coverage was reserved for later files."""
+    estimator = estimator or HeuristicEstimator()
+    if any(context.context_setting(name) for name in context._BLOCK_SHARES):
+        read = context.cached_reader(read)
+    result = context.RenderedContext(deleted=[f.filename for f in files if f.status == context.REMOVED_STATUS])
+    blocks: list[str] = []
+    candidates = sorted((f for f in files if f.status != context.REMOVED_STATUS and f.patch), key=context._rank)
+    for file in candidates:
+        hunks = context._block(file, 'hunks', [context._line(*line) for line in context._patch_lines(file.patch)])
+        if estimator.estimate('\n\n'.join([*blocks, hunks])) > budget_tokens:
+            result.overflow.append(file.filename)
+            continue
+        for mode, block in context._file_views(file, read, result):
+            cost = estimator.estimate('\n\n'.join([*blocks, block]))
+            if cost <= budget_tokens:
+                blocks.append(block)
+                getattr(result, mode).append(file.filename)
+                result.views[file.filename] = block
+                break
+        else:
+            result.overflow.append(file.filename)
+    if result.deleted:
+        note = '## Deleted files:\n' + '\n'.join(result.deleted)
+        if estimator.estimate('\n\n'.join([*blocks, note])) <= budget_tokens:
+            blocks.append(note)
+    if result.overflow:
+        blocks.append('## Other modified files (over budget, names only):\n' + '\n'.join(result.overflow))
+    result.prompt = '\n\n'.join(blocks)
+    context._append_context_blocks(result, files, read, budget_tokens, estimator, source)
+    result.estimated_tokens = estimator.estimate(result.prompt)
+    return result
+
+
+def packing_fixture(count=60, lines=550):
+    content = '\n'.join('value = ' + '1' * 72 for _ in range(lines))
+    patch = '@@ -275,3 +275,3 @@\n' + '\n'.join(
+        ['-' + 'old = ' + '0' * 72, '+' + 'value = ' + '1' * 72] * 3)
+    files = [FilePatch(f'file_{n:04}.py', 'modified', patch) for n in range(count)]
+    return files, content
+
+
+def test_reserves_all_sixty_files_before_upgrading_in_rank_order():
+    files, content = packing_fixture()
+    files.reverse()
+    reads = Counter()
+    def read(path):
+        reads[path] += 1
+        return content
+    result = render(files, read)
+    ranked = [f.filename for f in sorted(files, key=context._rank)]
+    assert result.overflow == []
+    assert list(result.views) == ranked
+    assert result.prompt == '\n\n'.join(result.views.values())
+    assert result.estimated_tokens <= 120_000
+    assert 0 < len(result.full) < len(files)
+    assert result.full == ranked[:len(result.full)]
+    assert result.windowed == ranked[len(result.full):]
+    assert result.hunks_only == []
+    assert Counter(result.full + result.windowed + result.hunks_only) == Counter(ranked)
+    assert reads == Counter({name: 1 for name in ranked})
+
+
+def test_reserve_pass_skips_large_hunks_and_reads_only_accepted_files():
+    files = [FilePatch(name, 'modified', '@@ -1 +1 @@\n+' + 'x' * size)
+             for name, size in [('first.py', 300), ('huge.py', 5000), ('later.py', 500),
+                                ('large.py', 2400), ('last.py', 100)]]
+    expected, overflow, blocks = [], [], []
+    estimator = HeuristicEstimator()
+    for file in sorted(files, key=context._rank):
+        block = render([file]).views[file.filename]
+        if estimator.estimate('\n\n'.join([*blocks, block])) <= 800:
+            expected.append(file.filename)
+            blocks.append(block)
+        else:
+            overflow.append(file.filename)
+    reads = []
+    def read(path):
+        reads.append(path)
+        return next(f.patch.split('\n+')[1] for f in files if f.filename == path)
+    result = render(files, read, budget=800)
+    assert expected == ['first.py', 'later.py', 'last.py']
+    assert list(result.views) == expected
+    assert result.overflow == overflow == ['huge.py', 'large.py']
+    assert reads == expected
+    assert estimator.estimate('\n\n'.join(result.views.values())) <= 800
+
+
+def test_windowed_sweep_precedes_any_full_upgrade():
+    files, content = packing_fixture(count=4, lines=300)
+    views = [dict(context._file_views(f, lambda _: content, context.RenderedContext()))
+             for f in files]
+    estimator = HeuristicEstimator()
+    budget = estimator.estimate('\n\n'.join(
+        [views[0]['full'], *[v['hunks_only'] for v in views[1:]]]))
+    assert estimator.estimate('\n\n'.join(v['windowed'] for v in views)) < budget
+    result = render(files, lambda _: content, budget=budget)
+    assert result.full == []
+    assert result.windowed == [f.filename for f in files]
+    assert result.hunks_only == result.overflow == []
+
+
+@pytest.mark.parametrize('reader', [False, True])
+@pytest.mark.parametrize('fixture', ['mixed', 'pairing', 'packing'])
+def test_nonbinding_budget_matches_frozen_greedy_reference(fixture, reader):
+    if fixture == 'pairing':
+        files, contents = pairing_fixture()
+    elif fixture == 'packing':
+        files, content = packing_fixture(count=3)
+        contents = {f.filename: content for f in files}
+    else:
+        files = [FilePatch(name, 'modified', PATCH) for name in
+                 ('README.md', 'small.py', 'large.py', 'missing.py', 'dist/generated.py')]
+        files.append(FilePatch('gone.py', 'removed', PATCH))
+        contents = {'small.py': 'first\nkeep\nnew\ntail\n', 'large.py': 'pass\n' * 700}
+    read = contents.get if reader else None
+    assert render(files, read) == greedy_reference(files, read, 120_000)
+
+
+def test_nonbinding_budget_with_context_blocks_matches_greedy(monkeypatch, context_mirror):
+    files, source = context_mirror
+    for name in ('PAIRING', 'CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.setenv('ARGUS_CONTEXT_' + name, '1')
+    assert context.render_review_context(files, source.read, 120_000, source=source) == \
+        greedy_reference(files, source.read, 120_000, source=source)
+
+
+def test_nonbinding_failed_read_matches_greedy():
+    def read(path):
+        raise OSError('unavailable')
+    files = [FilePatch('a.py', 'modified', PATCH)]
+    assert render(files, read) == greedy_reference(files, read, 120_000)
+
+
+def test_estimator_calls_are_linear_for_fifteen_hundred_files():
+    class CountingEstimator:
+        calls = 0
+        def estimate(self, text):
+            self.calls += 1
+            return HeuristicEstimator().estimate(text)
+    files = [FilePatch(f'{n}.py', 'modified', PATCH) for n in range(1500)]
+    estimator = CountingEstimator()
+    result = context.render_review_context(files, lambda _: 'x\n' * 550, 120_000, estimator)
+    assert len(result.views) == len(files)
+    assert estimator.calls <= 8 * len(files) + 50
+    assert HeuristicEstimator().estimate('\n\n'.join(result.views.values())) <= 120_000
+
+
+@pytest.mark.parametrize('remaining', [0, 199, 200])
+def test_upgrade_reads_stop_below_minimum_remaining_budget(remaining):
+    files = [FilePatch(f'{n}.py', 'modified', PATCH) for n in range(10)]
+    hunks = render(files)
+    reads = []
+    assert context.MIN_UPGRADE_TOKENS == 200
+    result = render(files, lambda path: reads.append(path) or 'pass\n' * 700,
+                    budget=hunks.estimated_tokens + remaining)
+    assert reads == (['0.py'] if remaining == context.MIN_UPGRADE_TOKENS else [])
+    assert result.overflow == []
+    assert list(result.views) == [f.filename for f in files]
+    assert result.windowed == (['0.py'] if reads else [])
+
+
+def test_fit_checks_use_joined_text_with_nonadditive_estimator():
+    class NonadditiveEstimator:
+        def estimate(self, text):
+            return len(text) + 100 * text.count('## File:') ** 2
+    files = [FilePatch(f'{n}.py', 'modified', PATCH) for n in range(6)]
+    estimator = NonadditiveEstimator()
+    result = context.render_review_context(files, lambda _: 'pass\n' * 550, 1600, estimator)
+    assert len(result.views) == 3
+    assert estimator.estimate('\n\n'.join(result.views.values())) <= 1600
+    assert result.overflow == ['3.py', '4.py', '5.py']
+
+
+@pytest.mark.parametrize('error', [context.ForgeAuthError, context.ForgeDenied,
+                                  context.ForgeRateLimited])
+def test_upgrade_reads_propagate_access_errors(error):
+    def read(path):
+        raise error('unavailable')
+    with pytest.raises(error):
+        render([FilePatch('a.py', 'modified', PATCH)], read)
+
+
+def test_patchless_names_follow_overflow_and_keep_input_order():
+    files = [FilePatch('image.png', 'modified', None), FilePatch('a.py', 'modified', PATCH),
+             FilePatch('renamed.py', 'renamed', ''), FilePatch('gone.py', 'removed', None),
+             FilePatch('huge.py', 'modified', '@@ -1 +1 @@\n+' + 'x' * 10000)]
+    reads = []
+    result = render(files, lambda path: reads.append(path), budget=2000)
+    assert result.patchless == ['image.png', 'renamed.py']
+    assert result.deleted == ['gone.py']
+    assert result.overflow == ['huge.py']
+    assert list(result.views) == reads == ['a.py']
+    assert result.prompt.endswith(
+        '## Other modified files (over budget, names only):\nhuge.py\n\n'
+        '## Changed files without a patch (content not shown):\n'
+        'image.png (modified)\nrenamed.py (renamed)')
+    assert result.estimated_tokens == HeuristicEstimator().estimate(result.prompt)
+
+
+def test_patchless_names_fall_back_to_count_over_budget():
+    files = [FilePatch('a.py', 'modified', PATCH)]
+    files += [FilePatch(f'assets/{n}.png', 'added', None) for n in range(1234)]
+    budget = render(files[:1]).estimated_tokens + 60
+    result = render(files, lambda _: pytest.fail('patchless content must not be read'), budget=budget)
+    assert result.patchless == [f.filename for f in files[1:]]
+    assert result.hunks_only == ['a.py']
+    assert result.prompt.endswith('## Changed files without a patch: 1,234 (names omitted, over budget)')
+    assert 'assets/0.png' not in result.prompt
+
+
+def test_patchless_note_is_dropped_when_even_the_count_line_does_not_fit():
+    files = [FilePatch('a.py', 'modified', PATCH), FilePatch('image.png', 'added', None)]
+    budget = render(files[:1]).estimated_tokens
+    result = render(files, budget=budget)
+    assert result.patchless == ['image.png']
+    assert 'image.png' not in result.prompt
+    assert 'without a patch' not in result.prompt
+    assert HeuristicEstimator().estimate('\n\n'.join(result.views.values())) <= budget
+
+
+def test_patchless_only_pull_request_has_no_views_and_no_prompt():
+    files = [FilePatch('image.png', 'added', None)]
+    result = render(files)
+    assert result.patchless == ['image.png']
+    assert result.views == {}
+    assert result.prompt == ''
+
+
+def test_patchless_files_are_named_but_still_count_as_unreviewed(monkeypatch):
+    from argus import review, verdict
+    from argus.schema import Review
+    prompts = []
+    def deep_review(diff, *args, **kwargs):
+        prompts.append(diff)
+        return Review(findings=[])
+    monkeypatch.setattr(review, '_deep_review', deep_review)
+    files = [FilePatch('a.py', 'modified', PATCH), FilePatch('image.png', 'added', None),
+             FilePatch('renamed.py', 'renamed', None)]
+    rendered = render(files)
+    counts = review._llm_file_counts(files, rendered)
+    assert counts['files_omitted'] == counts['files_without_patch'] == 2
+    result = review.run_diff_review(files)
+    assert rendered.prompt in prompts[0]
+    assert prompts[0].index('## File: a.py') < prompts[0].index('image.png (added)')
+    assert 'renamed.py (renamed)' in prompts[0]
+    assert verdict.coverage_level(result.coverage) == verdict.COVERAGE_PARTIAL

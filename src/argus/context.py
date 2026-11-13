@@ -1,4 +1,4 @@
-"""Numbered post-image views, packed from whole files down to patch hunks."""
+"""Numbered post-image views, reserving patch coverage before richer context."""
 
 import ast
 import keyword
@@ -17,6 +17,8 @@ from .tokens import HeuristicEstimator, TokenEstimator
 FULL_FILE_MAX_LINES = 600
 WINDOW_LINES = 30
 REVIEW_CONTEXT_BUDGET_TOKENS = 120_000
+# Avoid fetching more files when less than a small context window remains.
+MIN_UPGRADE_TOKENS = 200
 PAIRING_BUDGET_SHARE = 0.10
 CALLEES_BUDGET_SHARE = 0.05
 CALLERS_BUDGET_SHARE = 0.05
@@ -81,6 +83,7 @@ class RenderedContext:
     views: dict[str, str] = field(default_factory=dict)
     context_blocks: dict[str, dict] = field(default_factory=dict)
     pairing_entries: list[PairingEntry] = field(default_factory=list)
+    patchless: list[str] = field(default_factory=list)
 
 
 def cached_reader(read: FileReader | None) -> FileReader | None:
@@ -660,29 +663,70 @@ def render_review_context(
     estimator = estimator or HeuristicEstimator()
     if any(context_setting(name) for name in _BLOCK_SHARES):
         read = cached_reader(read)
-    result = RenderedContext(deleted=[f.filename for f in files if f.status == REMOVED_STATUS])
+    patchless = [f for f in files if f.status != REMOVED_STATUS and not f.patch]
+    result = RenderedContext(deleted=[f.filename for f in files if f.status == REMOVED_STATUS],
+                             patchless=[f.filename for f in patchless])
     blocks: list[str] = []
+    accepted: list[FilePatch] = []
+    tokens = 0
     candidates = sorted((f for f in files if f.status != REMOVED_STATUS and f.patch), key=_rank)
     for file in candidates:
         hunks = _block(file, 'hunks', [_line(*line) for line in _patch_lines(file.patch)])
-        if estimator.estimate('\n\n'.join([*blocks, hunks])) > budget_tokens:
+        cost = estimator.estimate('\n\n'.join([*blocks, hunks]))
+        if cost > budget_tokens:
             result.overflow.append(file.filename)
             continue
-        for mode, block in _file_views(file, read, result):
-            cost = estimator.estimate('\n\n'.join([*blocks, block]))
-            if cost <= budget_tokens:
-                blocks.append(block)
-                getattr(result, mode).append(file.filename)
-                result.views[file.filename] = block
-                break
+        blocks.append(hunks)
+        accepted.append(file)
+        tokens = cost
+
+    modes = ['hunks_only'] * len(accepted)
+    full_views: dict[int, str] = {}
+
+    def upgrade(index: int, mode: str, block: str) -> None:
+        nonlocal tokens
+        previous = blocks[index]
+        blocks[index] = block
+        cost = estimator.estimate('\n\n'.join(blocks))
+        if cost <= budget_tokens:
+            modes[index], tokens = mode, cost
         else:
-            result.overflow.append(file.filename)
+            blocks[index] = previous
+
+    if read is not None:
+        for index, file in enumerate(accepted):
+            if budget_tokens - tokens < MIN_UPGRADE_TOKENS:
+                break
+            # Retain full views so the second sweep needs no additional reads.
+            views = dict(_file_views(file, read, result))
+            if 'full' in views:
+                full_views[index] = views['full']
+            if 'windowed' in views:
+                upgrade(index, 'windowed', views['windowed'])
+        for index, block in full_views.items():
+            upgrade(index, 'full', block)
+
+    for file, mode, block in zip(accepted, modes, blocks):
+        getattr(result, mode).append(file.filename)
+        result.views[file.filename] = block
     if result.deleted:
         note = '## Deleted files:\n' + '\n'.join(result.deleted)
         if estimator.estimate('\n\n'.join([*blocks, note])) <= budget_tokens:
             blocks.append(note)
+    # With no patch-bearing file the reviewer lane is skipped, so the prompt is never sent.
+    patchless_note = ''
+    if patchless and result.views:
+        patchless_note = ('## Changed files without a patch (content not shown):\n'
+                          + '\n'.join(f'{f.filename} ({f.status})' for f in patchless))
+        if estimator.estimate('\n\n'.join([*blocks, patchless_note])) > budget_tokens:
+            patchless_note = (f'## Changed files without a patch: {len(patchless):,} '
+                              '(names omitted, over budget)')
+            if estimator.estimate('\n\n'.join([*blocks, patchless_note])) > budget_tokens:
+                patchless_note = ''
     if result.overflow:
         blocks.append('## Other modified files (over budget, names only):\n' + '\n'.join(result.overflow))
+    if patchless_note:
+        blocks.append(patchless_note)
     result.prompt = '\n\n'.join(blocks)
     _append_context_blocks(result, files, read, budget_tokens, estimator, source)
     result.estimated_tokens = estimator.estimate(result.prompt)
