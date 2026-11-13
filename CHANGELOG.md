@@ -2,7 +2,10 @@
 
 ## Unreleased
 
+- GitHub inline comments now carry a location key: a hash of the file, the category and the first flagged line, without the title. A reworded repeat of an earlier inline comment is now listed in the review body with a link to that comment and is not posted again. Set `ARGUS_PUBLISH_REPEAT_KEY=shadow` to only count and log repeats, or `off` to skip the check.
+
 - A judge lane where every second-opinion call failed is now recorded as `error`, with the failure cause names as the reason, instead of `ran`. The review's coverage level drops to `partial` in that case. The decision does not change.
+
 - Moved the finding-trace and auto-label modules into the main argus package; their commands are now argus subcommands (explain, why-quiet, automark); the corpus database setting is ARGUS_CORPUS_DB_PATH and its default file is data/corpus.db.
 
 - Trusted GitLab rejections now suppress the same finding in later reviews when the reply loop is enabled. A confirmed fix at a later commit removes the suppression.

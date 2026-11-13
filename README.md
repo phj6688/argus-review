@@ -376,6 +376,7 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_PUBLISH_TOKEN` | none | Write token of the bot account. |
 | `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the Config page invite the bot with `GITHUB_TOKEN` (needs Administration:write). |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. |
+| `ARGUS_PUBLISH_REPEAT_KEY` | `on` | `off`, `shadow` or `on`. With `on`, a reworded repeat of an earlier inline comment goes in the review body, not inline. See [publishing](docs/publishing.md#reworded-repeats). |
 | `ARGUS_GITLAB_URL` | none | HTTPS origin with an optional path prefix. No credentials, query or fragment. |
 | `ARGUS_GITLAB_TOKEN` | none | GitLab credential. |
 | `ARGUS_GITLAB_CA_BUNDLE` | none | Optional CA bundle path. |

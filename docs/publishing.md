@@ -13,6 +13,7 @@ This page explains what Argus posts to GitHub and how it tracks what happens nex
 | `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the console invite the bot to a repository with `GITHUB_TOKEN` when the bot cannot push. Needs Administration:write on that token. |
 | `ARGUS_PUBLISH_MIN_SEVERITY` | `minor` | Lowest severity that gets an inline comment. Nits are only counted in the summary. |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. Extra findings go in the review body. |
+| `ARGUS_PUBLISH_REPEAT_KEY` | `on` | `off`, `shadow` or `on`. Controls reworded repeats of an earlier inline comment. See [Reworded repeats](#reworded-repeats). Any other value is a configuration error. |
 | `ARGUS_REPLY_LOOP` | `1` | Reply to authors and resolve fixed threads. Needs `ARGUS_PUBLISH=1`. |
 | `ARGUS_RECHECK_MAX_PER_RUN` | `10` | Maximum finding re-checks per collection run. |
 | `ARGUS_REPLY_MAX_WRITES_PER_RUN` | `20` | Maximum reply and resolve attempts per collection run. |
@@ -55,6 +56,27 @@ Argus posts one pull request review with `event=COMMENT`. The verdict is in the 
 - Refuted critical and major findings from the model lane go under "Unverified (the verifier disagreed)" in the body. They do not change the verdict or the counts and use no inline slots. The section lists at most 10 items and says how many it left out.
 - Fingerprint markers prevent duplicate inline comments across commits. A later head with nothing new posts no review.
 - With publishing on, collection recovers a lost post from GitHub within seven days. It checks completed reviews that are at least two minutes old.
+
+## Reworded repeats
+
+The fingerprint of a finding without a rule id includes its title. When the reviewer words the same issue differently at a later head, the fingerprint changes, and the fingerprint check does not stop a second inline comment.
+
+Each GitHub inline comment therefore carries a second hidden marker, the location key. The key is a hash of three things: the file path, the finding category, and the content of the first flagged line with whitespace collapsed. The title is not part of it. A finding gets no key when it has no category, or when the flagged line has fewer than 8 characters after whitespace is collapsed. Short lines such as `}` or `else:` occur too often to name one place.
+
+A new verified finding is a repeat when its key matches the key of an earlier inline comment from the bot on the same pull request. `ARGUS_PUBLISH_REPEAT_KEY` sets what Argus does with a repeat:
+
+- `off`: Argus does not look for repeats. The repeat is posted inline as before.
+- `shadow`: the post is the same as with `off`. Argus counts the repeats and writes one INFO log line for each review that has one.
+- `on` (the default): Argus does not post the repeat inline, and the repeat uses no inline slot. The review body lists it under "Raised earlier on this pull request", with the file and line, the title, the severity, and a link to the earliest matching comment. The section lists at most 10 repeats and says how many it left out. The review body stores the fingerprint of each listed repeat, so a later head does not list the same finding again. A repeat with yet another title is listed again.
+
+The fingerprint check runs first. A finding with a known fingerprint is already posted and is never a repeat. Unverified findings, findings in one review that share a key, and GitLab notes are not affected. A dry run reads nothing from GitHub, so it finds no repeats.
+
+Limits:
+
+- Only inline comments that carry the location key can match. Comments posted before this marker existed have no key, so a repeat of one of them is still posted.
+- The same category on the same line content can be a different issue. For that reason `on` lists a repeat in the body and never drops it.
+- A change to the flagged line, a different category from the reviewer, or a file rename gives a new key, so the repeat is posted again.
+- The key uses the start line of the finding. Most known misses are repeats that start on a different line of the same code, or that changed category. The known false match is two different defects on the same line with the same category. That finding is listed with a link and is never dropped.
 
 ## Dry run
 
