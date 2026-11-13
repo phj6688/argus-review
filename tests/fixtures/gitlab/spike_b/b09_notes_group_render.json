@@ -1,0 +1,32 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "notes_group_render",
+    "question": 9
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": {
+      "gfm": true,
+      "project": "argus-test/sub-a/sub-b/demo-app",
+      "text": "@argus-test"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/markdown"
+  },
+  "response": {
+    "body": {
+      "html": "<p data-sourcepos=\"1:1-1:11\" dir=\"auto\"><a href=\"https://gitlab.example.test/argus-test\" title=\"argus-test\" class=\"gfm gfm-project_member js-user-link\" data-group=\"6\" data-original=\"@argus-test\" data-container=\"body\" data-placement=\"top\" data-reference-type=\"user\">@argus-test</a></p>"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"b5ab4ca3ff9d99ada6d3fb3ea4860ebb\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

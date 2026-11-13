@@ -36,7 +36,7 @@ def document(*items):
 @pytest.fixture(autouse=True)
 def publish_env(monkeypatch):
     for key in ("ARGUS_PUBLISH", "ARGUS_PUBLISH_REPOS", "ARGUS_PUBLISH_TOKEN",
-                "ARGUS_PUBLISH_MIN_SEVERITY", "ARGUS_PUBLISH_MAX_COMMENTS"):
+                "ARGUS_PUBLISH_MIN_SEVERITY", "ARGUS_PUBLISH_MAX_COMMENTS", "ARGUS_PUBLISH_REPEAT_KEY"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("ARGUS_PUBLISH_REPOS", "owner/repo")
     monkeypatch.setenv("ARGUS_PUBLISH_TOKEN", "write-secret")
@@ -652,3 +652,363 @@ def test_publish_transient_failure_never_retries_post(monkeypatch, status):
         outcome = call_publish(http)
     assert outcome.status == "error"
     assert len(posts) == 1
+
+
+# Code lines long enough to form a location key; head two moves the same code down.
+HEAD_ONE_FILES = [FilePatch("src/app.py", "modified",
+                            "@@ -9,3 +9,4 @@\n context\n-old\n+value = accept(raw)\n+extra = compute(value)\n tail")]
+HEAD_TWO_FILES = [FilePatch("src/app.py", "modified",
+                            "@@ -20,3 +20,4 @@\n context\n-old\n+value = accept(raw)\n+extra = compute(value)\n tail")]
+LOC = "argusloc:2702eb8119f9b2143fd62ceecf911ef4"
+EARLIER_URL = "https://github.com/owner/repo/pull/42#discussion_r101"
+
+
+def reworded(**updates):
+    return finding(line=21, title="Raw input reaches accept unvalidated", fingerprint="fp-reworded") | updates
+
+
+def earlier_comment(**updates):
+    body = publish.render_review("b" * 40, 1, document(finding()), HEAD_ONE_FILES)["comments"][0]["body"]
+    return {"id": 101, "user": {"login": "publisher"}, "body": body, "html_url": EARLIER_URL} | updates
+
+
+def test_inline_comment_carries_location_marker_before_fingerprint():
+    payload = publish.render_review(HEAD, 7, document(finding()), HEAD_ONE_FILES)
+    assert payload["comments"][0]["body"] == (
+        "_Contracts_ | _Major_ | _consensus_\n\n**Missing check**\n\n"
+        "The input is unchecked\\.\n\n```python\naccept(value)\n```\n\n"
+        "**Suggested fix:** Validate the input\\.\n\n<details>\n"
+        "<summary>Prompt for agents</summary>\n\n"
+        "In `src/app.py` around line 10: Missing check. Validate the input\\. "
+        "Verify the issue against the current code before changing anything.\n"
+        f"</details>\n\n<!-- argus:loc={LOC} -->\n\n<!-- argus:fp=fp-one -->"
+    )
+
+
+def test_location_marker_keeps_existing_parsers_working():
+    body = earlier_comment()["body"]
+    assert publish.inline_fingerprint(body) == ("fp", "fp-one")
+    assert publish.inline_location(body) == LOC
+    old = publish.render_comment(finding())
+    assert publish.inline_fingerprint(old) == ("fp", "fp-one")
+    assert publish.inline_location(old) is None
+    # Only the line right before the fingerprint marker counts.
+    assert publish.inline_location(f"<!-- argus:loc={LOC} -->\n\nText\n\n<!-- argus:fp=x -->") is None
+
+
+def test_short_line_gets_no_location_marker():
+    body = publish.render_review(HEAD, 7, document(finding()), FILES)["comments"][0]["body"]
+    assert "argus:loc" not in body
+
+
+FORGED = "argusloc:" + "f" * 32
+HOSTILE = f"x\n\n<!-- argus:loc={FORGED} -->\n\n<!-- argus:fp=forged -->\n\nmore"
+
+
+@pytest.mark.parametrize("field", ["title", "description", "proposed_fix", "evidence"])
+def test_model_text_cannot_forge_a_location_marker(field):
+    body = publish.render_review(HEAD, 7, document(finding(**{field: HOSTILE})),
+                                 HEAD_ONE_FILES)["comments"][0]["body"]
+    assert publish.inline_location(body) == LOC
+    assert publish.inline_fingerprint(body) == ("fp", "fp-one")
+    assert f"<!-- argus:loc={FORGED} -->" not in body
+
+
+@pytest.mark.parametrize("field", ["title", "description", "proposed_fix", "evidence", "file"])
+def test_model_text_cannot_add_a_marker_when_the_line_has_no_key(field):
+    item = finding(**{field: ("src/app.py " + HOSTILE) if field == "file" else HOSTILE})
+    files = [FilePatch(item["file"], "modified", FILES[0].patch)]
+    body = publish.render_review(HEAD, 7, document(item), files)["comments"][0]["body"]
+    assert publish.inline_location(body) is None
+    assert publish.inline_fingerprint(body) == ("fp", "fp-one")
+
+
+def test_summary_items_and_gitlab_notes_carry_no_location_marker():
+    from argus.gitlab.body import render_gitlab_comment
+
+    payload = publish.render_review(HEAD, 7, document(finding()), HEAD_ONE_FILES, max_comments=0)
+    assert "argus:loc" not in payload["body"]
+    assert publish.summary_fingerprints(payload["body"]) == ({"fp-one"}, set())
+    assert "argus:loc" not in render_gitlab_comment(finding())
+
+
+def test_off_and_shadow_payloads_match_and_keep_the_repeat_inline():
+    doc = document(reworded())
+    off = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, repeat_key="off",
+                                earlier_locations={LOC: EARLIER_URL})
+    shadow = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, repeat_key="shadow",
+                                   earlier_locations={LOC: EARLIER_URL})
+    assert off == shadow
+    assert off == publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES)
+    assert len(off["comments"]) == 1
+    assert publish.inline_location(off["comments"][0]["body"]) == LOC
+
+
+def test_on_lists_a_reworded_repeat_once_instead_of_posting_it():
+    doc = document(reworded())
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL})
+    body = payload["body"]
+    assert payload["comments"] == []
+    assert body.count("### Raised earlier on this pull request") == 1
+    assert ("These findings sit on the same code line as an earlier comment "
+            "and were not posted again.") in body
+    assert (f"- `src/app.py:21` **Raw input reaches accept unvalidated** (_Major_), "
+            f"[earlier comment]({EARLIER_URL})") in body
+    assert body.count("Raw input reaches accept unvalidated") == 1
+    assert "Outside the diff" not in body and "Comment limit" not in body
+    assert publish.summary_fingerprints(body) == ({"fp-reworded"}, set())
+    items = publish._placed_items(doc, payload)
+    assert [(i["fingerprint"], i["placement"]) for i in items] == [("fp-reworded", "summary")]
+
+
+def test_on_repeat_uses_no_inline_slot():
+    other = finding(line=22, title="Compute overflows", fingerprint="fp-other", severity="minor")
+    payload = publish.render_review(HEAD, 7, document(reworded(), other), HEAD_TWO_FILES,
+                                    max_comments=1, repeat_key="on", earlier_locations={LOC: EARLIER_URL})
+    assert [publish.inline_fingerprint(c["body"]) for c in payload["comments"]] == [("fp", "fp-other")]
+    assert "Comment limit" not in payload["body"]
+
+
+def test_on_posts_a_different_category_on_the_same_line_inline():
+    payload = publish.render_review(HEAD, 7, document(reworded(category="security")), HEAD_TWO_FILES,
+                                    repeat_key="on", earlier_locations={LOC: EARLIER_URL})
+    assert len(payload["comments"]) == 1
+    assert "Raised earlier" not in payload["body"]
+
+
+def test_same_key_twice_in_one_review_posts_both():
+    items = [reworded(), reworded(title="Second issue on the same line", fingerprint="fp-second")]
+    payload = publish.render_review(HEAD, 7, document(*items), HEAD_TWO_FILES, repeat_key="on",
+                                    earlier_locations={})
+    assert [publish.inline_location(c["body"]) for c in payload["comments"]] == [LOC, LOC]
+
+
+def test_on_leaves_unverified_findings_in_their_section():
+    doc = document() | {"unverified": [reworded(fingerprint="ufp-one")]}
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL})
+    assert "Raised earlier" not in payload["body"]
+    assert "### Unverified (the verifier disagreed)" in payload["body"]
+    assert publish.summary_fingerprints(payload["body"]) == (set(), {"ufp-one"})
+
+
+def test_on_outside_only_retry_keeps_the_repeat_section():
+    doc = document(reworded(), finding(line=22, title="Other", fingerprint="fp-other"))
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL}, outside_only=True)
+    body = payload["body"]
+    assert payload["comments"] == []
+    assert "### Raised earlier on this pull request" in body
+    outside = body.split("### Outside the diff")[1].split("### Raised earlier")[0]
+    assert "**Other**" in outside and "Raw input" not in outside
+    assert publish.summary_fingerprints(body)[0] == {"fp-reworded", "fp-other"}
+
+
+def repeat_items(count, **extra):
+    return [reworded(title=f"Reworded {i}", fingerprint=f"fp-r{i}", **extra) for i in range(count)]
+
+
+def test_on_repeats_past_the_list_cap_go_to_the_comment_limit_section():
+    doc = document(*repeat_items(12))
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, max_comments=4, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL})
+    body = payload["body"]
+    assert payload["comments"] == []
+    listed = body.split("### Raised earlier on this pull request")[1]
+    assert listed.count("[earlier comment](") == 10
+    limit = body.split("### Comment limit")[1].split("### Raised earlier")[0]
+    assert "Reworded 10" in limit and "Reworded 11" in limit and "Reworded 9" not in limit
+    assert "more findings match" not in body
+    assert publish.summary_fingerprints(body) == ({f"fp-r{i}" for i in range(12)}, set())
+    items = publish._placed_items(doc, payload)
+    assert [(i["fingerprint"], i["placement"]) for i in items] == [
+        (f"fp-r{i}", "summary") for i in range(12)]
+
+
+def test_on_repeat_overflow_renders_like_ordinary_overflow():
+    items = repeat_items(12)
+    on = publish.render_review(HEAD, 7, document(*items), HEAD_TWO_FILES, max_comments=4,
+                               repeat_key="on", earlier_locations={LOC: EARLIER_URL})["body"]
+    expected = publish._summary_findings("Comment limit", items[10:])
+    assert expected in on
+
+
+def test_on_repeat_overflow_takes_no_inline_slot():
+    other = finding(line=22, title="Compute overflows", fingerprint="fp-other", severity="minor")
+    payload = publish.render_review(HEAD, 7, document(*repeat_items(12), other), HEAD_TWO_FILES,
+                                    max_comments=4, repeat_key="on", earlier_locations={LOC: EARLIER_URL})
+    assert [publish.inline_fingerprint(c["body"]) for c in payload["comments"]] == [("fp", "fp-other")]
+
+
+def test_on_repeat_overflow_survives_the_outside_only_retry():
+    doc = document(*repeat_items(12))
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, max_comments=4, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL}, outside_only=True)
+    assert payload["comments"] == []
+    assert payload["body"].count("[earlier comment](") == 10
+    assert "### Comment limit" in payload["body"]
+    assert publish.summary_fingerprints(payload["body"])[0] == {f"fp-r{i}" for i in range(12)}
+
+
+def test_on_fifty_repeats_stay_within_the_body_limit_and_are_all_accounted_for():
+    repeats = [reworded(title=f"Reworded {i}", fingerprint=f"fp-r{i}") for i in range(50)]
+    disputed = [finding(title=f"Disputed {i}", fingerprint=f"ufp-{i}", description="d " * 2000)
+                for i in range(10)]
+    doc = document(*repeats) | {"unverified": disputed}
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL})
+    body = payload["body"]
+    assert len(body) <= publish._MAX_BODY
+    assert body.count("[earlier comment](") == 10
+    assert "more findings match" not in body
+    confirmed, unverified = publish.summary_fingerprints(body)
+    assert confirmed == {f"fp-r{i}" for i in range(50)}
+    assert unverified and unverified <= {f"ufp-{i}" for i in range(10)}
+
+
+def test_comment_limit_section_has_no_size_budget_for_repeats_or_ordinary_findings():
+    # Today only the unverified section is budgeted. Repeats past the cap follow the ordinary
+    # overflow rule, so a body made of very long titles is as large either way.
+    title = "Long title " * 400
+    repeats = [reworded(title=f"{title}{i}", fingerprint=f"fp-r{i}") for i in range(50)]
+    on = publish.render_review(HEAD, 7, document(*repeats), HEAD_TWO_FILES, repeat_key="on",
+                               earlier_locations={LOC: EARLIER_URL})["body"]
+    assert publish._summary_findings("Comment limit", repeats[10:]) in on
+    assert publish.summary_fingerprints(on)[0] == {f"fp-r{i}" for i in range(50)}
+    assert len(on) > publish._MAX_BODY
+
+
+def test_earlier_link_must_be_a_plain_https_url():
+    payload = publish.render_review(HEAD, 7, document(reworded()), HEAD_TWO_FILES, repeat_key="on",
+                                    earlier_locations={LOC: "javascript:alert(1)) [x](https://evil"})
+    assert "[earlier comment](" not in payload["body"]
+    assert "- `src/app.py:21` **Raw input reaches accept unvalidated** (_Major_), earlier comment" in payload["body"]
+
+
+@pytest.mark.parametrize("value", ["", "ON", "yes", "1"])
+def test_invalid_repeat_key_setting_raises(monkeypatch, value):
+    monkeypatch.setenv("ARGUS_PUBLISH_REPEAT_KEY", value)
+    with pytest.raises(ValueError):
+        publish.render_options()
+
+
+def test_repeat_key_defaults_to_on(monkeypatch):
+    monkeypatch.delenv("ARGUS_PUBLISH_REPEAT_KEY", raising=False)
+    assert publish.render_options()["repeat_key"] == "on"
+
+
+def test_multiline_finding_keys_on_its_start_line():
+    item = reworded(end_line=22)
+    payload = publish.render_review(HEAD, 7, document(item), HEAD_TWO_FILES)
+    assert publish.inline_location(payload["comments"][0]["body"]) == LOC
+    withheld = publish.render_review(HEAD, 7, document(item), HEAD_TWO_FILES, repeat_key="on",
+                                     earlier_locations={LOC: EARLIER_URL})
+    assert withheld["comments"] == []
+
+
+def repeat_publish(monkeypatch, setting, comments, reviews=(), doc=None, *, status=200, review_id=7):
+    monkeypatch.setenv("ARGUS_PUBLISH", "1")
+    if setting is None:
+        monkeypatch.delenv("ARGUS_PUBLISH_REPEAT_KEY", raising=False)
+    else:
+        monkeypatch.setenv("ARGUS_PUBLISH_REPEAT_KEY", setting)
+    posts = []
+
+    def handler(request):
+        if request.method == "POST":
+            posts.append(json.loads(request.content))
+            return httpx.Response(status if len(posts) == 1 else 200, json={})
+        if request.url.path.endswith("/42"):
+            return httpx.Response(200, json={"head": {"sha": HEAD}})
+        return httpx.Response(200, json=list(comments) if request.url.path.endswith("/comments")
+                              else list(reviews))
+
+    with client(handler) as http:
+        outcome = publish.publish_review("owner/repo", 42, HEAD, review_id, doc or document(reworded()),
+                                         HEAD_TWO_FILES, http=http)
+    return outcome, posts
+
+
+@pytest.mark.parametrize("setting", ["off", "shadow"])
+def test_off_and_shadow_post_the_repeat_inline(monkeypatch, caplog, setting):
+    caplog.set_level("INFO", logger="argus.publish")
+    outcome, posts = repeat_publish(monkeypatch, setting, [earlier_comment()])
+    assert outcome.status == "posted" and outcome.comments_posted == 1
+    assert len(posts) == 1 and "Raised earlier" not in posts[0]["body"]
+    lines = [r.getMessage() for r in caplog.records if "location key" in r.getMessage()]
+    if setting == "off":
+        assert outcome.location_repeats == 0 and lines == []
+    else:
+        assert outcome.location_repeats == 1
+        assert lines == ["review 7: 1 finding(s) match an earlier inline comment by location key "
+                         "(shadow, not withheld)"]
+
+
+def test_shadow_ignores_comments_from_other_authors_and_old_bodies(monkeypatch):
+    stranger = earlier_comment(user={"login": "someone"})
+    old = earlier_comment(body=publish.render_comment(finding()))
+    outcome, _ = repeat_publish(monkeypatch, "shadow", [stranger, old])
+    assert outcome.location_repeats == 0
+
+
+@pytest.mark.parametrize("setting", ["on", None], ids=["on", "default"])
+def test_on_posts_the_section_then_the_next_head_counts_it_as_posted(monkeypatch, caplog, setting):
+    caplog.set_level("INFO", logger="argus.publish")
+    later = earlier_comment(id=150, html_url=EARLIER_URL + "-later")
+    outcome, posts = repeat_publish(monkeypatch, setting, [later, earlier_comment()])
+    assert outcome.status == "posted" and outcome.comments_posted == 0
+    assert outcome.location_repeats == 1
+    assert len(posts) == 1 and posts[0]["comments"] == []
+    assert f"[earlier comment]({EARLIER_URL})" in posts[0]["body"]
+    assert [(i["fingerprint"], i["placement"]) for i in outcome.items] == [("fp-reworded", "summary")]
+    assert any("withheld" in r.getMessage() for r in caplog.records)
+    previous = {"id": 9, "user": {"login": "publisher"}, "body": posts[0]["body"]}
+    again, more = repeat_publish(monkeypatch, setting, [earlier_comment()], [previous], review_id=8)
+    assert (again.status, again.reason, again.already_posted) == ("skipped", "nothing new", 1)
+    assert more == []
+
+
+def test_on_422_retry_keeps_the_repeat_section(monkeypatch):
+    doc = document(reworded(), finding(line=22, title="Other", fingerprint="fp-other"))
+    outcome, posts = repeat_publish(monkeypatch, "on", [earlier_comment()], doc=doc, status=422)
+    assert outcome.status == "posted" and len(posts) == 2
+    assert len(posts[0]["comments"]) == 1 and posts[1]["comments"] == []
+    for post in posts:
+        assert post["body"].count("### Raised earlier on this pull request") == 1
+    assert "### Outside the diff" in posts[1]["body"]
+
+
+def test_on_twelve_repeats_are_stored_and_the_next_head_posts_nothing(monkeypatch):
+    doc = document(*repeat_items(12))
+    outcome, posts = repeat_publish(monkeypatch, "on", [earlier_comment()], doc=doc)
+    assert outcome.status == "posted" and outcome.comments_posted == 0
+    assert posts[0]["comments"] == []
+    assert [(i["fingerprint"], i["placement"]) for i in outcome.items] == [
+        (f"fp-r{i}", "summary") for i in range(12)]
+    previous = {"id": 9, "user": {"login": "publisher"}, "body": posts[0]["body"]}
+    again, more = repeat_publish(monkeypatch, "on", [earlier_comment()], [previous], doc=doc, review_id=8)
+    assert (again.status, again.reason, again.already_posted) == ("skipped", "nothing new", 12)
+    assert more == []
+
+
+def test_on_twelve_repeats_keep_the_accounting_on_a_422_retry(monkeypatch):
+    doc = document(*repeat_items(12))
+    outcome, posts = repeat_publish(monkeypatch, "on", [earlier_comment()], doc=doc, status=422)
+    assert outcome.status == "posted" and len(posts) == 2
+    for post in posts:
+        assert publish.summary_fingerprints(post["body"])[0] == {f"fp-r{i}" for i in range(12)}
+    assert len(outcome.items) == 12 and {i["placement"] for i in outcome.items} == {"summary"}
+
+
+def test_dry_run_on_reads_nothing_and_matches_off(monkeypatch):
+    monkeypatch.setenv("ARGUS_PUBLISH", "dry-run")
+    results = {}
+    for setting in ("off", "on"):
+        monkeypatch.setenv("ARGUS_PUBLISH_REPEAT_KEY", setting)
+        http = Mock()
+        results[setting] = publish.publish_review("owner/repo", 42, HEAD, 7, document(reworded()),
+                                                  HEAD_TWO_FILES, http=http)
+        assert http.mock_calls == []
+    assert results["on"].payload == results["off"].payload
+    assert results["on"].location_repeats == 0

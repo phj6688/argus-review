@@ -9,10 +9,11 @@ from pathlib import Path
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import acceptance, client, github, replies
 from argus.api import db
-from argus.jarvis import live
+from argus import live
 from test_acceptance import seed
 from reply_helpers import file_entry
 
@@ -191,7 +192,7 @@ def test_contents_paths_are_escaped_after_url_guard(monkeypatch, fetch, path, en
         return httpx.Response(200, request=request, json=dict(
             encoding="base64", content=base64.b64encode(b"safe_value").decode()))
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     assert fetch("owner/repo", path, "feature/ref") == "safe_value"
     assert len(requests) == 1
     url = requests[0].url

@@ -1,0 +1,32 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diff_space_render",
+    "question": 9
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": {
+      "gfm": true,
+      "project": "argus-test/sub-a/sub-b/demo-app",
+      "text": "@ argus-dev"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/markdown"
+  },
+  "response": {
+    "body": {
+      "html": "<p data-sourcepos=\"1:1-1:11\" dir=\"auto\">@ argus-dev</p>"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"079c51609e24cfaff24d43d6df96932a\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

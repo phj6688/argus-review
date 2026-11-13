@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from argus import client
-from argus.jarvis import automark
+from argus import automark
 
 
 @pytest.mark.parametrize("lane", ["reviewer", "judge", "router", "mixed"])

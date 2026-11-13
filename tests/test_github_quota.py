@@ -4,6 +4,7 @@ import time
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import github
 
@@ -36,7 +37,7 @@ def test_all_quota_headers_recorded(monkeypatch):
             "Resource": "core",
         }.items()
     }
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: response(headers=headers))
+    stub_github_client(monkeypatch, get=lambda *a, **k: response(headers=headers))
     github.get("/user/repos")
     snapshot = github.quota_snapshot()["core"]
     assert snapshot["limit"] == 5000
@@ -84,7 +85,7 @@ def test_observe_without_quota_recording_still_guards_url(monkeypatch):
     ],
 )
 def test_limits_are_not_auth_errors(monkeypatch, code, headers, body):
-    monkeypatch.setattr(httpx, "get", lambda *a, **k: response(code, headers, body))
+    stub_github_client(monkeypatch, get=lambda *a, **k: response(code, headers, body))
     with pytest.raises(github.GitHubRateLimited) as error:
         github.get("/user/repos")
     assert not isinstance(error.value, github.GitHubAuthError)
@@ -113,7 +114,7 @@ def test_pr_pagination_and_304_reuse(monkeypatch):
             request=req,
         )
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     for _ in range(2):
         assert github.list_cached("/repos/example/a/pulls", {"per_page": 100}) == [
             {"number": 1},
@@ -134,7 +135,7 @@ def test_redirect_is_checked_before_following(monkeypatch):
             301, headers={"Location": "/repos/acme-corp/secret-repo"}, request=httpx.Request("GET", url)
         )
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     before = github.refusal_count()
     with pytest.raises(github.GitHubDenied):
         github.get("/repos/example/a")
@@ -143,13 +144,8 @@ def test_redirect_is_checked_before_following(monkeypatch):
 
 
 def test_lru_is_bounded(monkeypatch):
-    monkeypatch.setattr(
-        httpx,
-        "get",
-        lambda url, **kw: httpx.Response(
-            200, json=[], headers={"ETag": "x"}, request=httpx.Request("GET", url)
-        ),
-    )
+    stub_github_client(monkeypatch, get=lambda url, **kw: httpx.Response(
+        200, json=[], headers={"ETag": "x"}, request=httpx.Request("GET", url)))
     for i in range(2002):
         github.get_json_cached(f"/repos/example/r{i}/pulls")
     assert len(github._cache) == 2000

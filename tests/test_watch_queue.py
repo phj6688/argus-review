@@ -74,7 +74,7 @@ def test_commit_timestamp_saved_with_review(path):
 
 def test_commit_date_uses_matching_head_without_extra_fetch(monkeypatch):
     import httpx
-    from argus.jarvis import live
+    from argus import live
 
     calls = []
 
@@ -112,7 +112,7 @@ def test_draft_toggle_does_not_reset_parked_budget(path):
 
 def test_moved_head_is_rejected_before_review(monkeypatch):
     from argus import review
-    from argus.jarvis import live
+    from argus import live
 
     monkeypatch.setattr(review, "fetch_pr_files", lambda *a: [])
     monkeypatch.setattr(live, "_pr_meta", lambda *a: {"head_sha": "new"})

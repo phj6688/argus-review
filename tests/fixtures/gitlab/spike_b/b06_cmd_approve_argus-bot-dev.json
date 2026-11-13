@@ -1,0 +1,32 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "cmd_approve_argus-bot-dev",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "body": "/approve"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/93/notes"
+  },
+  "response": {
+    "body": {
+      "commands_changes": {},
+      "summary": [
+        "Approved the current merge request."
+      ]
+    },
+    "headers": {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+      "vary": "Origin"
+    },
+    "status": 202
+  },
+  "trimmed": {}
+}

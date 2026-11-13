@@ -10,7 +10,9 @@ from pathlib import Path
 
 import httpx
 
+from . import fingerprint, repo_policy
 from .diff import LANGUAGE_BY_EXTENSION, FilePatch, split_lines
+from .forge.keys import is_gitlab_key
 from .github import API_VERSION, GITHUB_API, guard_url, observe_response
 from .markdown import code_span, escape_block, escape_inline
 from .repo_policy import validate_repo
@@ -23,6 +25,14 @@ _CATEGORIES = {
     "security": "Security", "tests": "Tests", "data_integrity": "Data integrity",
 }
 _INLINE_FINGERPRINT = re.compile(r"\n<!-- argus:(fp|ufp)=([^\s>]+) -->\n?\Z")
+# The location marker counts only as the paragraph right before the closing fingerprint marker.
+_INLINE_LOCATION = re.compile(
+    r"\n<!-- argus:loc=(argusloc:[0-9a-f]{32}) -->\n\n<!-- argus:(?:fp|ufp)=[^\s>]+ -->\n?\Z")
+_LOCATION_KEY = re.compile(r"argusloc:[0-9a-f]{32}")
+_REPEAT_KEY_MODES = ("off", "shadow", "on")
+_MAX_REPEATS = 10
+_MAX_REPEAT_TITLE = 200
+_EARLIER_URL = re.compile(r"https://[A-Za-z0-9.-]+(?::\d+)?/[A-Za-z0-9._/~#%=?&:-]*")
 _LEGACY_SUMMARY_FINGERPRINT = re.compile(r"^<!-- argus:(fp|ufp)=([^\s>]+) -->$", re.M)
 # The publisher's own sentence closes the prompt block right before each legacy marker.
 _LEGACY_MARKER_LEAD = "Verify the issue against the current code before changing anything.\n</details>\n\n"
@@ -38,6 +48,11 @@ _identity_lock = threading.Lock()
 def inline_fingerprint(body: str) -> tuple[str, str] | None:
     match = _INLINE_FINGERPRINT.search(body)
     return (match[1], match[2]) if match else None
+
+
+def inline_location(body: str) -> str | None:
+    match = _INLINE_LOCATION.search(body)
+    return match[1] if match else None
 
 
 def review_marker(body: str) -> tuple[int, str] | None:
@@ -84,14 +99,58 @@ class PublishOutcome:
     gh_review_id: int | None = None
     bot_login: str | None = None
     posted_at: str | None = None
+    bot_user_id: int | None = None
+    location_repeats: int = 0
 
 
 def enabled_for(repo: str) -> bool:
     """Read the opt-in at call time so an unset flag adds no GitHub reads."""
+    if is_gitlab_key(repo):
+        return False
     return os.environ.get("ARGUS_PUBLISH") in {"1", "dry-run"} and repo.casefold() in repo_allowlist()
 
 
 def repo_allowlist() -> set[str]:
+    repos, deny = _dashboard_state()
+    if repos is not None:
+        return {name.casefold() for name in repos}
+    # Env entries get the same screening as stored ones, so a denied or malformed name is
+    # never shown, never sent to GitHub, and cannot make the first dashboard save fail.
+    return {name for name in env_repo_allowlist() if _well_formed_and_allowed(name, deny)}
+
+
+def _well_formed_and_allowed(name: str, deny) -> bool:
+    try:
+        repo_policy.validate_repo(name, deny)
+    except ValueError:  # RepoDenied is a ValueError
+        return False
+    return True
+
+
+def _dashboard_state() -> tuple[list[str] | None, list[str]]:
+    try:
+        from .api import db
+
+        repos, deny = db.get_publish_state()
+    except Exception:
+        # Fail closed: an unreadable dashboard list must not fall back to the env list, which
+        # could re-enable posting that the operator removed from the dashboard.
+        log.warning("publish: dashboard repo list is unreadable, posting is blocked until it is")
+        return [], []
+    if repos is None:
+        return None, deny
+    return [name for name in repos if _well_formed_and_allowed(name, deny)], deny
+
+
+def _dashboard_repos() -> list[str] | None:
+    return _dashboard_state()[0]
+
+
+def repo_allowlist_source() -> str:
+    return "dashboard" if _dashboard_repos() is not None else "env"
+
+
+def env_repo_allowlist() -> set[str]:
     return {name.strip().casefold() for name in os.environ.get("ARGUS_PUBLISH_REPOS", "").split(",")
             if name.strip()}
 
@@ -106,7 +165,10 @@ def render_options() -> dict:
     maximum = int(os.environ.get("ARGUS_PUBLISH_MAX_COMMENTS", "4"))
     if minimum not in _SEVERITIES or maximum < 0:
         raise ValueError("Invalid publishing severity or comment limit")
-    return {"min_severity": minimum, "max_comments": maximum}
+    repeat_key = os.environ.get("ARGUS_PUBLISH_REPEAT_KEY", "on")
+    if repeat_key not in _REPEAT_KEY_MODES:
+        raise ValueError("Invalid ARGUS_PUBLISH_REPEAT_KEY")
+    return {"min_severity": minimum, "max_comments": maximum, "repeat_key": repeat_key}
 
 
 def commentable_lines(patch: str | None) -> set[int]:
@@ -126,7 +188,9 @@ def commentable_lines(patch: str | None) -> set[int]:
     return numbers
 
 
-def render_comment(finding: dict) -> str:
+def render_comment(finding: dict, location_key: str | None = None) -> str:
+    if location_key is not None and not _LOCATION_KEY.fullmatch(location_key):
+        raise ValueError("Invalid location key")
     marker = "ufp" if finding.get("unverified") else "fp"
     category = _CATEGORIES.get(finding.get("category"), "Correctness")
     severity = finding["severity"].capitalize()
@@ -148,6 +212,7 @@ def render_comment(finding: dict) -> str:
         "<details>\n<summary>Prompt for agents</summary>\n\n"
         f"In {code_span(finding['file'])} around line {span}: {title}. {escape_inline(fix)} "
         "Verify the issue against the current code before changing anything.\n</details>",
+        *([f"<!-- argus:loc={location_key} -->"] if location_key else []),
         f"<!-- argus:{marker}={finding.get('fingerprint') or ''} -->",
     ])
     return "\n\n".join(parts)
@@ -179,6 +244,56 @@ def _new_findings(document: dict, minimum: str, posted: set[str],
     )
 
 
+def _patches(files: list[FilePatch]) -> dict[str, str]:
+    # Same map the review used to stamp fingerprints, so both read the same line.
+    return {f.filename: f.patch or "" for f in files}
+
+
+def _location(finding: dict, patches: dict[str, str]) -> str | None:
+    context = fingerprint.context_line(patches.get(finding["file"]), finding["line"])
+    return fingerprint.location_key(finding["file"], finding.get("category"), context)
+
+
+def repeat_findings(document: dict, files: list[FilePatch], earlier_locations: dict[str, str | None], *,
+                    min_severity: str = "minor", posted: set[str] | None = None,
+                    posted_unverified: set[str] | None = None) -> list[dict]:
+    """New verified findings on the same location as an earlier inline comment."""
+    if not earlier_locations:
+        return []
+    patches = _patches(files)
+    return [f for f in _new_findings(document, min_severity, posted or set(), posted_unverified)
+            if not f.get("unverified") and _location(f, patches) in earlier_locations]
+
+
+def _earlier_locations(comments: list[dict]) -> dict[str, str | None]:
+    """Location key to the html_url of the oldest inline comment that carries it."""
+    earliest: dict[str, tuple[float, str | None]] = {}
+    for comment in comments:
+        key = inline_location(comment.get("body") or "")
+        if key is None:
+            continue
+        order = comment["id"] if isinstance(comment.get("id"), int) else float("inf")
+        if key not in earliest or order < earliest[key][0]:
+            earliest[key] = (order, comment.get("html_url"))
+    return {key: url for key, (_, url) in earliest.items()}
+
+
+def _repeat_section(repeats: list[tuple[dict, str | None]]) -> str:
+    lines = []
+    for finding, url in repeats:
+        title = finding["title"]
+        if len(title) > _MAX_REPEAT_TITLE:
+            title = title[:_MAX_REPEAT_TITLE] + "..."
+        link = (f"[earlier comment]({url})" if isinstance(url, str) and _EARLIER_URL.fullmatch(url)
+                else "earlier comment")
+        lines.append(f"- {code_span(str(finding['file']) + ':' + str(finding['line']))} "
+                     f"**{escape_inline(title)}** (_{finding['severity'].capitalize()}_), {link}")
+    return "\n\n".join(["### Raised earlier on this pull request",
+                         "These findings sit on the same code line as an earlier comment "
+                         "and were not posted again.",
+                         "\n".join(lines)])
+
+
 def _summary_findings(title: str, findings: list[dict], description: str = "") -> str:
     heading = [f"### {title}"] + ([description] if description else [])
     return "\n\n".join(heading + [
@@ -190,10 +305,15 @@ def render_review(
     min_severity: str = "minor", max_comments: int = 4,
     posted_fingerprints: set[str] | None = None, outside_only: bool = False,
     posted_unverified_fingerprints: set[str] | None = None,
+    repeat_key: str = "off", earlier_locations: dict[str, str | None] | None = None,
 ) -> dict:
     """Build the exact GitHub payload without environment reads or HTTP."""
     if min_severity not in _SEVERITIES or max_comments < 0:
         raise ValueError("Invalid publishing severity or comment limit")
+    if repeat_key not in _REPEAT_KEY_MODES:
+        raise ValueError("Invalid ARGUS_PUBLISH_REPEAT_KEY")
+    earlier = earlier_locations if repeat_key == "on" and earlier_locations else {}
+    patches = _patches(files)
     posted = posted_fingerprints or set()
     posted_unverified = posted_unverified_fingerprints or set()
     findings = document["findings"]
@@ -201,10 +321,14 @@ def render_review(
     below = sum(_below_threshold(f, min_severity)
                 for f in findings + document.get("unverified", []))
     lines = {f.filename: commentable_lines(f.patch) for f in files if f.status != "removed"}
-    outside, overflow, comments, unverified = [], [], [], []
+    outside, overflow, comments, unverified, repeats = [], [], [], [], []
     for finding in _new_findings(document, min_severity, posted, posted_unverified):
         if finding.get("unverified"):
             unverified.append(finding)
+            continue
+        location = _location(finding, patches)
+        if location in earlier:
+            repeats.append((finding, earlier[location]))
             continue
         start = finding["line"]
         end = finding.get("end_line") if finding.get("end_line") is not None else start
@@ -218,10 +342,14 @@ def render_review(
             overflow.append(finding)
         else:
             comment = {"path": finding["file"], "line": end, "side": "RIGHT",
-                       "body": render_comment(finding)}
+                       "body": render_comment(finding, location)}
             if end > start:
                 comment.update(start_line=start, start_side="RIGHT")
             comments.append(comment)
+    # Repeats past the list cap still need a body slot and a stored row: they take the
+    # comment-limit path, never an inline comment and never a bare count.
+    listed_repeats = repeats[:_MAX_REPEATS]
+    overflow.extend(finding for finding, _ in repeats[_MAX_REPEATS:])
     coverage = document.get("coverage") or {}
     lanes = [lane for lane in coverage.get("lanes", []) if lane.get("lane") == "llm"]
     reviewed = sum(lane.get("files_reviewed") or 0 for lane in lanes)
@@ -236,11 +364,19 @@ def render_review(
         "Tier counts: " + "; ".join(f"{tier}: {tiers[tier]}" for tier in
                                     ("deterministic", "consensus", "single_critic", "disputed")),
     ]
+    if risk := document.get("risk"):
+        line = risk["label"]
+        if risk["tier"] == "risky" and risk.get("reasons"):
+            line += " Reasons: " + "; ".join(_risk_reason(reason) for reason in risk["reasons"])
+        body.append(line)
     if outside:
         body.append(_summary_findings("Outside the diff", outside))
     if overflow:
         body.append(_summary_findings("Comment limit", overflow))
-    confirmed = ",".join(f["fingerprint"] for f in outside + overflow if f.get("fingerprint"))
+    if listed_repeats:
+        body.append(_repeat_section(listed_repeats))
+    confirmed = ",".join(f["fingerprint"] for f in outside + overflow + [f for f, _ in listed_repeats]
+                         if f.get("fingerprint"))
 
     def footer(count):
         disputed = ",".join(f["fingerprint"] for f in unverified[:count] if f.get("fingerprint"))
@@ -268,6 +404,13 @@ def render_review(
         body.append(section)
     body.extend(footer(listed))
     return {"commit_id": head_sha, "event": "COMMENT", "body": "\n\n".join(body), "comments": comments}
+
+
+def _risk_reason(reason: str) -> str:
+    match = re.fullmatch(r"tripwire path (.+) \((.*)\)", reason)
+    if match:
+        return f"tripwire path {code_span(match[1])} ({escape_inline(match[2])})"
+    return escape_inline(reason)
 
 
 def _list_all(http, url: str, headers: dict) -> list[dict]:
@@ -387,6 +530,7 @@ def publish_review(
         return PublishOutcome("skipped", reason="repo not allowlisted")
     payload = None
     already = 0
+    repeats = 0
     reason = None
     try:
         url = str(guard_url(f"{GITHUB_API}/repos/{repo}/pulls/{pr}"))
@@ -443,13 +587,25 @@ def publish_review(
                     bot_login=bot_login, posted_at=review.get("submitted_at"),
                 )
         options.update(posted_fingerprints=posted, posted_unverified_fingerprints=posted_unverified)
+        if options["repeat_key"] != "off":
+            options["earlier_locations"] = _earlier_locations(existing)
+            repeats = len(repeat_findings(
+                document, files, options["earlier_locations"], min_severity=options["min_severity"],
+                posted=posted, posted_unverified=posted_unverified))
+            if repeats:
+                log.info("review %s: %d finding(s) match an earlier inline comment by location key (%s)",
+                         review_id, repeats, "shadow, not withheld" if options["repeat_key"] == "shadow"
+                         else "withheld from inline and listed in the review body")
         payload = render_review(head_sha, review_id, document, files, **options)
         confirmed, unverified = summary_fingerprints(payload["body"])
         new_confirmed = confirmed - posted
         new_unverified = unverified - posted - posted_unverified
         if not (payload["comments"] or new_confirmed or new_unverified):
             if any(review_marker(review.get("body") or "") for review in reviews):
-                return PublishOutcome("skipped", already_posted=already, reason="nothing new", payload=payload)
+                return PublishOutcome("skipped", already_posted=already, reason="nothing new", payload=payload,
+                                      location_repeats=repeats)
+        if not enabled_for(repo):
+            return PublishOutcome("skipped", already_posted=already, reason="repository left the posting list", payload=payload)
         guard_url(f"{url}/reviews")
         response = transport.post(f"{url}/reviews", json=payload, headers=headers, timeout=15.0)
         observe_response(response, record_quota=False)
@@ -458,12 +614,15 @@ def publish_review(
                                     outside_only=True, **options)
             reason = "GitHub returned 422; moved inline comments to Outside the diff"
             log.info("review %s: %s", review_id, reason)
+            if not enabled_for(repo):
+                return PublishOutcome("skipped", already_posted=already, reason="repository left the posting list", payload=payload)
             guard_url(f"{url}/reviews")
             response = transport.post(f"{url}/reviews", json=payload, headers=headers, timeout=15.0)
             observe_response(response, record_quota=False)
         response.raise_for_status()
         return _posted_metadata(
-            PublishOutcome("posted", len(payload["comments"]), already, reason, payload, bot_login=bot_login),
+            PublishOutcome("posted", len(payload["comments"]), already, reason, payload, bot_login=bot_login,
+                           location_repeats=repeats),
             document, response.json(), transport, url, headers,
         )
     except Exception as error:  # noqa: BLE001 - posting must never fail a completed review

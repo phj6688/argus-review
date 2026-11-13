@@ -1,0 +1,34 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "cmd_title_argus-bot-dev",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "body": "/title Renamed by command"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/89/notes"
+  },
+  "response": {
+    "body": {
+      "commands_changes": {
+        "title": "Renamed by command"
+      },
+      "summary": [
+        "Changed the title to \"Renamed by command\"."
+      ]
+    },
+    "headers": {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+      "vary": "Origin"
+    },
+    "status": 202
+  },
+  "trimmed": {}
+}

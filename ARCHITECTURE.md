@@ -28,7 +28,7 @@ GitHub PR (or raw diff)
     skeptical pass tries to refute each finding; unconfirmed ones are dropped
         |
         v
-[4] Lanes         jarvis/ (ruff_lane, config_lane, probes, judges)
+[4] Lanes         the argus package (ruff_lane, config_lane, probes, judges)
     deterministic checks, optional second-opinion judge
         |
         v
@@ -43,7 +43,7 @@ GitHub PR (or raw diff)
     one GitHub review, replies to authors, outcome tracking
 ```
 
-**Context.** Files up to 600 lines appear whole. Larger files appear as windows around the changes. Files without a patch appear as hunks. The PR title, description and commit subjects come first. House rules come from the repository's `CLAUDE.md`, capped at 6000 characters.
+**Context.** Patch hunks are reserved in rank order first, skipping files whose hunks do not fit. Remaining budget upgrades accepted files to windows around changes, then whole files up to 600 lines, in rank order. Files without a patch are named with their status, or counted if the names do not fit. The PR title, description and commit subjects come first. House rules come from the repository's `CLAUDE.md`, capped at 6000 characters.
 
 **Review.** The client speaks to six providers (`gateway`, `anthropic`, `openrouter`, `openai`, `claude-cli`, `codex-cli`). `providers.py` chooses the provider and the default model. `cli_providers.py` runs the two subscription CLIs in a sandbox. Every call asks for one structured result through one forced tool call.
 

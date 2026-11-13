@@ -1,5 +1,7 @@
 """MCP surface over the Argus API, so coding agents call reviews as tools.
 
+The MCP review_diff tool stays GitHub-only.
+
 Thin by design: every tool is one HTTP call to the running argus-api (the
 container owns the DB and the engine); this process holds no state. Runs on
 stdio for the local Claude Code registration:
@@ -21,6 +23,8 @@ from typing import Any
 import httpx
 
 from mcp.server.fastmcp import FastMCP
+
+from .forge.keys import is_gitlab_key
 
 API_BASE_ENV = "ARGUS_API"
 DEFAULT_API_BASE = "http://127.0.0.1:8350"
@@ -68,6 +72,8 @@ def review_diff(diff: str, repo: str = "", mode: str = "full",
     new/unchanged and reports resolved ones - the "did my fix clear finding X"
     answer.
     """
+    if is_gitlab_key(repo):
+        raise ValueError("review_diff supports GitHub repositories only")
     body: dict = {"diff": diff, "mode": mode}
     if repo:
         body["repo"] = repo
@@ -93,7 +99,8 @@ def get_verdict(review_id: int) -> str:
     reviews return the verdict document: decision (approve/comment/
     changes_requested), findings with fingerprints, severities, confidence,
     lanes and evidence tiers (deterministic > consensus > single_critic >
-    disputed), plus baseline resolution when a baseline was given.
+    disputed), plus baseline resolution when a baseline was given. The risk
+    field is a path and size rule, not a correctness verdict.
     """
     return json.dumps(_api(f"/reviews/{review_id}/verdict"))
 

@@ -15,6 +15,7 @@ import os
 import re
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,14 +25,22 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
-from .. import acceptance, diff, doctor, github, providers, publish, rules, verdict
+from .. import (
+    acceptance, diff, doctor, github, providers, publish, publish_access, risk_tier, rules, verdict,
+)
 from ..client import DEFAULT_MODEL, ping
 from ..errors import HeadMoved
-from ..diff import FilePatch, parse_unified_diff
+from ..diff import FileList, FilePatch, parse_unified_diff
 from ..review import (
     DEFAULT_BUG_CAP, ENV_FALLBACK_MODEL, ReviewResult, fallback_eligible, fallback_for, run_diff_review,
     run_review,
 )
+from ..forge import forge_for
+from ..forge.keys import is_gitlab_key, parse_entry
+from ..forge.skips import gitlab_configured
+from ..gitlab import config as gitlab_config
+from ..gitlab import entry as gitlab_entry, status as gitlab_status
+from ..redact import redact
 from ..repo_policy import RepoDenied, validate_repo, watch_owners
 from . import benchmark, db, metrics, watch_config, watch_metrics, watcher
 
@@ -90,6 +99,18 @@ def configure_logging():
     logger.propagate = False
 
 
+def _log_gitlab_state() -> None:
+    try:
+        configured = gitlab_config.base_url()
+    except gitlab_config.GitLabConfigError:
+        log.warning("GitLab disabled: ARGUS_GITLAB_URL is invalid")
+    else:
+        if configured is None:
+            log.info("GitLab disabled: ARGUS_GITLAB_URL not set")
+        else:
+            log.info("GitLab enabled: forge adapter active")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging()
@@ -116,6 +137,7 @@ async def lifespan(_app: FastAPI):
             "startup: reclaimed %d orphaned running review(s) to interrupted: %s",
             len(reclaimed), reclaimed,
         )
+    _log_gitlab_state()
     watch_task: asyncio.Task | None = None
     if watcher.is_enabled():
         watch_task = asyncio.create_task(watcher.run_forever())
@@ -128,6 +150,7 @@ async def lifespan(_app: FastAPI):
             watch_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await watch_task
+        github.close_client()
 
 
 app = FastAPI(title="Argus", version="0.1.0", lifespan=lifespan,
@@ -166,10 +189,23 @@ def _validated_repo(value, *, extra_deny=None):
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
+def _validated_review_repo(value):
+    if is_gitlab_key(value):
+        gitlab_entry.check_repo_syntax(value)
+        return value
+    return _validated_repo(value)
+
+
+def _validated_diff_repo(value):
+    if value is not None and is_gitlab_key(value):
+        raise ValueError("review-diff supports GitHub repositories only")
+    return _validated_repo(value)
+
+
 class ReviewRequest(BaseModel):
     repo: str = Field(min_length=1, description="owner/name, e.g. example/app")
     pr: int = Field(ge=1)
-    _repo_policy = field_validator("repo")(_validated_repo)
+    _repo_policy = field_validator("repo")(_validated_review_repo)
 
 
 class RepoWatch(BaseModel):
@@ -190,6 +226,9 @@ class ConfigUpdate(BaseModel):
     def valid_deny(cls, values):
         if values is not None:
             for value in values:
+                if ":" in value:
+                    parse_entry(value)
+                    continue
                 try:
                     validate_repo(value if "/" in value else f"{value}/repo", [])
                 except RepoDenied:
@@ -204,6 +243,13 @@ class ConfigUpdate(BaseModel):
 class ReviewCreated(BaseModel):
     id: int
     status: str
+
+
+_MAX_GRANTS_PER_REQUEST = 10
+
+
+class PublishReposUpdate(BaseModel):
+    repos: list[str] = Field(max_length=500)
 
 
 class MarkRequest(BaseModel):
@@ -278,8 +324,17 @@ def run_one_review(
 
 
 def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: int) -> None:
-    if pr <= 0 or not publish.enabled_for(repo):
+    if pr <= 0:
         return
+    if is_gitlab_key(repo):
+        try:
+            if gitlab_config.publish_mode() == "0":
+                return
+        except gitlab_config.GitLabConfigError:
+            return
+    elif not publish.enabled_for(repo):
+        return
+    prior = None
     try:
         review = db.get_review(path, review_id)
         head = (review or {}).get("head_sha") or ""
@@ -287,13 +342,27 @@ def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: i
             log.info("review %s: publishing skipped for %s#%s: %s head SHA",
                      review_id, repo, pr, "invalid" if head else "missing")
             return
-        files = diff.fetch_pr_files(repo, pr)
+        if is_gitlab_key(repo):
+            prior = {"status": review.get("publish_status"), "reason": review.get("publish_error")}
+        forge = forge_for(repo)
+        files = forge.change_files(repo, pr)
         document = verdict.document(review, db.get_findings(path, review_id),
                                     unverified=db.get_unverified_findings(path, review_id))
-        outcome = publish.publish_review(repo, pr, head, review_id, document, files)
+        if is_gitlab_key(repo):
+            outcome = forge.publish(repo, pr, head, review_id, document, files,
+                                    prior=prior)
+        else:
+            outcome = forge.publish(repo, pr, head, review_id, document, files)
     except Exception as error:  # noqa: BLE001 - publishing cannot invalidate a saved review
         outcome = publish.error_outcome(error)
     try:
+        if (prior and prior["status"] == "error" and prior["reason"] == "partial_post"
+                and outcome.status != "posted"
+                and not (outcome.status == "error" and outcome.reason == "partial_post")):
+            # An attempt without writes must not erase the missing summary obligation.
+            log.info("review %s: kept partial GitLab publish record after %s: %s",
+                     review_id, redact(outcome.status), redact(outcome.reason))
+            return
         db.save_publish_outcome(path, review_id, outcome)
     except Exception as error:  # noqa: BLE001 - storage failure must not escape either
         publish.error_outcome(error)
@@ -360,8 +429,18 @@ def require_provider(model: str, *, allow_fallback: bool = False) -> None:
 
 @app.post("/reviews", response_model=ReviewCreated, status_code=201)
 def create_review(request: ReviewRequest, background: BackgroundTasks) -> ReviewCreated:
-    from ..jarvis import live
-
+    repo = request.repo
+    if is_gitlab_key(repo):
+        try:
+            repo = gitlab_entry.canonical_repo(repo)
+            gitlab_entry.check_change(repo, request.pr)
+        except gitlab_entry.EntryRefused as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
+        except gitlab_entry.EntryDenied:
+            raise HTTPException(status_code=403, detail=f"repository denied: {repo}") from None
+        except gitlab_entry.EntryUnavailable as error:
+            raise HTTPException(status_code=502,
+                                detail=f"gitlab lookup failed: {error.classification}") from None
     path = db.db_path()
     stored = db.get_config(path)
     model = stored["model"] if stored else DEFAULT_MODEL
@@ -369,17 +448,17 @@ def create_review(request: ReviewRequest, background: BackgroundTasks) -> Review
     bug_cap = stored["bug_cap"] if stored else DEFAULT_BUG_CAP
     head_sha = None
     try:
-        head_sha = live._pr_head_sha(request.repo, request.pr)
+        head_sha = forge_for(repo).head_sha(repo, request.pr)
     except Exception as error:
         log.info("PR head lookup failed for %s#%s (%s)",
-                 request.repo, request.pr, type(error).__name__)
-    review_id = db.create_review(path, request.repo, request.pr, model, head_sha=head_sha)
+                 repo, request.pr, type(error).__name__)
+    review_id = db.create_review(path, repo, request.pr, model, head_sha=head_sha)
     fb_runner, fb_model = _fallback_for(
         model, lambda m: lambda: run_review(
-            request.repo, request.pr, m, bug_cap, expected_head_sha=head_sha))
+            repo, request.pr, m, bug_cap, expected_head_sha=head_sha))
     background.add_task(
-        run_one_review, path, review_id, request.repo, request.pr,
-        lambda: run_review(request.repo, request.pr, model, bug_cap, expected_head_sha=head_sha),
+        run_one_review, path, review_id, repo, request.pr,
+        lambda: run_review(repo, request.pr, model, bug_cap, expected_head_sha=head_sha),
         fallback_runner=fb_runner, primary_model=model, fallback_model=fb_model,
     )
     return ReviewCreated(id=review_id, status=db.STATUS_RUNNING)
@@ -396,7 +475,7 @@ class DiffReviewRequest(BaseModel):
     """
 
     repo: str | None = Field(default=None, description="owner/name")
-    _repo_policy = field_validator("repo")(_validated_repo)
+    _repo_policy = field_validator("repo")(_validated_diff_repo)
     diff: str | None = Field(default=None, max_length=2_000_000)
     base_sha: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{7,40}$")
     head_sha: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{7,40}$")
@@ -420,7 +499,10 @@ def _cap_files(files: list) -> list:
     return files
 
 
-def _files_for_diff_request(request: DiffReviewRequest) -> list:
+GITHUB_COMPARE_FILES_CAP = 300
+
+
+def _files_for_diff_request(request: DiffReviewRequest) -> FileList:
     if request.diff:
         files = parse_unified_diff(request.diff)
         if not files:
@@ -432,12 +514,18 @@ def _files_for_diff_request(request: DiffReviewRequest) -> list:
         if response.status_code != 200:
             raise HTTPException(status_code=422,
                                 detail=f"compare fetch failed ({response.status_code})")
-        files = [
-            FilePatch(filename=f["filename"], status=f["status"], patch=f.get("patch"))
-            for f in response.json().get("files", [])
-            if diff._safe_path(f["filename"])
-            and (not f.get("previous_filename") or diff._safe_path(f["previous_filename"]))
-        ]
+        listed = response.json().get("files", [])
+        files = FileList(unseen=len(listed) >= GITHUB_COMPARE_FILES_CAP)
+        for item in listed:
+            previous = item.get("previous_filename")
+            if not diff._safe_path(item["filename"]) or (previous and not diff._safe_path(previous)):
+                files.unseen = True
+                continue
+            files.append(FilePatch(
+                filename=item["filename"], status=item["status"], patch=item.get("patch"),
+                additions=diff._count_or_none(item.get("additions")),
+                deletions=diff._count_or_none(item.get("deletions")), previous_filename=previous,
+            ))
         if not files:
             raise HTTPException(status_code=422, detail="diff parsed to zero files")
         return _cap_files(files)
@@ -505,18 +593,20 @@ def get_verdict(review_id: int) -> dict:
 def list_reviews() -> dict:
     """Overview/reviews-screen feed: a LiveReview (the one running row, if any)
     plus the done/error rows as ReviewSummary objects. Matches the
-    {live, reviews} shape web/lib/api.ts getReviews expects (web/lib/types.ts)."""
+    {live, reviews} shape web/lib/api.ts getReviews expects (web/lib/types.ts).
+    Each summary includes the compact path and size risk tier when recorded."""
     path = db.db_path()
     rows = db.list_reviews(path)
     counts_by_review = db.severity_counts_by_review(path)
+    labels = _review_labels(rows, path)
     now = datetime.now(timezone.utc)
 
     live = next(
-        (_to_live_review(r, now) for r in rows if r["status"] == db.STATUS_RUNNING),
+        (_to_live_review(r, now, labels) for r in rows if r["status"] == db.STATUS_RUNNING),
         None,
     )
     summaries = [
-        _to_review_summary(r, counts_by_review.get(r["id"], {}), now)
+        _to_review_summary(r, counts_by_review.get(r["id"], {}), now, labels)
         for r in rows
         if r["status"] != db.STATUS_RUNNING
     ]
@@ -529,14 +619,15 @@ def get_review(review_id: int) -> dict:
     each a VerifiedFinding. branch, author and the diff stats appear when the run
     recorded them. model_used, fallback_from and fallback_reason say which model
     answered, and error carries the failure text of an errored run. The comment
-    thread is not mirrored; see web/lib/types.ts."""
+    thread is not mirrored; see web/lib/types.ts.
+    Includes the full path and size risk tier when recorded."""
     path = db.db_path()
     review = db.get_review(path, review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="review not found")
     findings = db.get_findings(path, review_id)
     marks = db.latest_marks_for_review(path, review_id)
-    return _to_review_detail(review, findings, marks)
+    return _to_review_detail(review, findings, marks, _review_labels([review], path))
 
 
 @app.post("/findings/{finding_id}/mark", status_code=201)
@@ -613,7 +704,39 @@ def _run_truth(row: dict) -> dict:
     return {key: facts[key] for key in ("model_used", "fallback_from", "fallback_reason")}
 
 
-def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
+# publish_status written by db.save_publish_outcome -> the action the console shows.
+# NULL (publishing never ran for the row) and "skipped" (off, repo not on the list,
+# nothing new) both mean nothing reached GitHub.
+_PUBLISH_ACTIONS = {"posted": "posted", "dry_run": "dry_run", "error": "post_failed"}
+
+
+def _review_action(row: dict) -> str | None:
+    """What happened on GitHub for this review, or None when the run itself failed."""
+    if row["status"] == db.STATUS_ERROR:
+        return None
+    return _PUBLISH_ACTIONS.get(row.get("publish_status"), "not_posted")
+
+
+def _review_labels(rows: list[dict], path: str | None = None) -> dict[str, str]:
+    keys = {row["repo"] for row in rows if is_gitlab_key(row["repo"])}
+    labels = {}
+    if keys:
+        with contextlib.closing(db.connect(path)) as conn:
+            for key in keys:
+                project = db.forge_project(conn, key)
+                if project is not None:
+                    labels[key] = project["path_with_namespace"]
+    return labels
+
+
+def _review_title(row: dict, labels: dict[str, str] | None = None) -> str:
+    if labels is None:
+        labels = _review_labels([row])
+    return f"{labels.get(row['repo'], row['repo'])} #{row['pr']}"
+
+
+def _to_review_summary(row: dict, counts: dict, now: datetime,
+                       labels: dict[str, str] | None = None) -> dict:
     """reviews row -> ReviewSummary. counts is the severity tally for this row."""
     zero = {s: 0 for s in metrics.SEVERITIES}
     return {
@@ -621,24 +744,25 @@ def _to_review_summary(row: dict, counts: dict, now: datetime) -> dict:
         "repo": row["repo"],
         "pr": row["pr"],
         # The engine has no PR title; fall back to a repo#pr label.
-        "title": f"{row['repo']} #{row['pr']}",
+        "title": _review_title(row, labels),
         "model": row["model"],
         "status": row["status"],
+        "risk": risk_tier.from_row(row, compact=True),
         **_run_truth(row),
         "counts": {**zero, **counts},
-        # No GitHub acted/merged signal is wired, so every row reads as pending.
-        "action": "pending",
+        "action": _review_action(row),
+        "posted_comments": row.get("published_comments") or 0,
         "age": _relative_age(row.get("created_at"), now),
     }
 
 
-def _to_live_review(row: dict, now: datetime) -> dict:
+def _to_live_review(row: dict, now: datetime, labels: dict[str, str] | None = None) -> dict:
     """A running reviews row -> LiveReview (the overview/reviews live strip)."""
     return {
         "repo": row["repo"],
         "pr": row["pr"],
         # No PR title persisted; show the repo#pr the run is on.
-        "title": f"{row['repo']} #{row['pr']}",
+        "title": _review_title(row, labels),
         "model": row["model"],
         # The engine does not emit a per-stage signal mid-run.
         "stage": "deep review",
@@ -647,7 +771,8 @@ def _to_live_review(row: dict, now: datetime) -> dict:
 
 
 def _to_review_detail(
-    review: dict, findings: list[dict], marks: dict[int, dict] | None = None
+    review: dict, findings: list[dict], marks: dict[int, dict] | None = None,
+    labels: dict[str, str] | None = None,
 ) -> dict:
     """reviews row + its findings -> ReviewDetail (bugs/nits split on is_bug)."""
     marks = marks or {}
@@ -665,7 +790,7 @@ def _to_review_detail(
         "id": str(review["id"]),
         "repo": review["repo"],
         "pr": review["pr"],
-        "title": f"{review['repo']} #{review['pr']}",
+        "title": _review_title(review, labels),
         **header,
         "model": review["model"],
         "model_used": facts["model_used"],
@@ -677,6 +802,7 @@ def _to_review_detail(
         # decision vocabulary, or every value added to that vocabulary reads as
         # unfinished to any consumer that has not been taught the new value.
         "status": review["status"],
+        "risk": risk_tier.from_row(review),
         "time": f"{_relative_age(review.get('created_at'), now)} ago",
         "decision": _decision_for(review, findings),
         "bugs": bugs,
@@ -879,6 +1005,22 @@ def _config_payload(
     }
 
 
+def _publish_payload(access_overrides: dict[str, dict] | None = None) -> dict:
+    repos = sorted(publish.repo_allowlist())
+    access = dict(access_overrides or {})
+    unchecked = [name for name in repos if name not in access]
+    if unchecked:
+        with ThreadPoolExecutor(max_workers=min(8, len(unchecked))) as pool:
+            access.update(zip(unchecked, pool.map(publish_access.check_access, unchecked)))
+    return {
+        "mode": publish.mode(),
+        "source": publish.repo_allowlist_source(),
+        "botLogin": os.environ.get("ARGUS_PUBLISH_BOT_LOGIN", "").strip() or None,
+        "tokenConfigured": bool(os.environ.get("ARGUS_PUBLISH_TOKEN", "").strip()),
+        "repos": [{"name": name, "access": access[name]} for name in repos],
+    }
+
+
 @app.get("/config")
 def get_config() -> dict:
     """Return stored operator config when set, else the engine defaults
@@ -890,7 +1032,39 @@ def get_config() -> dict:
     return {**_config_payload(
         repos=watch_config.public_repos(stored), model=stored["model"],
         bug_cap=stored["bug_cap"], min_confidence=stored["min_confidence"],
-    ), **watch_config.policy_payload(stored)}
+    ), **watch_config.policy_payload(stored), "publish": _publish_payload()}
+
+
+@app.put("/config/publish-repos")
+def put_publish_repos(update: PublishReposUpdate) -> dict:
+    """Replace the set of repositories Argus may post reviews to."""
+    path = db.db_path()
+    stored = db.get_config(path)
+    deny = stored.get("deny", []) if stored else []
+    repos = list(dict.fromkeys(name.strip().casefold() for name in update.repos))
+    for name in repos:
+        try:
+            validate_repo(name, deny)
+        except RepoDenied:
+            raise HTTPException(status_code=422, detail=f"repository denied: {name}") from None
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"invalid repository name: {name}") from None
+    old = publish.repo_allowlist()
+    source = publish.repo_allowlist_source()
+    if stored is None:
+        db.save_config(path, repos=[], model=DEFAULT_MODEL, bug_cap=DEFAULT_BUG_CAP,
+                       min_confidence=MIN_CONFIDENCE)
+    db.set_publish_repos(path, repos)
+    log.info("publish repos changed: %s -> %s (source %s->dashboard)", sorted(old), repos, source)
+    added = [repo for repo in repos if repo not in old]
+    # Bounded and parallel: each grant is up to four GitHub calls, and a request can carry
+    # hundreds of names. Beyond the cap the repo is saved and only checked (cached, no invite).
+    granted: dict[str, dict] = {}
+    if added:
+        with ThreadPoolExecutor(max_workers=min(8, len(added))) as pool:
+            granted.update(zip(added[:_MAX_GRANTS_PER_REQUEST],
+                               pool.map(publish_access.ensure_access, added[:_MAX_GRANTS_PER_REQUEST])))
+    return _publish_payload(granted)
 
 
 @app.put("/config")
@@ -937,8 +1111,10 @@ def get_integrations() -> dict:
         "mode": publish.mode(),
         "repoCount": len(publish.repo_allowlist()),
         "tokenConfigured": bool(os.environ.get("ARGUS_PUBLISH_TOKEN", "").strip()),
+        "source": publish.repo_allowlist_source(),
+        "autoInvite": publish_access.auto_invite_enabled(),
     }
-    return {
+    result = {
         "health": [
             {"label": "GitHub token",
              "status": "configured" if github_token else "missing",
@@ -974,6 +1150,23 @@ def get_integrations() -> dict:
             "resources": [],
         },
     }
+    if gitlab_configured():
+        result["gitlab"] = gitlab_status.integration_status()
+        if (unknown := result["gitlab"]["trustUnknown"]) > 0:
+            result["health"].append({
+                "label": "GitLab trust", "status": f"{unknown} merge requests skipped, membership unknown",
+                "state": "warn",
+            })
+        if result["gitlab"]["watch"]["lastError"]:
+            result["health"].append({
+                "label": "GitLab watcher", "status": "last poll failed", "state": "warn",
+            })
+        if (refused := result["gitlab"]["replyLoop"]["resolveForbidden"]) > 0:
+            result["health"].append({
+                "label": "GitLab replies", "status": f"{refused} resolves refused, raise the bot role to Developer",
+                "state": "warn",
+            })
+    return result
 
 
 # The server runs inside the API container, so the client starts it through

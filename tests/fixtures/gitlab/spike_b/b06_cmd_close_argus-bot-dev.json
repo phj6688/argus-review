@@ -1,0 +1,34 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "cmd_close_argus-bot-dev",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "body": "/close"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/79/notes"
+  },
+  "response": {
+    "body": {
+      "commands_changes": {
+        "state_event": "close"
+      },
+      "summary": [
+        "Closed this merge request."
+      ]
+    },
+    "headers": {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+      "vary": "Origin"
+    },
+    "status": 202
+  },
+  "trimmed": {}
+}

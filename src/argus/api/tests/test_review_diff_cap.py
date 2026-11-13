@@ -24,7 +24,7 @@ def _diff(n):
 
 def test_oversize_file_count_rejected(app_db, monkeypatch):
     # scan lane must never run for an over-cap request
-    import argus.jarvis.live as live
+    import argus.live as live
     monkeypatch.setattr(live, "probe_findings_for_files",
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("scanned")))
     r = app_db.post("/review-diff", json={"diff": _diff(main.MAX_DIFF_FILES + 1), "mode": "fast"})

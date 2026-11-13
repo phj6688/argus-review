@@ -3,6 +3,7 @@
 import base64
 import binascii
 import json
+import logging
 import os
 import re
 import time
@@ -12,7 +13,15 @@ from itertools import chain
 import httpx
 
 from . import client, github, publish
+from .forge import forge_for
+from .forge.errors import ForgeRateLimited
+from .forge.skips import count_skip, is_gitlab_key
+from .forge.trust_sql import is_trusted
+from .gitlab import config as gitlab_config, threads as gitlab_threads
+from .gitlab.body import parse_reply_marker, reply_marker
 from .repo_policy import env_int, validate_repo
+
+log = logging.getLogger("argus.replies")
 
 MARKER = re.compile(r"<!--\s*argus:reply=(?P<kind>[a-z]+)(?: evidence=(?P<evidence>[\w-]+))?\s*-->\s*\Z")
 _RESOLVE = """mutation($id: ID!) {
@@ -28,7 +37,21 @@ _CHECK = client.ToolSpec("recheck_finding", {
 }, 1024)
 
 
+def gitlab_enabled(repo) -> bool:
+    try:
+        if not (gitlab_config.reply_loop() and os.environ.get("ARGUS_REPLY_LOOP", "1") != "0"
+                and gitlab_config.effective_publish_mode() == "1"
+                and repo in gitlab_config.publish_projects()):
+            return False
+        validate_repo(repo, allow_gitlab=True)
+        return True
+    except ValueError:
+        return False
+
+
 def enabled_for(repo):
+    if is_gitlab_key(repo):
+        return gitlab_enabled(repo)
     return (os.environ.get("ARGUS_PUBLISH") == "1" and publish.enabled_for(repo)
             and os.environ.get("ARGUS_REPLY_LOOP", "1") != "0")
 
@@ -61,7 +84,11 @@ def _write(repo, url, payload):
     return response.json()
 
 
-def reply(repo, pr, comment_id, body):
+def reply(repo, pr, comment_id, body, *, finding=None):
+    if is_gitlab_key(repo):
+        if not gitlab_enabled(repo):
+            return None
+        return gitlab_threads.reply(finding["gitlab_change"], finding["gitlab_thread"], body).id
     marker = MARKER.search(body)
     prose = body[:marker.start()] if marker else body
     body = publish.escape_block(prose) + "\n\n" + (
@@ -71,7 +98,11 @@ def reply(repo, pr, comment_id, body):
     return result["id"] if result is not None else None
 
 
-def resolve_thread(repo, thread_id):
+def resolve_thread(repo, thread_id, *, finding=None):
+    if is_gitlab_key(repo):
+        if not gitlab_enabled(repo):
+            return None
+        return gitlab_threads.resolve(finding["gitlab_change"], finding["gitlab_thread"]) == "resolved"
     if not enabled_for(repo):
         return None
     variables = {"id": thread_id}
@@ -86,6 +117,8 @@ def resolve_thread(repo, thread_id):
 
 
 def _read_file(repo, path, head):
+    if is_gitlab_key(repo):
+        return forge_for(repo).read_file(repo, path, head)
     response = github.get(f"/repos/{repo}/contents/{github.quote_file_path(path)}", {"ref": head})
     if response.status_code == 404:
         return None
@@ -298,9 +331,10 @@ def _veto(finding, comparison, deleted, lines, old_lines, span):
 
 
 def recheck(repo, finding, head_sha):
-    validate_repo(repo)
+    validate_repo(repo, allow_gitlab=True)
     comparison = finding.get("comparison") or {}
-    if comparison.get("status") != "ahead" or head_sha == finding.get("head_sha"):
+    if (comparison.get("status") != "ahead" or head_sha == finding.get("head_sha")
+            or comparison.get("complete") is False):
         return {"verdict": "unsure", "quote": ""}
     # Omitted files can hide a moved defect even when the finding file is listed.
     if len(comparison.get("files", [])) >= 300:
@@ -408,17 +442,49 @@ def recover(conn, finding, comment, marker, now):
     _answered(conn, finding["id"], marker["evidence"], head)
 
 
-def _write_slot(run):
-    if run["writes_attempted"] >= env_int("ARGUS_REPLY_MAX_WRITES_PER_RUN", 20, 0):
+def _write_slot(run, repo=""):
+    key = "gitlab_writes_attempted" if is_gitlab_key(repo) else "writes_attempted"
+    if run.get(key, 0) >= env_int("ARGUS_REPLY_MAX_WRITES_PER_RUN", 20, 0):
         return False
-    run["writes_attempted"] += 1
+    run[key] = run.get(key, 0) + 1
     return True
+
+
+def _gitlab_count(run, reason):
+    state = run.setdefault("gitlab_reply", {"reasons": [], "forbidden_projects": []})
+    state[reason] = state.get(reason, 0) + 1
+    state["reasons"].append(reason)
+
+
+def _gitlab_recover(conn, finding, head, now):
+    thread = finding.get("gitlab_thread")
+    for note in thread.notes if thread else ():
+        marker = parse_reply_marker(note.body)
+        if (marker and gitlab_threads.is_bot_note(note, finding["repo"], conn=conn)
+                and not _action(conn, finding["id"], "reply", marker[1])):
+            with conn:
+                recover(conn, finding, {"id": note.id, "commit_id": head},
+                        {"kind": marker[0], "evidence": marker[1]}, now)
 
 
 def _respond(conn, finding, kind, evidence, body, resolve, now, run, head, verdict=None):
     fid, repo, thread = finding["id"], finding["repo"], finding["gh_thread_id"]
+    gitlab = is_gitlab_key(repo)
+    kwargs = {"finding": finding} if gitlab else {}
+    if gitlab:
+        _gitlab_recover(conn, finding, head, now)
+        # A requested fix answer already covers the automatic addressed notification.
+        if kind == "addressed" and conn.execute(
+            "SELECT 1 FROM bot_actions WHERE finding_id=? AND kind='reply' AND value='recheck' "
+            "AND head_sha=? AND verdict='fixed'", (fid, head),
+        ).fetchone():
+            return True
+        current_head = finding.get("gitlab_head", head)
+        if resolve and current_head != finding["head_sha"] and finding.get("comparison") is None:
+            finding["comparison"] = forge_for(repo).compare(repo, finding["head_sha"], current_head)
+        resolve = resolve and (finding.get("comparison") or {}).get("complete") is not False
     if not _action(conn, fid, "reply", evidence):
-        if not _write_slot(run):
+        if not _write_slot(run, repo):
             return False
         with conn:
             conn.execute(
@@ -427,20 +493,33 @@ def _respond(conn, finding, kind, evidence, body, resolve, now, run, head, verdi
                 "kind=excluded.kind,head_sha=excluded.head_sha,verdict=excluded.verdict",
                 (fid, str(evidence), kind, head, verdict),
             )
-        comment = reply(repo, finding["pr"], finding["gh_comment_id"],
-                        f"{body}\n\n<!-- argus:reply={kind} evidence={evidence} -->")
+        marker = reply_marker(kind, str(evidence)) if gitlab else f"<!-- argus:reply={kind} evidence={evidence} -->"
+        comment = reply(repo, finding["pr"], finding["gh_comment_id"], f"{body}\n\n{marker}", **kwargs)
         if comment is None:
             return False
         _record(conn, finding, "reply", kind, evidence, now, run, comment=comment, head=head, verdict=verdict)
     if resolve and not _action(conn, fid, "resolve", thread):
-        if not _write_slot(run):
+        forbidden = run.setdefault("gitlab_reply", {"reasons": [], "forbidden_projects": []}) if gitlab else None
+        if gitlab and repo in forbidden["forbidden_projects"]:
+            _gitlab_count(run, "resolve_forbidden")
+        elif not _write_slot(run, repo):
             return False
-        if resolve_thread(repo, thread):
+        elif (resolved := resolve_thread(repo, thread, **kwargs)):
             _record(conn, finding, "resolve", "true", thread, now, run, head=head)
+            if gitlab and gitlab_threads.is_outdated(finding["gitlab_thread"], head):
+                _gitlab_count(run, "resolved_outdated")
+        elif gitlab and resolved is False:
+            forbidden["forbidden_projects"].append(repo)
+            _gitlab_count(run, "resolve_forbidden")
     return True
 
 
 def _checked(conn, finding, head, now, run, *, requested=False):
+    if is_gitlab_key(finding["repo"]):
+        if finding.get("comparison") is None and head != finding["head_sha"]:
+            finding["comparison"] = forge_for(finding["repo"]).compare(finding["repo"], finding["head_sha"], head)
+        if (finding.get("comparison") or {}).get("complete") is False:
+            return {"verdict": "unsure", "quote": "", "head_sha": head}
     previous = _action(conn, finding["id"], "recheck", head)
     if previous:
         # The reviewed code cannot be its own fix, even after a force-push back.
@@ -453,14 +532,14 @@ def _checked(conn, finding, head, now, run, *, requested=False):
     ).fetchone()
     if fixed:
         return {"verdict": fixed["value"], "quote": fixed["quote"] or "", "head_sha": fixed["evidence_id"]}
-    if run["rechecks_attempted"] >= env_int("ARGUS_RECHECK_MAX_PER_RUN", 10, 0):
+    counter = "gitlab_rechecks_attempted" if is_gitlab_key(finding["repo"]) else "rechecks_attempted"
+    if run.get(counter, 0) >= env_int("ARGUS_RECHECK_MAX_PER_RUN", 10, 0):
         return None
-    run["rechecks_attempted"] += 1
+    run[counter] = run.get(counter, 0) + 1
     # A prior collection may have recorded the region before a check could run.
     if finding.get("comparison") is None and head != finding["head_sha"]:
-        response = github.get(f"/repos/{finding['repo']}/compare/{finding['head_sha']}...{head}")
-        response.raise_for_status()
-        finding["comparison"] = response.json()
+        finding["comparison"] = forge_for(finding["repo"]).compare(
+            finding["repo"], finding["head_sha"], head)
     result = ({"verdict": "unsure", "quote": ""} if head == finding["head_sha"] else
               recheck(finding["repo"], finding, head))
     _record(conn, finding, "recheck", result["verdict"], head, now, run, quote=result["quote"], head=head)
@@ -489,8 +568,12 @@ def _answered(conn, fid, evidence, head):
 
 
 def trusted(reply, finding):
+    if isinstance(finding, dict) and is_gitlab_key(finding.get("repo", "")):
+        return is_trusted(finding["repo"], reply["author_trusted"] if "author_trusted" in reply.keys() else None, None)
     return ("author_association" in reply.keys()
-            and reply["author_association"] in {"OWNER", "MEMBER", "COLLABORATOR"})
+            and reply["author_association"] in {"OWNER", "MEMBER", "COLLABORATOR"}) or (
+        not finding.get("repo") and "author_association" in reply.keys() and reply["author_association"] is None
+        and "author_trusted" in reply.keys() and reply["author_trusted"] == 1)
 
 
 def _unchanged(finding, head):
@@ -498,14 +581,14 @@ def _unchanged(finding, head):
         return True
     # Cached verdicts survive runs, but their comparison bodies do not.
     if finding.get("comparison") is None:
-        response = github.get(f"/repos/{finding['repo']}/compare/{finding['head_sha']}...{head}")
-        response.raise_for_status()
-        finding["comparison"] = response.json()
+        finding["comparison"] = forge_for(finding["repo"]).compare(
+            finding["repo"], finding["head_sha"], head)
     comparison = finding.get("comparison") or {}
     if comparison.get("status") == "identical":
         return True
     # GitHub caps comparisons at 300 files, so absence can only prove no change below that cap.
-    return (comparison.get("status") == "ahead" and "files" in comparison
+    return (comparison.get("status") == "ahead" and comparison.get("complete") is not False
+            and "files" in comparison
             and len(comparison["files"]) < 300 and not any(
         finding["path"] in {file.get("filename"), file.get("previous_filename")}
         for file in comparison.get("files", [])
@@ -520,7 +603,7 @@ def _finding_loop(conn, finding, head, identities, now, run):
             or not finding.get("gh_thread_id") or finding.get("thread_resolved") is None):
         return
     outcomes = conn.execute(
-        "SELECT o.*,t.body,t.author_association,t.author_login,t.answered_head FROM finding_outcomes o "
+        "SELECT o.*,t.body,t.author_association,t.author_trusted,t.author_login,t.answered_head FROM finding_outcomes o "
         "LEFT JOIN reply_texts t ON o.kind='reply' AND o.finding_id=t.finding_id AND o.evidence_id=t.evidence_id "
         "WHERE o.finding_id=?", (fid,),
     ).fetchall()
@@ -596,8 +679,32 @@ def _finding_loop(conn, finding, head, identities, now, run):
 
 
 def run(conn, repo, findings, head, comparisons, now, counters):
-    from .acceptance import _failure
+    from .acceptance import _comparisons, _failure
 
+    if is_gitlab_key(repo):
+        if not gitlab_enabled(repo) or not findings:
+            return
+        from .api import db
+        from .gitlab import client as client_module, projects, publisher
+        from .gitlab.reader import GitLabForge
+
+        bot_id = db.bot_user_id(conn, repo)
+        if bot_id is None:
+            _gitlab_count(counters, "bot_id_missing")
+            return
+        transport = client_module.client()
+        if bot_id != publisher.bot_identity(transport)[0]:
+            _gitlab_count(counters, "bot_id_mismatch")
+            return
+        meta = GitLabForge(transport).change_meta(repo, findings[0]["pr"])
+        decision = projects.live_deny_change(repo, meta, client=transport)
+        if not decision.allowed:
+            if transport.pause_until() > time.time():
+                raise client_module.GitLabRateLimited(transport.pause_until())
+            _gitlab_count(counters, "project_denied")
+            return
+        _comparisons(conn, repo, findings[0]["pr"], findings, head, comparisons, now, counters)
+    count_skip(counters, 0)
     if not enabled_for(repo):
         return
     identities = [r[0] for r in conn.execute("SELECT bot_login FROM publishing_identities WHERE repo=?", (repo,))]
@@ -613,8 +720,14 @@ def run(conn, repo, findings, head, comparisons, now, counters):
             item = {**finding, **(dict(detail) if detail else {}),
                     "model": config[0] if config else client.DEFAULT_MODEL,
                     "comparison": comparisons.get((repo, finding["head_sha"], head))}
+            if is_gitlab_key(repo):
+                # Recover the original verdict before deciding whether a later head can resolve.
+                item["gitlab_head"] = head
+                _gitlab_recover(conn, item, head, now)
             _finding_loop(conn, item, head, identities, now, counters)
-        except github.GitHubRateLimited:
+        except ForgeRateLimited:
             raise
+        except gitlab_threads.ThreadMissing:
+            _gitlab_count(counters, "discussion_missing")
         except Exception as error:
             _failure(counters, repo, error, finding["pr"])

@@ -1,0 +1,32 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "notes_sentence_render",
+    "question": 9
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": {
+      "gfm": true,
+      "project": "argus-test/sub-a/sub-b/demo-app",
+      "text": "Please check this, @argus-dev."
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/markdown"
+  },
+  "response": {
+    "body": {
+      "html": "<p data-sourcepos=\"1:1-1:30\" dir=\"auto\">Please check this, <a href=\"https://gitlab.example.test/argus-dev\" title=\"Argus Developer\" class=\"gfm gfm-project_member js-user-link\" data-user=\"4\" data-original=\"@argus-dev\" data-container=\"body\" data-placement=\"top\" data-reference-type=\"user\">@argus-dev</a>.</p>"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"7782228c02a1834f3fd755704927f6c5\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

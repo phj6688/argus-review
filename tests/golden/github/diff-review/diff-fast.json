@@ -1,0 +1,119 @@
+{
+  "case": "diff-fast",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/app.py"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/contents/compose.yaml"
+    }
+  ],
+  "result": {
+    "all_findings": [],
+    "author": null,
+    "branch": null,
+    "bugs": [],
+    "coverage": [
+      {
+        "checks": 0,
+        "eligible": 6,
+        "lane": "probe",
+        "note": "no changed file matches any probe glob",
+        "status": "ran"
+      },
+      {
+        "files_analyzed": 1,
+        "files_changed": 2,
+        "files_eligible": 1,
+        "findings": 0,
+        "findings_preexisting_suppressed": 0,
+        "lane": "ruff",
+        "preexisting_codes": [],
+        "status": "ran",
+        "tool": {
+          "args": "check --isolated --no-respect-gitignore --ignore-noqa --select E9,F821,S --ignore S101,S105,S603 --output-format json",
+          "ignored": "S101,S105,S603",
+          "name": "ruff",
+          "rules": "E9,F821,S",
+          "version": "ruff 0.17.1"
+        }
+      },
+      {
+        "files_analyzed": 1,
+        "files_changed": 2,
+        "files_eligible": 1,
+        "findings": 0,
+        "lane": "config",
+        "status": "ran",
+        "tool": {
+          "ignored": "",
+          "name": "config",
+          "parser": "pyyaml 6.0.3",
+          "rules": "compose-env-shadows-image,compose-datastore-public-bind,config-placeholder-secret,auth-skip-unanchored,compose-duplicate-host-port,image-ignores-lockfile"
+        }
+      },
+      {
+        "lane": "llm",
+        "reason": "mode=fast: the reviewer lane is not run",
+        "status": "skipped"
+      },
+      {
+        "lane": "judge",
+        "reason": "mode=fast: no reviewer finding exists for a judge to second-guess",
+        "status": "skipped"
+      }
+    ],
+    "dropped": 0,
+    "files_changed": 2,
+    "head_committed_at": null,
+    "head_sha": null,
+    "lines_added": 3,
+    "lines_removed": 3,
+    "nits": [],
+    "raw_count": 0,
+    "risk_tier": {
+      "changed_lines": 6,
+      "files": 2,
+      "incomplete": false,
+      "matches": [
+        {
+          "path": "compose.yaml",
+          "pattern": "compose.yaml"
+        }
+      ],
+      "matches_total": 1,
+      "max_lines": 300,
+      "reasons": [
+        "tripwire path compose.yaml (compose.yaml)"
+      ],
+      "tier": "risky"
+    }
+  },
+  "scenario": "diff-review"
+}

@@ -7,6 +7,7 @@ import type {
   ReviewSummary,
   LiveReview,
   ReviewDetail,
+  RiskTier,
   Report,
   ReportPeriod,
   Benchmark,
@@ -61,19 +62,50 @@ type RawRow = [
 ];
 
 const rawReviews: RawRow[] = [
-  ["acme/infra", 218, "Add auth rate-limit cache", "gpt-6.1-sol", "3m", 0, 1, 0, 7, "acted"],
-  ["acme/web", 142, "Bind metrics endpoint to loopback only", "gpt-6.1-sol", "22m", 1, 1, 0, 4, "acted"],
-  ["acme/worker", 87, "Refactor job queue backpressure", "claude-sonnet-5-5", "1h", 0, 0, 0, 9, "merged"],
-  ["acme/billing", 54, "Fix off-by-one in invoice proration", "gpt-6.1-sol", "2h", 0, 1, 0, 3, "acted"],
-  ["acme/auth", 31, "Rotate signing keys on schedule", "gpt-6.1-sol", "3h", 0, 2, 0, 1, "merged"],
-  ["acme/tooling", 209, "shell: guard against unset PATH", "gpt-5.6-terra", "5h", 0, 0, 0, 2, "merged"],
-  ["acme/docs", 76, "Migrate docs site to static export", "claude-sonnet-5-5", "6h", 0, 0, 2, 5, "pending"],
-  ["acme/api", 19, "Cache config lookups per request", "gpt-6.1-sol", "8h", 0, 1, 1, 2, "acted"],
-  ["acme/worker", 85, "Add retry/backoff to webhook delivery", "gpt-6.1-sol", "11h", 0, 0, 1, 4, "merged"],
-  ["acme/web", 140, "Tighten proxy TLS cipher suite", "gpt-6.1-sol", "1d", 1, 0, 1, 2, "acted"],
-  ["acme/infra", 63, "Alert on cert expiry under 7 days", "claude-sonnet-5-5", "1d", 0, 1, 0, 3, "merged"],
-  ["acme/tooling", 207, "editor: lazy-load language servers", "gpt-5.6-terra", "2d", 0, 0, 0, 6, "merged"],
+  ["acme/infra", 218, "Add auth rate-limit cache", "gpt-6.1-sol", "3m", 0, 1, 0, 7, "posted"],
+  ["acme/web", 142, "Bind metrics endpoint to loopback only", "gpt-6.1-sol", "22m", 1, 1, 0, 4, "posted"],
+  ["acme/worker", 87, "Refactor job queue backpressure", "claude-sonnet-5-5", "1h", 0, 0, 0, 9, "not_posted"],
+  ["acme/billing", 54, "Fix off-by-one in invoice proration", "gpt-6.1-sol", "2h", 0, 1, 0, 3, "posted"],
+  ["acme/auth", 31, "Rotate signing keys on schedule", "gpt-6.1-sol", "3h", 0, 2, 0, 1, "not_posted"],
+  ["acme/tooling", 209, "shell: guard against unset PATH", "gpt-5.6-terra", "5h", 0, 0, 0, 2, "not_posted"],
+  ["acme/docs", 76, "Migrate docs site to static export", "claude-sonnet-5-5", "6h", 0, 0, 2, 5, "dry_run"],
+  ["acme/api", 19, "Cache config lookups per request", "gpt-6.1-sol", "8h", 0, 1, 1, 2, "posted"],
+  ["acme/worker", 85, "Add retry/backoff to webhook delivery", "gpt-6.1-sol", "11h", 0, 0, 1, 4, "not_posted"],
+  ["acme/web", 140, "Tighten proxy TLS cipher suite", "gpt-6.1-sol", "1d", 1, 0, 1, 2, "posted"],
+  ["acme/infra", 63, "Alert on cert expiry under 7 days", "claude-sonnet-5-5", "1d", 0, 1, 0, 3, "not_posted"],
+  ["acme/tooling", 207, "editor: lazy-load language servers", "gpt-5.6-terra", "2d", 0, 0, 0, 6, "not_posted"],
 ];
+
+const safeRisk: RiskTier = {
+  tier: "safe",
+  label: "Risk tier: safe (path and size rule only; not a correctness verdict)",
+  reasons: [],
+};
+
+const riskyLabel = "Risk tier: risky (path and size rule only; needs the operator checkpoint; not a correctness verdict)";
+
+const reviewRisks: Record<string, RiskTier> = {
+  "acme/infra#218": {
+    tier: "risky",
+    label: riskyLabel,
+    reasons: ["tripwire path deploy/docker-compose.prod.yml (docker-compose*)"],
+  },
+  "acme/web#142": {
+    ...safeRisk,
+    changed_lines: 59,
+    max_lines: 300,
+    files: 3,
+    incomplete: false,
+  },
+  "acme/web#140": {
+    tier: "risky",
+    label: riskyLabel,
+    reasons: [
+      "tripwire path api/proxy.ts (*proxy*)",
+      "412 changed lines exceed the 300 line limit",
+    ],
+  },
+};
 
 export const reviews: ReviewSummary[] = rawReviews.map((r) => ({
   id: `${r[0].replace("/", "-")}-${r[1]}`,
@@ -84,6 +116,10 @@ export const reviews: ReviewSummary[] = rawReviews.map((r) => ({
   age: r[4],
   counts: { critical: r[5], major: r[6], minor: r[7], nit: r[8] },
   action: r[9],
+  posted_comments: r[9] === "posted" ? r[5] + r[6] + r[7] : 0,
+  ...(r[0] === "acme/tooling" && r[1] === 207
+    ? {}
+    : { risk: reviewRisks[`${r[0]}#${r[1]}`] ?? safeRisk }),
 }));
 
 export const reviewDetail: ReviewDetail = {
@@ -97,6 +133,7 @@ export const reviewDetail: ReviewDetail = {
   model_used: "gpt-6.1-sol",
   fallback_from: null,
   fallback_reason: null,
+  risk: reviewRisks["acme/web#142"],
   status: "done",
   time: "22m ago",
   filesChanged: 3,
@@ -269,6 +306,7 @@ function withoutHeader(detail: ReviewDetail): ReviewDetail {
   delete copy.filesChanged;
   delete copy.added;
   delete copy.removed;
+  delete copy.risk;
   return copy;
 }
 
@@ -490,6 +528,32 @@ const baseRepos = [
 
 export const config: ConfigData = {
   repos: baseRepos.map((name) => ({ name, watched: name !== "acme/archive" })),
+  publish: {
+    mode: "dry-run",
+    source: "env",
+    botLogin: "argus-review-bot",
+    tokenConfigured: true,
+    repos: [
+      {
+        name: "acme/api",
+        access: {
+          state: "ok",
+          detail: "bot can push",
+          settingsUrl: "https://github.com/acme/api/settings/access",
+          grant: null,
+        },
+      },
+      {
+        name: "acme/auth",
+        access: {
+          state: "missing",
+          detail: "bot has no write access",
+          settingsUrl: "https://github.com/acme/auth/settings/access",
+          grant: "failed",
+        },
+      },
+    ],
+  },
   hiddenCount: 10,
   totalRepos: 20,
   models: [
@@ -514,7 +578,7 @@ export const integrations: Integrations = {
   github: {
     token: "configured",
     watcher: { enabled: true, owners: ["acme"], intervalSeconds: 60, watchedRepos: 20 },
-    publishing: { mode: "dry-run", repoCount: 2, tokenConfigured: true },
+    publishing: { mode: "dry-run", repoCount: 2, tokenConfigured: true, source: "env", autoInvite: false },
   },
   api: {
     baseUrl: "https://argus.example.com/api/v1",

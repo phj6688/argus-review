@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from argus import github, review
-from argus.jarvis import live
+from argus import live
 from argus.diff import FilePatch
 from argus.evalkit import replay
 from argus.evalkit.snapshot import Snapshot, patch_digest
@@ -770,3 +770,145 @@ def test_mirror_file_hook_decodes_like_the_live_reader(tmp_path):
         assert live._fetch_file_at("owner/project", "data.bin", "HEAD") == live.decode_file_text(content)
     finally:
         restore()
+
+
+def test_mirror_mode_restores_context_source(tmp_path):
+    cases, mirrors = mirror_case(tmp_path)
+    case = replay.load_cases(cases)[0]
+    original = live.context_source
+    assert original(case.repo, case.head_sha) is None
+    restore = replay.install_mirror_mode(mirrors)
+    try:
+        source = live.context_source(case.repo, case.head_sha)
+        assert isinstance(source, replay.MirrorSource)
+        assert source.read("a.py") == "value = 2\n"
+        assert live.context_source("owner/missing", case.head_sha) is None
+        assert live.context_source(None, None) is None
+    finally:
+        restore()
+    assert live.context_source is original
+
+
+def test_reviewer_only_calls_reviewer_once_and_can_be_reverified(tmp_path, monkeypatch):
+    from argus.evalkit import reverify
+    cases, mirrors = mirror_case(tmp_path)
+    cache = tmp_path / "cache"
+    monkeypatch.setattr(replay.SnapshotStore, "get", REAL_SNAPSHOT_GET)
+    monkeypatch.setattr(review, "REVIEW_PASSES", 1)
+    monkeypatch.delenv(review.JUDGE_LIVE_ENV, raising=False)
+    calls = []
+    def complete(model, system, user, tool):
+        calls.append(tool.name)
+        assert tool.name == "report_findings"
+        return {"findings": [{**item().finding.model_dump(mode="json"), "evidence": "value = 2"}]}
+    monkeypatch.setattr(review, "complete_tool", complete)
+    original_verify = review._verify_findings
+    out = tmp_path / "reviewer.jsonl"
+    args = ["--cases", str(cases), "--mirror-root", str(mirrors), "--cache-dir", str(cache),
+            "--out", str(out), "--variant", "screen", "--model", "test", "--reviewer-only"]
+    assert replay.main(args) == 0
+    assert review._verify_findings is original_verify
+    row = json.loads(out.read_text())
+    assert row["error"] is None and row["reviewer_only"] is True
+    assert calls == ["report_findings"]
+    assert len(row["raw"]) == len(row["reported"]) == 1
+    assert row["raw"][0]["verdict"] == {
+        "is_real": True, "confidence": 1.0, "reasoning": "reviewer-only replay"}
+    verified = []
+    def verify(finding, diff, model, **kwargs):
+        verified.append(finding.title)
+        return Verdict(is_real=False, confidence=0.9, reasoning="stubbed verification")
+    monkeypatch.setattr(review, "_verify", verify)
+    rerun = tmp_path / "reverified.jsonl"
+    assert reverify.main(["--cases", str(cases), "--results", str(out), "--out", str(rerun),
+                          "--variant", "shipped", "--model", "test", "--mirror-root", str(mirrors),
+                          "--cache-dir", str(cache)]) == 0
+    result = json.loads(rerun.read_text())
+    assert result["error"] is None and len(result["raw"]) == 1
+    assert result["raw"][0]["verdict_is_real"] is False and result["reported"] == []
+    assert verified == ["Bad branch"] and calls == ["report_findings"]
+
+
+def test_reviewer_only_restores_verifier_after_failure(tmp_path, monkeypatch):
+    original = review._verify_findings
+    def fail(*args, **kwargs):
+        raise RuntimeError("failed review")
+    monkeypatch.setattr(review, "run_diff_review", fail)
+    cases = write_cases(tmp_path / "cases", [case_data()])
+    out = tmp_path / "result.jsonl"
+    assert replay.main(["--cases", str(cases), "--out", str(out), "--variant", "x",
+                        "--reviewer-only"]) == 0
+    assert review._verify_findings is original
+    assert json.loads(out.read_text())["reviewer_only"] is True
+
+
+def test_normal_replay_rows_do_not_gain_reviewer_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(review, "run_diff_review", lambda *args, **kw: review.ReviewResult(0))
+    cases = write_cases(tmp_path / "cases", [case_data()])
+    out = tmp_path / "result.jsonl"
+    assert replay.main(["--cases", str(cases), "--out", str(out), "--variant", "x"]) == 0
+    assert "reviewer_only" not in json.loads(out.read_text())
+
+
+def test_mirror_source_handles_quoted_names_and_colons(tmp_path):
+    work, mirror = tmp_path / "work", tmp_path / "mirror.git"
+    names = ["changed.py", "héllo.py", "a:12:x.py", 'a"quote.py', "a"]
+    head = make_checkout(work, {name: 'def helper_value():\n    return "key:34:value"\n'
+                                for name in names})
+    subprocess.run(["git", "clone", "--bare", "-q", str(work), str(mirror)], check=True)
+    source = replay.MirrorSource(mirror, head)
+    hits = source.grep_word("helper_value")
+    assert {path for path, _, _ in hits} == set(names)
+    assert all(line == 1 and source.read(path).startswith("def helper_value()")
+               for path, line, _ in hits)
+    assert source.cochanged("changed.py", 10) == [(name, 1) for name in sorted(names[1:])]
+    assert {path for path, line, text in source.grep_word("return")} == set(names)
+
+
+def test_mirror_source_ignores_foreign_git_environment_and_caches_history(tmp_path, monkeypatch):
+    work, mirror = tmp_path / "work", tmp_path / "mirror.git"
+    head = make_checkout(work, {"a.py": "load_data()\n", "b.py": "value = 1\n"})
+    subprocess.run(["git", "clone", "--bare", "-q", str(work), str(mirror)], check=True)
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "absent.git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(tmp_path / "absent"))
+    source = replay.MirrorSource(mirror, head)
+    calls = []
+    original = subprocess.run
+    def run(command, **kwargs):
+        calls.append(command)
+        assert kwargs["timeout"] == 30
+        assert not any(name.startswith("GIT_") for name in kwargs["env"])
+        return original(command, **kwargs)
+    monkeypatch.setattr(replay.subprocess, "run", run)
+    assert source.grep_word("load_data") == [("a.py", 1, "load_data()")]
+    assert source.read("a.py") == "load_data()\n"
+    assert source.cochanged("a.py", 3) == [("b.py", 1)]
+    assert source.cochanged("b.py", 3) == [("a.py", 1)]
+    assert sum("log" in command for command in calls) == 1
+    assert calls[0] == ["git", "--git-dir", str(mirror), "grep", "-I", "-n", "-w", "-F",
+                        "--no-color", "--full-name", "-e", "load_data", head, "--"]
+
+
+def test_mirror_source_grep_caps_output_and_treats_word_as_an_argument(tmp_path, monkeypatch):
+    source = replay.MirrorSource(tmp_path / "mirror.git", "abc")
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        if "ls-tree" in command:
+            return subprocess.CompletedProcess(command, 0, b"a.py\0", b"")
+        output = "".join(f"abc:a.py:{n}:load_data()\n" for n in range(1, 2002)).encode()
+        return subprocess.CompletedProcess(command, 0, output, b"")
+    monkeypatch.setattr(replay.subprocess, "run", run)
+    hits = source.grep_word("--help; $(false)")
+    assert len(hits) == 2000 and hits[-1] == ("a.py", 2000, "load_data()")
+    assert calls[0][-4:] == ["-e", "--help; $(false)", "abc", "--"]
+
+
+def test_mirror_grep_preserves_physical_source_lines(tmp_path):
+    work, mirror = tmp_path / "work", tmp_path / "mirror.git"
+    content = '\fdef helper_value():\n    return "left\u2028right"\n'
+    head = make_checkout(work, {"form.py": content})
+    subprocess.run(["git", "clone", "--bare", "-q", str(work), str(mirror)], check=True)
+    source = replay.MirrorSource(mirror, head)
+    assert source.grep_word("helper_value") == [("form.py", 1, "\fdef helper_value():")]
+    assert source.grep_word("return") == [("form.py", 2, '    return "left\u2028right"')]

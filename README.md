@@ -2,7 +2,7 @@
 
 # Argus
 
-Argus is a self-hosted code reviewer for GitHub pull requests. It reads a PR, asks a model for candidate bugs, and has a second skeptical pass try to refute each one. It then checks the survivors against your rules and posts only a few findings that held up.
+Argus is a self-hosted code reviewer for GitHub pull requests and GitLab merge requests. It reads a change, asks a model for candidate bugs, and has a second skeptical pass try to refute each one. It then checks the survivors against your rules and posts only a few findings that held up.
 
 You run it on your own machine and bring your own model: an API key, a local OpenAI-compatible server, or a Claude or ChatGPT subscription. Your code goes to the model you choose and nowhere else.
 
@@ -21,7 +21,7 @@ If the evidence line sits elsewhere in the file, Argus moves the finding to it.
 
 ## Quickstart with Docker
 
-You need Docker with the compose plugin, a GitHub token and one model provider.
+You need Docker with the compose plugin, a GitHub or GitLab token and one model provider.
 
 1. Clone the repository and create your settings file.
 
@@ -39,7 +39,7 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
 
 3. Open `.env` and set three things:
    - `ARGUS_API_TOKEN`, the value from step 2. It must be at least 32 characters.
-   - `GITHUB_TOKEN`, a fine-grained token with Contents:read and Pull requests:read on the repositories you want reviewed.
+   - `GITHUB_TOKEN` for GitHub, a fine-grained token with Contents:read and Pull requests:read on the repositories you want reviewed. For GitLab, use the settings in the [GitLab guide](docs/gitlab.md#setup).
    - One provider. For example, `OPENROUTER_API_KEY=...`. See [Choosing a model provider](#choosing-a-model-provider).
 
 4. Start the stack.
@@ -53,7 +53,7 @@ You need Docker with the compose plugin, a GitHub token and one model provider.
 
 5. Open <http://127.0.0.1:3350> and sign in with `ARGUS_API_TOKEN`.
 
-6. Run a first review. In the console, open Trigger and enter `owner/repo#123`. Or call the API:
+6. Run a first review. In the console, open Trigger and enter `owner/repo#123`. When GitLab is configured, Trigger also accepts project keys, project paths and merge request URLs, and Integrations shows its connection and policy status. Or call the API:
 
    ```bash
    TOKEN=$(grep '^ARGUS_API_TOKEN=' .env | cut -d= -f2)
@@ -87,6 +87,10 @@ Commands that name a container, such as the MCP snippet below, use the service n
 
 Data lives in the `argus-data` volume. `docker compose down` keeps it. `docker compose down -v` deletes it.
 
+## GitLab
+
+Argus reviews GitLab merge requests through the console, API, CLI and MCP. With publishing enabled, it posts inline discussions and one summary note. Start with one project in dry-run mode. See the [GitLab guide](docs/gitlab.md) for tokens, roles, settings and limits. Argus can also watch allowed GitLab projects for new merge requests (`ARGUS_GITLAB_WATCH`). Replying to GitLab notes is not available yet.
+
 ## Quickstart without Docker
 
 You need Python 3.11 or newer and [uv](https://docs.astral.sh/uv/).
@@ -98,7 +102,7 @@ uv sync
 cp .env.example .env     # then edit it, and export the values in your shell
 ```
 
-Edit `.env` as in steps 2 and 3 of the Docker quickstart. Generate a token with `openssl rand -hex 32` and set it as `ARGUS_API_TOKEN`. Set `GITHUB_TOKEN` and one provider. The API refuses to start without a token of 32 characters or more.
+Edit `.env` as in steps 2 and 3 of the Docker quickstart. Generate a token with `openssl rand -hex 32` and set it as `ARGUS_API_TOKEN`. Set `GITHUB_TOKEN` for GitHub or the GitLab settings above, plus one provider. The API refuses to start without a token of 32 characters or more.
 
 Load the settings into your shell. This reads `.env` as plain `KEY=value` lines:
 
@@ -106,11 +110,12 @@ Load the settings into your shell. This reads `.env` as plain `KEY=value` lines:
 set -a; . ./.env; set +a
 ```
 
-Check the provider, then review a PR from the command line:
+Check the provider, then review a GitHub PR or GitLab merge request from the command line. The GitHub example needs `GITHUB_TOKEN`. The GitLab example needs `ARGUS_GITLAB_TOKEN`, `ARGUS_GITLAB_URL` for the same host, and a matching `ARGUS_GITLAB_ALLOW` entry:
 
 ```bash
 uv run argus doctor
 uv run argus review owner/repo 123
+uv run argus review 'gitlab:gitlab.example.com#123' 7
 ```
 
 The CLI has these commands:
@@ -122,6 +127,8 @@ The CLI has these commands:
 | `argus compress OWNER/REPO PR` | Fetches a PR diff and shows how it fits the token budget. |
 | `argus publish-preview REVIEW_ID` | Renders a stored review as the GitHub payload, without posting. |
 | `argus publish-placement REVIEW_ID` | Lists where each finding would go and whether the line can take a comment. |
+
+With GitLab configured, `review` and `compress` also accept either GitLab key form plus the MR iid, or a single configured instance MR URL. The API and MCP `review_pr` accept both key forms. See [Review entry points](docs/gitlab.md#review-entry-points).
 
 To run the API and the console on the host:
 
@@ -244,7 +251,7 @@ Use subscription mode for personal use on your own repositories. Use an API key 
 
 - `ARGUS_FALLBACK_MODEL` runs a second attempt when a review fails on the primary model. The switch is recorded on the review: `model_used` names the model that answered, and `fallback_from` and `fallback_reason` say why it changed. The API (`GET /reviews` and `GET /reviews/{id}`), the verdict document and the console review page show them. It covers `POST /reviews`, the watcher and `argus review`. A GitHub failure, such as a bad token or a rate limit, never triggers it. Choose a model from a different provider, or both fail together.
 - `ARGUS_MODEL_OPTIONS` is a comma-separated list of models that the console config screen offers. `PUT /config` rejects any model that is not in the list, the default, or the stored model. Once you save the config screen, the stored model wins over `ARGUS_MODEL`.
-- Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. Judges use a chat completions URL. An OpenRouter example:
+- Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. If every judge call fails, the coverage record marks the judge lane `error` and the coverage level is at most `partial`. Judges use a chat completions URL. An OpenRouter example:
 
   ```bash
   ARGUS_JUDGE_LIVE=1
@@ -266,8 +273,8 @@ Argus needs a read token. It can also post reviews, and then it needs a second t
 **Posting.** Publishing is off by default. To turn it on:
 
 1. Create a separate GitHub account for the bot, or a GitHub App. A review written by the PR author's own account reads as self-review.
-2. Give its token Pull requests:write on the allowlisted repositories. Set it as `ARGUS_PUBLISH_TOKEN`. Argus never uses `GITHUB_TOKEN` to write.
-3. Set `ARGUS_PUBLISH_REPOS=owner/repo,owner/other`. Empty means no posting, dry-run included.
+2. Give its token Pull requests:write on the allowlisted repositories. Set it as `ARGUS_PUBLISH_TOKEN`. Argus never uses `GITHUB_TOKEN` to write, except for one opt-in: with `ARGUS_PUBLISH_AUTO_INVITE=1` the Config page may invite the bot as a collaborator using a `GITHUB_TOKEN` that has Administration:write. It is off by default.
+3. Set `ARGUS_PUBLISH_REPOS=owner/repo,owner/other` as the starting list, or add repositories on the Config page later. Empty means no posting, dry-run included. See [publishing](docs/publishing.md#choose-repositories-in-the-console).
 4. Set `ARGUS_PUBLISH=dry-run`. Run a new review. Read it with `argus publish-preview REVIEW_ID`, or read the stored `publish_payload`. Dry-run stores a payload only for reviews that complete after you switch it on. Earlier reviews have none.
 5. Set `ARGUS_PUBLISH=1` when the output looks right.
 
@@ -356,6 +363,8 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_PROVIDER` | auto | Model provider. |
 | `ARGUS_MODEL` | provider default | Reviewer model. |
 | `ARGUS_FALLBACK_MODEL` | none | Second attempt on failure. |
+| `ARGUS_RISK_TRIPWIRES` | [Default patterns](docs/risk-tier.md) | Comma-separated path patterns replacing the defaults. Blank uses the defaults. |
+| `ARGUS_RISK_MAX_LINES` | `300` | Positive added plus deleted line limit for the risk tier. Exactly 300 is within the default limit. |
 | `ARGUS_MODEL_OPTIONS` | none | Models the console offers. |
 | `GITHUB_TOKEN` | none | Read token. |
 | `ARGUS_WATCH_ENABLED` | off | Start the PR watcher. |
@@ -363,13 +372,33 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_WATCH_TRUSTED_ONLY` | `1` | Review only trusted authors. |
 | `ARGUS_DENY_OWNERS` | none | Owners or repos that are never reviewed. |
 | `ARGUS_PUBLISH` | `0` | `0`, `dry-run` or `1`. |
-| `ARGUS_PUBLISH_REPOS` | none | Repositories Argus may post to. |
+| `ARGUS_PUBLISH_REPOS` | none | Starting list of repositories Argus may post to. The Config page replaces it once saved. |
 | `ARGUS_PUBLISH_TOKEN` | none | Write token of the bot account. |
+| `ARGUS_PUBLISH_AUTO_INVITE` | `0` | `1` lets the Config page invite the bot with `GITHUB_TOKEN` (needs Administration:write). |
 | `ARGUS_PUBLISH_MAX_COMMENTS` | `4` | Inline comments per review. |
+| `ARGUS_PUBLISH_REPEAT_KEY` | `on` | `off`, `shadow` or `on`. With `on`, a reworded repeat of an earlier inline comment goes in the review body, not inline. See [publishing](docs/publishing.md#reworded-repeats). |
+| `ARGUS_GITLAB_URL` | none | HTTPS origin with an optional path prefix. No credentials, query or fragment. |
+| `ARGUS_GITLAB_TOKEN` | none | GitLab credential. |
+| `ARGUS_GITLAB_CA_BUNDLE` | none | Optional CA bundle path. |
+| `ARGUS_GITLAB_ALLOW` | none | Comma-separated projects allowed for GitLab access. |
+| `ARGUS_GITLAB_PUBLISH` | `0` | `0`, `dry-run` or `1`. |
+| `ARGUS_GITLAB_PUBLISH_PROJECTS` | none | Comma-separated exact project keys for publishing. No wildcards. |
+| `ARGUS_GITLAB_NOTES_PER_MINUTE` | `30` | Positive note limit per minute. |
+| `ARGUS_GITLAB_TRUSTED_LEVEL` | `30` | Minimum author membership level for listing trust: 0, 5, 10, 15, 20, 30, 40 or 50. |
+| `ARGUS_GITLAB_WATCH` | off | Poll allowed GitLab projects into the shared review queue. Needs `ARGUS_WATCH_ENABLED`, a URL and a credential. |
+| `ARGUS_GITLAB_RECONCILE_TICKS` | `10` | Positive number of GitLab polling ticks between full merge request listings. |
+| `ARGUS_GITLAB_REPLY_LOOP` | off | Enable GitLab replies and resolution. Requires both publish modes at `1`, an allowed publishing project and the global reply loop on. |
+| `ARGUS_GITLAB_TIMEOUT_S` | `30.0` | Finite positive request timeout in seconds. |
+| `ARGUS_GITLAB_MAX_RESPONSE_BYTES` | `10485760` | Maximum response size in bytes, at least 1024. |
 | `ARGUS_DB_PATH` | `./.argus/argus.db` | SQLite file. Compose sets `/data/argus.db`. |
 | `ARGUS_PUBLIC_API_URL` | `http://127.0.0.1:8350` | Public URL of the API. Compose uses `ARGUS_API_PORT`. |
 | `ARGUS_API_PORT` | `8350` | Host port of the API in Docker. |
 | `ARGUS_WEB_PORT` | `3350` | Host port of the console in Docker. |
+
+GitLab support reads merge requests and can post inline discussions and one summary note. Publishing requires both publishing modes and an exact project allowlist. The [GitLab guide](docs/gitlab.md) covers setup and a first run that posts nothing. `ARGUS_GITLAB_CA_BUNDLE` points at the mounted path inside the container.
+
+GitLab policy entries use `gitlab:HOST/group/sub` for a group path or `gitlab:HOST#ID` for a project id.
+A bare `ARGUS_DENY_OWNERS` entry also denies GitLab projects whose top-level group matches, ignoring case.
 
 ## Development
 
@@ -404,7 +433,9 @@ More docs:
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the pipeline is built.
 - [DEPLOY.md](DEPLOY.md): self-hosting behind a reverse proxy, upgrades and backups.
 - [docs/publishing.md](docs/publishing.md): posting, the reply loop and acceptance tracking.
+- [docs/gitlab.md](docs/gitlab.md): GitLab setup, publishing, limits and safety rules.
 - [docs/evaluation.md](docs/evaluation.md): offline replay and scoring.
+- [docs/risk-tier.md](docs/risk-tier.md): the path and size category and operator checkpoint.
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to send a change.
 
 ## License

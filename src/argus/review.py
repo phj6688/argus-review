@@ -1,5 +1,7 @@
 """The review pipeline: deep review -> independent verification -> rank/cap.
 
+run_diff_review stays GitHub-only.
+
 Structured output comes from a single tool call (tool_choice auto, see
 client.complete_tool) instead of freeform JSON. The gateway lane requests a
 strict tool, but replies still need per-finding validation; the tool schemas close
@@ -29,17 +31,20 @@ from urllib.parse import urlparse
 import httpx
 from pydantic import ValidationError
 
-from . import fingerprint, github, rules, verdict
+from . import fingerprint, github, risk_tier, rules, verdict
 from .client import DEFAULT_MODEL, ToolSpec, complete_tool, prompt_cache_scope
 from .context import (
     REVIEW_CONTEXT_BUDGET_TOKENS,
-    FileReader, RenderedContext, cached_reader, render_review_context,
+    FileReader, RenderedContext, cached_reader, mirror_context_enabled, render_review_context,
 )
 from .diff import (
-    REMOVED_STATUS, FilePatch, added_lines, change_stats, compress_diff, fetch_pr_files, split_lines,
+    REMOVED_STATUS, FilePatch, added_lines, change_stats, compress_diff, split_lines,
     touched_lines,
 )
 from .errors import HeadMoved
+from .forge import forge_for
+from .forge.errors import ForgeAuthError, ForgeDenied, ForgeError, ForgeRateLimited
+from .forge.keys import is_gitlab_key
 from .schema import (
     CATEGORIES, CounterEvidence, CounterEvidenceVerdict, Finding, JudgeOpinion, Review, Severity, Verdict,
     VerifiedFinding, parse_findings,
@@ -47,6 +52,8 @@ from .schema import (
 from .tokens import HeuristicEstimator
 
 log = logging.getLogger("argus.review")
+
+_FORGE_ABORT = (ForgeRateLimited, ForgeDenied, ForgeAuthError)
 
 REVIEW_MAX_TOKENS = 8000
 VERIFY_MAX_TOKENS = 2000
@@ -346,13 +353,21 @@ def _llm_file_counts(files: list[FilePatch], rendered: RenderedContext) -> dict:
     seen = set(rendered.full + rendered.windowed + rendered.hunks_only)
     changed = [f for f in files if f.status != REMOVED_STATUS]
     unread = [f for f in changed if f.filename not in seen]
-    return {"files_reviewed": len(seen),
+    counts = {"files_reviewed": len(seen),
             "files_full": len(rendered.full), "files_windowed": len(rendered.windowed),
             "files_hunks_only": len(rendered.hunks_only),
             "files_read_failed": rendered.files_read_failed,
             "context_tokens_estimated": rendered.estimated_tokens,
             "files_omitted": len(unread),
             "files_without_patch": sum(1 for f in unread if not f.patch)}
+    # The listing itself was incomplete (cap hit, unsafe path, unparseable section), so
+    # `unread` cannot see the files that never arrived. Kept apart from files_omitted
+    # because the posted "omitted: N" line reads that count; the key is absent otherwise.
+    if getattr(files, "unseen", False) is True:
+        counts["files_unseen"] = True
+    if rendered.context_blocks:
+        counts["context_blocks"] = rendered.context_blocks
+    return counts
 
 
 def _llm_ran(model: str, files: list[FilePatch], rendered: RenderedContext, stats: dict,
@@ -390,6 +405,15 @@ class ReviewResult:
     files_changed: int | None = None
     lines_added: int | None = None
     lines_removed: int | None = None
+    risk_tier: dict | None = None
+
+
+def _risk_for_files(files: list[FilePatch]) -> dict | None:
+    try:
+        return risk_tier.classify_files(files).to_dict()
+    except Exception:
+        log.exception("Risk tier classification failed; continuing without a label")
+        return None
 
 
 ENV_FALLBACK_MODEL = "ARGUS_FALLBACK_MODEL"
@@ -417,30 +441,46 @@ def from_github(error: Exception) -> bool:
         return False
 
 
+def from_gitlab(error: Exception) -> bool:
+    """True when an httpx error came from the configured GitLab host."""
+    from .gitlab import config
+
+    if not isinstance(error, httpx.HTTPError):
+        return False
+    try:
+        base = config.base_url()
+        return base is not None and error.request.url.host == base.host
+    except (config.GitLabConfigError, RuntimeError):
+        return False
+
+
 def fallback_eligible(error: Exception) -> bool:
-    """A second model cannot fix a GitHub-side failure (an auth, quota or HTTP
-    error from the GitHub API) or a moved head. A failure of the model provider
-    stays eligible."""
-    return not (isinstance(error, (HeadMoved, github.GitHubRateLimited,
-                                   github.GitHubDenied, github.GitHubAuthError))
-                or from_github(error))
+    """A second model cannot fix a forge failure or a moved head."""
+    return not (isinstance(error, (HeadMoved, ForgeError))
+                or from_github(error) or from_gitlab(error))
+
+
+def fetch_pr_files(repo: str, pr: int):
+    # Preserve patches to review.fetch_pr_files here and diff.fetch_pr_files in the adapter.
+    return forge_for(repo).change_files(repo, pr)
 
 
 def run_review(
     repo: str, pr: int, model: str = DEFAULT_MODEL, bug_cap: int = DEFAULT_BUG_CAP,
     *, expected_head_sha: str | None = None, verify_variant: str | None = None,
 ) -> ReviewResult:
-    from .jarvis import live
+    from . import live
 
     from .repo_policy import validate_repo
 
-    validate_repo(repo)
+    validate_repo(repo, allow_gitlab=is_gitlab_key(repo))
+    forge = forge_for(repo)
     verify_variant = _resolve_variant(verify_variant)
     files = fetch_pr_files(repo, pr)
     patches = {f.filename: f.patch or "" for f in files}
     try:
-        meta = live._pr_meta(repo, pr)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        meta = forge.pr_meta(repo, pr)
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("PR metadata lookup failed for %s#%s; reviewing without it", repo, pr)
@@ -451,11 +491,13 @@ def run_review(
             raise RuntimeError("Could not resolve PR head after listing")
         if head_sha != expected_head_sha:
             raise HeadMoved("PR head changed after listing")
-    read = _file_reader(repo, head_sha)
+    read = forge.file_reader(repo, head_sha)
     pr_section = _pr_section(meta.get("title"), meta.get("body"), meta.get("commits"))
-    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator())
+    source = live.context_source(repo, head_sha) if mirror_context_enabled() else None
+    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator(),
+                                     source=source)
     if rendered.views:
-        house_rules = fetch_house_rules(repo)
+        house_rules = forge.house_rules(repo)
         intent = _intent_for_prompt(repo, pr, meta)
         review = _deep_review(rendered.prompt, house_rules, model, intent, pr_section)
         stats = {**review.parsing_stats, **_reanchor_findings(review.findings, read, patches)}
@@ -490,6 +532,7 @@ def run_review(
         head_sha=head_sha,
         branch=meta.get("branch"), author=meta.get("author"),
         files_changed=files_changed, lines_added=lines_added, lines_removed=lines_removed,
+        risk_tier=_risk_for_files(files),
         coverage=[probe_record, ruff_record, config_record,
                   llm_record, judge_record],
     )
@@ -505,15 +548,19 @@ def run_diff_review(
     """Review a change that need not belong to any PR: agent worktree diffs,
     pre-PR branches, or a repo/sha pair fetched via the compare API.
 
+    run_diff_review stays GitHub-only.
+
     fast=True runs only the deterministic lanes (probes over the changed files),
     no LLM calls — the sub-10s gate an agent can block on mid-loop. The full mode
     is the same pipeline as a PR review minus PR-only enrichment (Linear intent).
     """
-    from .jarvis import live
+    from . import live
 
     from .repo_policy import validate_repo
 
     if repo:
+        if is_gitlab_key(repo):
+            raise ValueError("run_diff_review supports GitHub repositories only")
         validate_repo(repo)
     verify_variant = _resolve_variant(verify_variant)
     read = _file_reader(repo, head_sha, file_loader)
@@ -521,7 +568,7 @@ def run_diff_review(
     try:
         scan = live.probe_scan_for_files(repo, head_sha, files, read)
         probe_verified, probe_record = scan.findings, scan.coverage
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("probe lane failed for diff review; continuing without it")
@@ -545,6 +592,7 @@ def run_diff_review(
         return ReviewResult(
             raw_count=0, bugs=probe_bugs + det_bugs, nits=probe_nits + det_nits,
             dropped=0, files_changed=changed, lines_added=added, lines_removed=removed,
+            risk_tier=_risk_for_files(files),
             # The judge lane is listed even though it obviously cannot run here.
             # A reader must not have to already know the full set of lanes to
             # notice that one is missing from the document.
@@ -553,7 +601,10 @@ def run_diff_review(
                       _judge_skipped(FAST_MODE_JUDGE_REASON)])
 
     pr_section = _pr_section(pr_title, pr_body, commits)
-    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator())
+    source = (live.context_source(repo, head_sha)
+              if repo and head_sha and mirror_context_enabled() else None)
+    rendered = render_review_context(files, read, REVIEW_CONTEXT_BUDGET_TOKENS, HeuristicEstimator(),
+                                     source=source)
     if rendered.views:
         house_rules = fetch_house_rules(repo) if repo else None
         review = _deep_review(rendered.prompt, house_rules, model, None, pr_section)
@@ -583,6 +634,7 @@ def run_diff_review(
         dropped=len(review.findings) - len(bugs) - len(nits),
         all_findings=verified,
         files_changed=changed, lines_added=added, lines_removed=removed,
+        risk_tier=_risk_for_files(files),
         coverage=[probe_record, ruff_record, config_record,
                   llm_record, judge_record],
     )
@@ -590,11 +642,11 @@ def run_diff_review(
 
 def _file_reader(repo: str | None, head_sha: str | None,
                  file_loader: FileReader | None = None) -> FileReader | None:
-    from .jarvis import live
-
     if file_loader is None and repo and head_sha:
+        forge = forge_for(repo)
+
         def file_loader(path: str) -> str | None:
-            return live._fetch_file_at(repo, path, head_sha)
+            return forge.read_file(repo, path, head_sha)
     return cached_reader(file_loader)
 
 
@@ -637,7 +689,7 @@ def _reanchor_findings(findings: list, read: FileReader | None,
             continue
         try:
             content = read(finding.file)
-        except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        except _FORGE_ABORT:
             raise
         except Exception:
             counts["evidence_unreadable"] += 1
@@ -689,11 +741,9 @@ RUFF_ALWAYS_KEEP = {"F821", "invalid-syntax"}
 def _head_sha_for(repo: str, pr: int) -> str | None:
     """The PR's head SHA, best-effort. Without it the ruff lane has no whole-file
     content to read and records a skip, which is the honest outcome."""
-    from .jarvis import live
-
     try:
-        return live._pr_head_sha(repo, pr)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        return forge_for(repo).head_sha(repo, pr)
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("head sha lookup failed for %s#%s", repo, pr)
@@ -708,7 +758,7 @@ def _ruff_lane(files: list[FilePatch], repo: str | None,
     the tool reports having looked at, so a lane cannot balance its own books
     against a denominator it chose.
     """
-    from .jarvis import ruff_lane
+    from . import ruff_lane
 
     record: dict = {"lane": ruff_lane.LANE, "files_changed": len(files)}
     candidates = ruff_lane.eligible(files)
@@ -720,7 +770,7 @@ def _ruff_lane(files: list[FilePatch], repo: str | None,
         return [], {**record, "status": verdict.LANE_SKIPPED,
                     "reason": NO_WHOLE_FILES, "files_analyzed": 0}
 
-    from .jarvis import live
+    from . import live
 
     found: list[VerifiedFinding] = []
     analysed = 0
@@ -743,7 +793,7 @@ def _ruff_lane(files: list[FilePatch], repo: str | None,
                     suppressed += 1
                     suppressed_codes.add(hit.code)
             analysed += 1
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception as error:
         log.exception("ruff lane failed for %s@%s", repo, head_sha)
@@ -769,7 +819,7 @@ def _config_lane(files: list[FilePatch], repo: str | None,
     would not parse is an error, because "unreadable" and "clean" are different
     claims and only one of them is evidence.
     """
-    from .jarvis import config_lane
+    from . import config_lane
 
     record: dict = {"lane": config_lane.LANE, "files_changed": len(files)}
     candidates = config_lane.eligible(files)
@@ -795,7 +845,7 @@ def _config_lane(files: list[FilePatch], repo: str | None,
             found.extend(config_lane.to_finding(hit)
                          for hit in config_lane.scan(path, content, read=read))
             analysed += 1
-        except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+        except _FORGE_ABORT:
             raise
         except Exception as error:
             # Per file, never per lane. A templated Helm or Ansible document does
@@ -839,7 +889,7 @@ def _judge_lane(bug_items: list[VerifiedFinding], patches: dict[str, str],
     because nothing recorded its absence, so it now reports whether it ran, which
     judge answered, and why it did not.
     """
-    from .jarvis import automark, judges
+    from . import automark, judges
 
     if os.environ.get(JUDGE_LIVE_ENV) != "1":
         return _judge_skipped(f"{JUDGE_LIVE_ENV} is not 1: the judge is a metered model")
@@ -874,14 +924,19 @@ def _judge_lane(bug_items: list[VerifiedFinding], patches: dict[str, str],
             model=spec.model,
         )
         judged += 1
+    causes = ", ".join(f"{cause} x{count}" for cause, count in failure_causes.items())
     if failures:
-        causes = ", ".join(f"{cause} x{count}" for cause, count in failure_causes.items())
         log.warning("judge lane: %d/%d second opinions failed (%s); those findings stay "
                     "single_critic", failures, len(bug_items), causes)
-    return {"lane": JUDGE_LANE, "status": verdict.LANE_RAN, "model": spec.model,
-            "family": spec.family, "reviewer_family": judges.family_of(reviewer_model),
-            "checks": judged, "eligible": len(bug_items), "failures": failures,
-            "failure_causes": dict(failure_causes)}
+    record = {"lane": JUDGE_LANE, "status": verdict.LANE_RAN, "model": spec.model,
+              "family": spec.family, "reviewer_family": judges.family_of(reviewer_model),
+              "checks": judged, "eligible": len(bug_items), "failures": failures,
+              "failure_causes": dict(failure_causes)}
+    if failures and not judged:
+        # Every attempted call raised: the second opinion did not happen. Cause
+        # names only, never exception text, which can carry response bodies.
+        return {**record, "status": verdict.LANE_ERROR, "reason": causes}
+    return record
 
 
 def _suppress_known_fps(repo: str, pr: int, findings: list) -> list:
@@ -890,7 +945,7 @@ def _suppress_known_fps(repo: str, pr: int, findings: list) -> list:
     Lazy import to avoid the import cycle; a load failure keeps every finding
     rather than risking a swallowed real one.
     """
-    from .jarvis import live
+    from . import live
 
     try:
         kept, suppressed = live.suppress_known_fps(repo, findings)
@@ -908,11 +963,11 @@ def _intent_for_prompt(repo: str, pr: int, meta: dict | None = None) -> str | No
     Imported lazily to avoid the review <- live <- corpus <- api.db <- review
     cycle. A Linear or GitHub failure degrades to no intent, never a failed review.
     """
-    from .jarvis import live
+    from . import live
 
     try:
         return live.intent_section(repo, pr, meta)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("intent recovery failed for %s#%s; reviewing without it", repo, pr)
@@ -932,11 +987,11 @@ def _probe_lane(
     claims. Imported lazily to avoid the review <- live <- corpus <- api.db <-
     review import cycle.
     """
-    from .jarvis import live
+    from . import live
 
     try:
         scan = live.probe_scan(repo, pr, files, head_sha, read)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception:
         log.exception("probe lane failed for %s#%s; continuing without it", repo, pr)
@@ -1128,7 +1183,7 @@ def _unconfirmed(evidence: CounterEvidence | None, read: FileReader | None) -> _
         return _Void(VOID_UNREADABLE, "no file reader was available to confirm the quote")
     try:
         content = read(evidence.path)
-    except (github.GitHubRateLimited, github.GitHubDenied, github.GitHubAuthError):
+    except _FORGE_ABORT:
         raise
     except Exception as error:
         log.warning("counter_evidence read failed for %s: %s", evidence.path, error)

@@ -146,6 +146,18 @@ def test_a_reviewer_that_read_everything_is_full_coverage():
     assert verdict.coverage_level(whole) == verdict.COVERAGE_FULL
 
 
+def test_an_errored_judge_lane_lowers_full_coverage_but_not_the_decision():
+    lanes = [{"lane": verdict.LANE_LLM, "status": verdict.LANE_RAN,
+              "model": "m", "files_reviewed": 4, "files_omitted": 0},
+             {"lane": "judge", "status": verdict.LANE_ERROR, "reason": "http_503 x2",
+              "checks": 0, "eligible": 2, "failures": 2}]
+    level = verdict.coverage_level(lanes)
+    assert level == verdict.COVERAGE_PARTIAL
+    # The judge only runs on confirmed bug findings, which already request changes.
+    assert verdict.decision([_finding()], {"level": level}) == "changes_requested"
+    assert verdict.decision([_finding()], {"level": verdict.COVERAGE_FULL}) == "changes_requested"
+
+
 def test_a_failed_reviewer_lane_reports_no_model():
     """A lane that errored completed no invocation, so naming its configured model
     is the same false provenance as naming it on a skipped lane."""

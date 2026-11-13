@@ -14,7 +14,7 @@ from argus.evalkit import replay, reverify
 from argus.evalkit.cases import load_cases
 from argus.evalkit.score import score_results
 from argus.evalkit.snapshot import Snapshot, SnapshotStore, patch_digest
-from argus.jarvis import live
+from argus import live
 from argus.schema import Finding, Verdict, VerifiedFinding
 from test_evalkit_cases import case_data, write_cases
 

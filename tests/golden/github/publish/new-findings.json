@@ -1,0 +1,185 @@
+{
+  "case": "new-findings",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/user"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/comments"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/reviews"
+    },
+    {
+      "body": {
+        "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: partial\n\nFiles reviewed: 2; omitted: 1\n\nSeverity counts: Critical: 0; Major: 1; Minor: 1; Nit: 1\n\nTier counts: deterministic: 1; consensus: 2; single_critic: 0; disputed: 0\n\n### Outside the diff\n\n`src/config.py:30`\n\n_Contracts_ | _Minor_ | _deterministic_\n\n**Set a request timeout**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/config.py` around line 30: Set a request timeout. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-outside -->\n\n### Unverified (the verifier disagreed)\n\nThese findings were refuted by a second check. They are listed for a human decision and do not affect the verdict.\n\n`src/app.py:10`\n\n_Contracts_ | _Major_ | _disputed_\n\n**Check the fallback value**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 10-11: Check the fallback value. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:ufp=fp-disputed -->\n\nBelow posting threshold: 1\n\nAlready posted: 0\n\n<!-- argus:review=7 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp=fp-outside ufp=fp-disputed -->",
+        "comments": [
+          {
+            "body": "_Contracts_ | _Major_ | _consensus_\n\n**Validate input before saving**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 10-11: Validate input before saving. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-inline -->",
+            "line": 11,
+            "path": "src/app.py",
+            "side": "RIGHT",
+            "start_line": 10,
+            "start_side": "RIGHT"
+          }
+        ],
+        "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "event": "COMMENT"
+      },
+      "body_sha256": "2ca906853199c17ad68284fa3b85133e265906843dc48de25f48d91a3dc4c04b",
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "content-type": "application/json",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "POST",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/reviews"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/reviews/301/comments"
+    }
+  ],
+  "result": {
+    "already_posted": 0,
+    "bot_login": "example-bot",
+    "comments_posted": 1,
+    "gh_review_id": 301,
+    "items": [
+      {
+        "category": "contracts",
+        "confidence": 0.9,
+        "description": "An empty input reaches storage.",
+        "end_line": 11,
+        "evidence": "save(value)",
+        "evidence_tier": "consensus",
+        "file": "src/app.py",
+        "fingerprint": "fp-inline",
+        "gh_comment_id": 801,
+        "line": 10,
+        "placement": "inline",
+        "proposed_fix": "Reject empty input before saving.",
+        "severity": "major",
+        "title": "Validate input before saving"
+      },
+      {
+        "category": "contracts",
+        "confidence": 0.9,
+        "description": "An empty input reaches storage.",
+        "end_line": null,
+        "evidence": "save(value)",
+        "evidence_tier": "deterministic",
+        "file": "src/config.py",
+        "fingerprint": "fp-outside",
+        "gh_comment_id": null,
+        "line": 30,
+        "placement": "summary",
+        "proposed_fix": "Reject empty input before saving.",
+        "severity": "minor",
+        "title": "Set a request timeout"
+      },
+      {
+        "category": "contracts",
+        "confidence": 0.9,
+        "description": "An empty input reaches storage.",
+        "end_line": 11,
+        "evidence": "save(value)",
+        "evidence_tier": "disputed",
+        "file": "src/app.py",
+        "fingerprint": "fp-disputed",
+        "gh_comment_id": null,
+        "line": 10,
+        "placement": "summary",
+        "proposed_fix": "Reject empty input before saving.",
+        "severity": "major",
+        "title": "Check the fallback value",
+        "unverified": true
+      }
+    ],
+    "payload": {
+      "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: partial\n\nFiles reviewed: 2; omitted: 1\n\nSeverity counts: Critical: 0; Major: 1; Minor: 1; Nit: 1\n\nTier counts: deterministic: 1; consensus: 2; single_critic: 0; disputed: 0\n\n### Outside the diff\n\n`src/config.py:30`\n\n_Contracts_ | _Minor_ | _deterministic_\n\n**Set a request timeout**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/config.py` around line 30: Set a request timeout. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-outside -->\n\n### Unverified (the verifier disagreed)\n\nThese findings were refuted by a second check. They are listed for a human decision and do not affect the verdict.\n\n`src/app.py:10`\n\n_Contracts_ | _Major_ | _disputed_\n\n**Check the fallback value**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 10-11: Check the fallback value. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:ufp=fp-disputed -->\n\nBelow posting threshold: 1\n\nAlready posted: 0\n\n<!-- argus:review=7 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp=fp-outside ufp=fp-disputed -->",
+      "comments": [
+        {
+          "body": "_Contracts_ | _Major_ | _consensus_\n\n**Validate input before saving**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 10-11: Validate input before saving. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-inline -->",
+          "line": 11,
+          "path": "src/app.py",
+          "side": "RIGHT",
+          "start_line": 10,
+          "start_side": "RIGHT"
+        }
+      ],
+      "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event": "COMMENT"
+    },
+    "posted_at": "<ts>",
+    "reason": null,
+    "status": "posted"
+  },
+  "scenario": "publish"
+}

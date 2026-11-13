@@ -2,14 +2,19 @@
 
 import argparse
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from argus.api.watch_metrics import coverage
+from argus.forge.keys import github_key_sql, is_github_key
+from argus.forge.skips import SKIPPED_KEY, count_skip, log_skips
 
 from .labels import labelled_findings
 from .reports import average, display, rate, readonly, write_report
 from .score import _read_jsonl
+
+log = logging.getLogger("argus.evalkit.monthly")
 
 # The frozen values divide by held-out cases (review heads), not by distinct PRs.
 FROZEN_INLINE_REFERENCE = {
@@ -55,20 +60,37 @@ def retirement_gate(values, reference_inline):
 
 def build(db, weekly, month, reference=None, reference_prs=None):
     start, end = month_window(month)
+    stats = {}
     with readonly(db) as conn:
         watched = coverage(conn, start, end)
-        findings = list(labelled_findings(conn, start.isoformat(), end.isoformat()))
+        findings = list(labelled_findings(conn, start.isoformat(), end.isoformat(), stats=stats))
+        # This unfiltered total counts skipped rows even without the configured-only counter.
+        total_findings = conn.execute(
+            "SELECT COUNT(*) FROM published_findings WHERE mode='posted' "
+            'AND julianday(posted_at)>=julianday(?) AND julianday(posted_at)<julianday(?)',
+            (start.isoformat(), end.isoformat()),
+        ).fetchone()[0]
+        skipped_findings = total_findings - len(findings)
+        skipped_reviews = 0
         inline = [(label, loose) for f, label, loose in findings if f['placement'] == 'inline']
-        posted = conn.execute(
+        posted = []
+        for row in conn.execute(
             "SELECT repo,pr FROM reviews WHERE publish_status='posted' "
             'AND julianday(published_at)>=julianday(?) AND julianday(published_at)<julianday(?)',
             (start.isoformat(), end.isoformat()),
-        ).fetchall()
+        ):
+            if not is_github_key(row['repo']):
+                skipped_reviews += 1
+                count_skip(stats)
+                continue
+            posted.append(row)
         pr_coverage = None
         if reference_prs is not None:
-            prs = {(r['repo'], r['pr']) for r in _read_jsonl([reference_prs])}
+            # The denominator is a baseline number too: foreign-forge entries must not enter it.
+            prs = {(r['repo'], r['pr']) for r in _read_jsonl([reference_prs]) if is_github_key(r['repo'])}
             done = sum(bool(conn.execute(
-                "SELECT 1 FROM reviews WHERE repo=? AND pr=? AND status='done' LIMIT 1", pair,
+                f"SELECT 1 FROM reviews WHERE {github_key_sql('repo')} "  # nosec B608 - validated identifier
+                "AND repo=? AND pr=? AND status='done' LIMIT 1", pair,
             ).fetchone()) for pair in prs)
             pr_coverage = rate(done, len(prs))
     try:
@@ -119,8 +141,15 @@ def build(db, weekly, month, reference=None, reference_prs=None):
     if not fresh:
         gate['criteria']['incident_catches'] = 'not evaluable (no weekly report for the month)'
         rows['visible_recall']['note'] = f"Weekly report date: {weekly.get('date')}. No weekly report for the month."
-    return {'date': datetime.now(timezone.utc).isoformat(), 'month': month, 'rows': rows, 'gate': gate,
-            'weekly_date': weekly.get('date'), 'reference_period': {k: reference.get(k) for k in ('since', 'until')}}
+    report = {'date': datetime.now(timezone.utc).isoformat(), 'month': month, 'rows': rows, 'gate': gate,
+              'weekly_date': weekly.get('date'), 'reference_period': {k: reference.get(k) for k in ('since', 'until')}}
+    log_skips(log, "monthly findings", skipped_findings)
+    log_skips(log, "monthly reviews", skipped_reviews)
+    count_skip(stats, 0)
+    if SKIPPED_KEY in stats:
+        # The configured-only skipped_gitlab count includes findings plus posted reviews.
+        report[SKIPPED_KEY] = stats[SKIPPED_KEY]
+    return report
 
 
 def _labelled(value):

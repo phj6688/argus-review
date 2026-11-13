@@ -1,21 +1,25 @@
 """Run the production reviewer on cached historical changes."""
 
 import argparse
+import codecs
 import inspect
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
 
-from argus import client, providers, review
+from argus import client, context, providers, review
 from argus.client import DEFAULT_MODEL
-from argus.jarvis import live
+from argus import live
+from argus.schema import Verdict, VerifiedFinding
 
 from .cases import Case, load_cases
 from .snapshot import SnapshotStore
@@ -142,8 +146,75 @@ def _house_rules_at(ref: str):
         _HOUSE_RULES_REF.reset(token)
 
 
+def _git_path(path: str) -> str:
+    if path.startswith("\"") and path.endswith("\""):
+        return codecs.escape_decode(path[1:-1].encode("utf-8"))[0].decode("utf-8", "replace")
+    return path
+
+
+class MirrorSource:
+    def __init__(self, repo_mirror: str | Path, head_sha: str):
+        self.repo_mirror = Path(repo_mirror)
+        self.head_sha = head_sha
+        self._history: list[set[str]] | None = None
+        self._head_paths: set[str] | None = None
+
+    def _git(self, *args):
+        environment = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        return subprocess.run(["git", "--git-dir", str(self.repo_mirror), *args],
+                              capture_output=True, timeout=GIT_TIMEOUT_S, env=environment)
+
+    def grep_word(self, word: str) -> list[tuple[str, int, str]]:
+        result = self._git("grep", "-I", "-n", "-w", "-F", "--no-color", "--full-name",
+                           "-e", word, self.head_sha, "--")
+        if result.returncode == 1:
+            return []
+        result.check_returncode()
+        hits = []
+        paths = self._head_files()
+        for line in context.split_lines(result.stdout.decode("utf-8", "replace"))[:2000]:
+            body = line.partition(":")[2]
+            # Prefer the longest tree path when a shorter file name is also a prefix.
+            for match in reversed(list(re.finditer(r":(\d+):", body))):
+                path = _git_path(body[:match.start()])
+                if path in paths:
+                    hits.append((path, int(match[1]), body[match.end():]))
+                    break
+        return hits
+
+    def read(self, path: str) -> str | None:
+        try:
+            result = self._git("show", f"{self.head_sha}:{path}")
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return live.decode_file_text(result.stdout) if result.returncode == 0 else None
+
+    def _head_files(self) -> set[str]:
+        if self._head_paths is None:
+            tree = self._git("ls-tree", "-r", "--name-only", "-z", self.head_sha)
+            tree.check_returncode()
+            self._head_paths = set(tree.stdout.decode("utf-8", "replace").split("\0")) - {""}
+        return self._head_paths
+
+    def _load_history(self):
+        history = self._git("log", "-200", "--format=%x00", "--name-only", self.head_sha)
+        history.check_returncode()
+        self._history = [{_git_path(path) for path in context.split_lines(commit.strip("\n"))} - {""}
+                         for commit in history.stdout.decode("utf-8", "replace").split("\0")
+                         if commit.strip()]
+
+    def cochanged(self, path: str, limit: int) -> list[tuple[str, int]]:
+        if self._history is None:
+            self._load_history()
+        paths = self._head_files()
+        counts = Counter(other for commit in self._history if path in commit for other in commit
+                         if other != path and other in paths and not context._generated(other))
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+
+
 def install_mirror_mode(mirror_root: str | Path):
     root = Path(mirror_root)
+    original_context_source = live.context_source
     original_file_at = live._fetch_file_at
     original_house_rules = review.fetch_house_rules
 
@@ -172,10 +243,16 @@ def install_mirror_mode(mirror_root: str | Path):
             return None
         return result.stdout.decode("utf-8", "replace")[:review.HOUSE_RULES_MAX_CHARS]
 
+    def context_source(repo: str | None, head_sha: str | None):
+        repo_mirror = mirror(repo) if repo else None
+        return MirrorSource(repo_mirror, head_sha) if repo_mirror and head_sha else None
+
+    live.context_source = context_source
     live._fetch_file_at = fetch_file_at
     review.fetch_house_rules = fetch_house_rules
 
     def restore():
+        live.context_source = original_context_source
         live._fetch_file_at = original_file_at
         review.fetch_house_rules = original_house_rules
 
@@ -280,6 +357,13 @@ def _resume(path: Path) -> set[tuple[str, str, int]]:
     return {(row["variant"], row["case_id"], row["run"]) for row in read_complete_rows(path)}
 
 
+def _reviewer_only_findings(findings, diff, model, variant, read):
+    return [VerifiedFinding(finding=finding,
+                            verdict=Verdict(is_real=True, confidence=1.0,
+                                            reasoning="reviewer-only replay"))
+            for finding in findings]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", required=True)
@@ -295,6 +379,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cache-dir", default=default_cache_dir())
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--bug-cap", type=positive_int, default=10)
+    parser.add_argument("--reviewer-only", action="store_true")
     args = parser.parse_args(argv)
     if args.github_mode is None:
         args.github_mode = "mirror" if args.mirror_root else "api"
@@ -314,13 +399,18 @@ def main(argv: list[str] | None = None) -> int:
     store = SnapshotStore(args.mirror_root, args.cache_dir)
     code_sha, code_dirty = code_version()
     restore = install_mirror_mode(args.mirror_root) if args.github_mode == "mirror" else None
+    original_verify = review._verify_findings
     try:
+        if args.reviewer_only:
+            review._verify_findings = _reviewer_only_findings
         # The pool exits first, so every worker finishes before the credential is restored.
         with (model_credential(args.model) as credential_env,
               out.open("a", encoding="utf-8") as stream,
               ThreadPoolExecutor(args.concurrency) as pool):
             provenance = {"code_sha": code_sha, "code_dirty": code_dirty,
                           "credential_env": credential_env}
+            if args.reviewer_only:
+                provenance["reviewer_only"] = True
             futures = [pool.submit(replay_case, case, run, args.variant, store,
                                    args.model, args.bug_cap, provenance, args.github_mode)
                        for case, run in tasks]
@@ -332,6 +422,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{args.variant} {record['case_id']} run={record['run']} "
                       f"{record['duration_s']:.2f}s {status}", file=sys.stderr)
     finally:
+        if args.reviewer_only:
+            review._verify_findings = original_verify
         if restore:
             restore()
     return 0

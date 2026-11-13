@@ -6,7 +6,7 @@ import pytest
 from argus import fingerprint, review, schema, verdict
 from argus.api import db, main
 from argus.diff import FilePatch, compress_diff
-from argus.jarvis import live
+from argus import live
 
 
 GOOD = dict(file='a.py', line=2, severity='major', confidence=0.9, title='Wrong result',

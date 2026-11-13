@@ -1,0 +1,114 @@
+{
+  "derived": {
+    "commit": "80d2c7ed4365b729638193866957c7e99c454ebb",
+    "commits": 1,
+    "compare_same_ref": false,
+    "compare_timeout": false,
+    "diffs": 1,
+    "flags": {
+      "collapsed": 1,
+      "empty_diff": 1,
+      "files": 1,
+      "generated_file": 0,
+      "too_large": 0
+    },
+    "keys": [
+      "commit",
+      "commits",
+      "compare_same_ref",
+      "compare_timeout",
+      "diffs",
+      "web_url"
+    ],
+    "limits": {},
+    "merge_base": null,
+    "paths": [
+      "big/huge_dump.txt"
+    ]
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "too_large",
+    "question": 14
+  },
+  "request": {
+    "auth": "argus-bot",
+    "json": null,
+    "method": "GET",
+    "params": {
+      "from": "main",
+      "to": "feat/too-large"
+    },
+    "path": "/projects/1/repository/compare"
+  },
+  "response": {
+    "body": {
+      "commit": {
+        "author_email": "<EMAIL>",
+        "author_name": "Argus Developer",
+        "authored_date": "2026-11-02T19:37:11.000+00:00",
+        "committed_date": "2026-11-02T19:37:11.000+00:00",
+        "committer_email": "<EMAIL>",
+        "committer_name": "Argus Developer",
+        "created_at": "2026-11-02T19:37:11.000+00:00",
+        "extended_trailers": {},
+        "id": "80d2c7ed4365b729638193866957c7e99c454ebb",
+        "message": "large diff",
+        "parent_ids": [
+          "2cec1ccca628409c7927dedc5950057cc53ff638"
+        ],
+        "short_id": "80d2c7ed",
+        "title": "large diff",
+        "trailers": {},
+        "web_url": "https://gitlab.example.test/argus-test/sub-a/sub-b/demo-app/-/commit/80d2c7ed4365b729638193866957c7e99c454ebb"
+      },
+      "commits": [
+        {
+          "author_email": "<EMAIL>",
+          "author_name": "Argus Developer",
+          "authored_date": "2026-11-02T19:37:11.000+00:00",
+          "committed_date": "2026-11-02T19:37:11.000+00:00",
+          "committer_email": "<EMAIL>",
+          "committer_name": "Argus Developer",
+          "created_at": "2026-11-02T19:37:11.000+00:00",
+          "extended_trailers": {},
+          "id": "80d2c7ed4365b729638193866957c7e99c454ebb",
+          "message": "large diff",
+          "parent_ids": [
+            "2cec1ccca628409c7927dedc5950057cc53ff638"
+          ],
+          "short_id": "80d2c7ed",
+          "title": "large diff",
+          "trailers": {},
+          "web_url": "https://gitlab.example.test/argus-test/sub-a/sub-b/demo-app/-/commit/80d2c7ed4365b729638193866957c7e99c454ebb"
+        }
+      ],
+      "compare_same_ref": false,
+      "compare_timeout": false,
+      "diffs": [
+        {
+          "a_mode": "0",
+          "b_mode": "100644",
+          "collapsed": true,
+          "deleted_file": false,
+          "diff": "",
+          "generated_file": null,
+          "new_file": true,
+          "new_path": "big/huge_dump.txt",
+          "old_path": "big/huge_dump.txt",
+          "renamed_file": false,
+          "too_large": false
+        }
+      ],
+      "web_url": "https://gitlab.example.test/argus-test/sub-a/sub-b/demo-app/-/compare/2cec1ccca628409c7927dedc5950057cc53ff638...80d2c7ed4365b729638193866957c7e99c454ebb"
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"9d4c9c5c2482792acfd523ac8e79f5da\"",
+      "vary": "Accept-Encoding, Origin"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

@@ -2,7 +2,7 @@ from collections import Counter
 
 import pytest
 
-from argus import context
+from argus import context, github
 from argus.diff import FilePatch
 from argus.tokens import HeuristicEstimator
 
@@ -76,11 +76,12 @@ def test_generated_files_never_read_full_content(name):
 
 def test_degrades_without_dropping_a_smaller_form():
     content = '\n'.join('x = ' + '1' * 100 for _ in range(500))
-    files = [FilePatch('a.py', 'modified', '@@ -250 +250 @@\n-x\n+x')]
-    assert render(files, lambda _: content).full == ['a.py']
-    assert render(files, lambda _: content, 4000).windowed == ['a.py']
-    assert render(files, lambda _: content, 100).hunks_only == ['a.py']
-    assert render(files, lambda _: content, 1).overflow == ['a.py']
+    files = [FilePatch(name, 'modified', '@@ -250 +250 @@\n-x\n+x')
+             for name in ('a.py', 'b.py')]
+    assert render(files, lambda _: content).full == ['a.py', 'b.py']
+    assert render(files, lambda _: content, 4500).windowed == ['a.py', 'b.py']
+    assert render(files, lambda _: content, 100).hunks_only == ['a.py', 'b.py']
+    assert render(files, lambda _: content, 1).overflow == ['a.py', 'b.py']
 
 
 def test_ranking_and_partition():
@@ -92,14 +93,21 @@ def test_ranking_and_partition():
     result = render(files)
     assert result.hunks_only == ['b.py', 'a.py', 'README.md', 'dist/a.py']
     assert result.deleted == ['gone']
+    assert result.patchless == ['binary']
+    assert result.prompt.endswith('## Changed files without a patch (content not shown):\nbinary (added)')
     assert Counter(result.full + result.windowed + result.hunks_only + result.overflow) == \
         Counter(['a.py', 'b.py', 'README.md', 'dist/a.py'])
 
 
 def test_failed_read_falls_back_to_hunks():
+    reads = []
     def read(_):
+        reads.append(_)
         raise OSError('unavailable')
-    assert render([FilePatch('a.py', 'modified', PATCH)], read).hunks_only == ['a.py']
+    result = render([FilePatch('a.py', 'modified', PATCH)], read)
+    assert result.hunks_only == ['a.py']
+    assert result.files_read_failed == 1
+    assert reads == ['a.py']
 
 
 @pytest.mark.parametrize('count,mode', [(600, 'full'), (601, 'windowed')])
@@ -157,12 +165,877 @@ def test_crlf_content_numbering():
 
 
 def test_overflow_files_are_not_read():
-    files = [FilePatch(f"{i}.py", "modified", PATCH) for i in range(20)]
-    baseline = render(files[:1], lambda _: "first\nkeep\nnew\ntail\n")
+    content = 'x' * 1000 + '\n'
+    patch = '@@ -1 +1 @@\n-old\n+' + content.rstrip('\n')
+    files = [FilePatch(f'{i}.py', 'modified', patch) for i in range(20)]
+    hunks = render(files[:1])
+    budget = hunks.estimated_tokens + context.MIN_UPGRADE_TOKENS
+    assert render(files[:2]).estimated_tokens > budget
     reads = []
-    result = render(files, lambda path: reads.append(path) or "first\nkeep\nnew\ntail\n",
-                    budget=baseline.estimated_tokens)
-    assert reads == ["0.py"]
-    assert result.views == baseline.views
-    assert result.prompt.startswith(baseline.prompt)
-    assert result.overflow == [f"{i}.py" for i in range(1, 20)]
+    result = render(files, lambda path: reads.append(path) or content, budget=budget)
+    assert reads == ['0.py']
+    assert result.full == ['0.py']
+    assert list(result.views) == ['0.py']
+    assert result.prompt.startswith(result.views['0.py'] + '\n\n')
+    assert result.views == render(files[:1], lambda _: content).views
+    assert result.overflow == [f'{i}.py' for i in range(1, 20)]
+
+
+def test_changed_symbols_post_image_and_removed_declarations():
+    content = ('module_value = 2\nclass Loader:\n    def __init__(self):\n'
+               '        self.value = 2\n    @decorate\n    def load_value(self):\n'
+               '        return 2\n\ndef unchanged():\n    return 1\n')
+    files = [
+        FilePatch('loader.py', 'modified', '@@ -1 +1 @@\n-old\n+module_value = 2\n'
+                  '@@ -4 +4 @@\n-        self.value = 1\n+        self.value = 2\n'
+                  '@@ -7 +7 @@\n-        return 1\n+        return 2\n'
+                  '@@ -11,2 +10,0 @@\n-def removed_loader():\n-    pass'),
+        FilePatch('module.py', 'modified', '@@ -1 +1 @@\n-old\n+module_value = 2'),
+        FilePatch('loader.ts', 'modified', '@@ -2 +2 @@\n-  return 1;\n+  return 2;'),
+        FilePatch('broken.py', 'modified', '@@ -1 +1 @@\n-def old_loader():\n+def new_loader(:'),
+        FilePatch('gone.py', 'removed', '@@ -1,2 +0,0 @@\n-def deleted_loader():\n-    pass'),
+        FilePatch('dist/skip.py', 'modified', '@@ -1 +1 @@\n+def generated_loader(): pass'),
+    ]
+    contents = {'loader.py': content, 'module.py': 'module_value = 2\n',
+                'loader.ts': 'export function load_item() {\n  return 2;\n}\n',
+                'broken.py': 'def new_loader(:\n'}
+    assert context.changed_symbols(files, contents.get) == {
+        'loader.py': ['Loader', 'load_value', 'removed_loader'],
+        'loader.ts': ['load_item'], 'broken.py': ['old_loader', 'new_loader'],
+        'gone.py': ['deleted_loader'],
+    }
+
+
+@pytest.mark.parametrize('path,signature,name', [
+    ('a.pyi', 'async def load_item():', 'load_item'),
+    ('a.ts', 'export const load_item = (value) => value;', 'load_item'),
+    ('a.ts', 'let load_item = function(value) {};', 'load_item'),
+    ('a.ts', '  async load_item(value) {', 'load_item'),
+    ('a.ts', 'interface Loadable {', 'Loadable'),
+    ('a.ts', 'type Loadable = string;', 'Loadable'),
+    ('a.ts', 'enum Loadable {', 'Loadable'),
+    ('a.go', 'func (r Reader) load_item() {', 'load_item'),
+    ('a.go', 'type Loadable struct {', 'Loadable'),
+    ('a.rs', 'pub async fn load_item() {', 'load_item'),
+    ('a.rs', 'pub struct Loadable {', 'Loadable'),
+    ('a.bash', 'load_item() {', 'load_item'),
+    ('a.sh', 'function load_item {', 'load_item'),
+])
+def test_changed_symbols_signature_fallback(path, signature, name):
+    file = FilePatch(path, 'modified', '@@ -0,0 +1 @@\n+' + signature)
+    assert context.changed_symbols([file], None) == {path: [name]}
+
+
+def test_changed_symbols_ignores_common_names_and_module_lines():
+    patch = '@@ -0,0 +1,6 @@\n+def go(): pass\n+def main(): pass\n+def test_load(): pass\n' \
+            '+class TestLoad: pass\n+def load_item(): pass\n+value = 1'
+    assert context.changed_symbols([FilePatch('a.py', 'added', patch)], None) == {
+        'a.py': ['load_item']}
+
+
+def pairing_fixture():
+    files = [FilePatch('loader.py', 'modified', '@@ -2 +2 @@\n-    return 1\n+    return 2'),
+             FilePatch('tests/test_loader.py', 'modified', '@@ -8 +8 @@\n-old\n+load_x()'),
+             FilePatch('notes.md', 'modified', '@@ -1 +1 @@\n+load_xy()')]
+    contents = {'loader.py': 'def load_x():\n    return 2\n\nload_x()\n',
+                'tests/test_loader.py': '\n'.join(['# context'] * 7 + ['load_x()', 'load_x()']),
+                'notes.md': 'load_xy()'}
+    return files, contents
+
+
+def test_pairing_searches_only_other_changed_files_with_exact_words():
+    files, contents = pairing_fixture()
+    reads = []
+    def read(path):
+        reads.append(path)
+        return contents[path]
+    result = context.pairing_block(files, read, {'loader.py': ['load_x']}, 2000,
+                                   HeuristicEstimator())
+    assert '## Cross-references for changed symbols' in result.text
+    assert '#### tests/test_loader.py (test)' in result.text
+    assert '    8 > load_x()\n    9 > load_x()' in result.text
+    assert result.text.count('    7   # context') == 1
+    assert '#### loader.py' not in result.text and 'notes.md' not in result.text
+    assert set(reads) <= set(contents)
+    assert [(e.symbol, e.defined_in, e.path, e.line, e.kind) for e in result.entries] == [
+        ('load_x', 'loader.py', 'tests/test_loader.py', 8, 'test'),
+        ('load_x', 'loader.py', 'tests/test_loader.py', 9, 'test')]
+    assert result.references == 2
+
+
+def test_pairing_budget_and_patch_line_numbers():
+    files, _ = pairing_fixture()
+    result = context.pairing_block(files, None, {'loader.py': ['load_x']}, 2000,
+                                   HeuristicEstimator())
+    assert '    8 > load_x()' in result.text
+    cut = context.pairing_block(files, None, {'loader.py': ['load_x']}, 1,
+                                HeuristicEstimator())
+    assert cut.text == '' and cut.entries == [] and cut.truncated
+    assert cut.tokens <= 1
+
+
+def test_context_blocks_default_prompt_is_unchanged(monkeypatch):
+    files = [FilePatch('a.py', 'modified', PATCH)]
+    for name in ('PAIRING', 'CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.delenv('ARGUS_CONTEXT_' + name, raising=False)
+    unset = render(files)
+    assert unset.prompt == ('## File: a.py (modified, python, hunks)\n```\n'
+                            '    2   keep\n      - old\n    3 + new\n    4   tail\n```')
+    for name in ('PAIRING', 'CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.setenv('ARGUS_CONTEXT_' + name, '0')
+    off = render(files)
+    assert off == unset
+    assert off.context_blocks == {} and off.pairing_entries == []
+    from argus.review import _llm_file_counts
+    assert 'context_blocks' not in _llm_file_counts(files, off)
+
+
+@pytest.mark.parametrize('value', ['1', ' true ', 'YES', 'On'])
+def test_pairing_opt_in_appends_without_changing_file_views(monkeypatch, value):
+    files, contents = pairing_fixture()
+    monkeypatch.delenv('ARGUS_CONTEXT_PAIRING', raising=False)
+    before = render(files, contents.get)
+    monkeypatch.setenv('ARGUS_CONTEXT_PAIRING', value)
+    after = render(files, contents.get)
+    assert after.prompt.startswith(before.prompt + '\n\n')
+    assert after.views == before.views
+    assert after.context_blocks['pairing'] == {
+        'enabled': True, 'status': 'ran', 'reason': None, 'symbols': 1,
+        'references': 2, 'files_searched': 3, 'tokens': HeuristicEstimator().estimate(
+            after.prompt[len(before.prompt) + 2:]), 'budget_tokens': 12000, 'truncated': False}
+    assert len(after.pairing_entries) == 2
+    assert after.estimated_tokens == HeuristicEstimator().estimate(after.prompt)
+    from argus.review import _llm_file_counts
+    assert _llm_file_counts(files, after)['context_blocks'] == after.context_blocks
+    preview = context.context_blocks_preview(files, contents.get, 120000, HeuristicEstimator())
+    assert preview['pairing'].text == after.prompt[len(before.prompt) + 2:]
+
+
+@pytest.mark.parametrize('error', [github.GitHubAuthError, github.GitHubDenied,
+                                  github.GitHubRateLimited])
+def test_changed_symbols_propagates_github_errors(error):
+    def read(path):
+        raise error('unavailable')
+    with pytest.raises(error):
+        context.changed_symbols([FilePatch('a.py', 'modified', '@@ -1 +1 @@\n+def load_x():')], read)
+
+
+def test_changed_symbols_logs_read_failure_and_falls_back(caplog):
+    def read(path):
+        raise OSError('unavailable')
+    result = context.changed_symbols([
+        FilePatch('a.py', 'modified', '@@ -1 +1 @@\n+def load_x():')], read)
+    assert result == {'a.py': ['load_x']}
+    assert 'unavailable' in caplog.text
+
+
+@pytest.fixture
+def context_mirror(tmp_path):
+    import os
+    import subprocess
+    from argus.evalkit.replay import MirrorSource
+    work, mirror = tmp_path / 'work', tmp_path / 'mirror.git'
+    work.mkdir()
+    environment = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(work), *args], env=environment,
+                                       text=True).strip()
+    git('init', '-q')
+    contents = {'changed.py': 'def load_data():\n    return helper_value()\n',
+                'helper.py': 'def helper_value():\n    return 42\n',
+                'caller.py': 'def use_data():\n    return load_data()\n',
+                'peer.py': 'value = 1\n', 'deleted.py': 'value = 1\n',
+                'uv.lock': 'version = 1\n'}
+    for path, text in contents.items():
+        (work / path).write_text(text)
+    def commit(message):
+        git('add', '.')
+        git('-c', 'user.email=test@example.invalid', '-c', 'user.name=Test', 'commit', '-qm', message)
+    commit('initial')
+    (work / 'changed.py').write_text(contents['changed.py'] + '# updated\n')
+    (work / 'peer.py').write_text('value = 2\n')
+    (work / 'uv.lock').write_text('version = 2\n')
+    commit('together')
+    (work / 'deleted.py').unlink()
+    commit('delete')
+    head = git('rev-parse', 'HEAD')
+    subprocess.run(['git', 'clone', '--bare', '-q', str(work), str(mirror)],
+                   env=environment, check=True)
+    source = MirrorSource(mirror, head)
+    files = [FilePatch('changed.py', 'modified',
+                      '@@ -2 +2 @@\n-    return 1\n+    return helper_value()')]
+    return files, source
+
+
+def test_mirror_blocks_use_head_definitions_callers_and_history(context_mirror, monkeypatch):
+    files, source = context_mirror
+    assert source.grep_word('helper_value') == [
+        ('changed.py', 2, '    return helper_value()'), ('helper.py', 1, 'def helper_value():')]
+    assert source.grep_word('no_such_symbol') == []
+    assert source.read('missing.py') is None
+    assert source.cochanged('changed.py', 10) == [
+        ('peer.py', 2), ('caller.py', 1), ('helper.py', 1)]
+    preview = context.context_blocks_preview(files, source.read, 120000, HeuristicEstimator(),
+                                             source, pairing=False, callees=True,
+                                             callers=True, cochange=True)
+    assert '## Definitions of functions the changed code calls' in preview['callees'].text
+    assert '#### helper.py' in preview['callees'].text
+    assert '    1 > def helper_value():' in preview['callees'].text
+    assert '#### caller.py' in preview['callers'].text
+    assert '    2 >     return load_data()' in preview['callers'].text
+    assert '- changed.py: peer.py (2), caller.py (1), helper.py (1)' in preview['cochange'].text
+    for name, share in [('callees', .05), ('callers', .05), ('cochange', .01)]:
+        assert preview[name].tokens <= int(120000 * share)
+        monkeypatch.setenv('ARGUS_CONTEXT_' + name.upper(), 'true')
+    rendered = context.render_review_context(files, source.read, 120000, source=source)
+    assert [record['status'] for record in rendered.context_blocks.values()] == ['ran'] * 3
+    assert list(rendered.context_blocks) == ['callees', 'callers', 'cochange']
+    for name in ('CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.setenv('ARGUS_CONTEXT_' + name, '0')
+    off = context.render_review_context(files, source.read, 120000, source=source)
+    assert off.context_blocks == {} and rendered.prompt.startswith(off.prompt)
+
+
+def test_mirror_settings_without_a_mirror_record_skip(monkeypatch):
+    files, contents = pairing_fixture()
+    for name in ('CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.setenv('ARGUS_CONTEXT_' + name, '1')
+    result = render(files, contents.get)
+    for record in result.context_blocks.values():
+        assert record['status'] == 'skipped' and record['reason'] == 'no repository mirror'
+        assert record['references'] == 0 and record['tokens'] == 0
+    assert '## Callers' not in result.prompt and '## Definitions' not in result.prompt
+
+
+class FixtureSource:
+    def __init__(self, hits=(), contents=None, error=None):
+        self.hits, self.contents, self.error = hits, contents or {}, error
+
+    def grep_word(self, word):
+        if self.error:
+            raise self.error
+        return list(self.hits)
+
+    def read(self, path):
+        if self.error:
+            raise self.error
+        return self.contents.get(path)
+
+    def cochanged(self, path, limit):
+        if self.error:
+            raise self.error
+        return [(f'peer{n}.py', 10 - n) for n in range(6)][:limit]
+
+
+@pytest.mark.parametrize('name', ['callees', 'callers', 'cochange'])
+def test_mirror_source_errors_leave_no_partial_block(name, caplog):
+    files = [FilePatch('a.py', 'added', '@@ -0,0 +1,2 @@\n+def load_data():\n+    helper_value()')]
+    result = context.context_blocks_preview(
+        files, None, 120000, HeuristicEstimator(), FixtureSource(error=OSError('failed')),
+        pairing=False, **{name: True})[name]
+    assert result.text == '' and result.reason == 'source error' and result.references == 0
+    assert 'failed' in caplog.text
+
+
+@pytest.mark.parametrize('name', ['callees', 'callers', 'cochange'])
+def test_mirror_blocks_stop_at_entry_boundaries(name):
+    files = [FilePatch('a.py', 'added', '@@ -0,0 +1,2 @@\n+def load_data():\n+    helper_value()')]
+    source = FixtureSource([('other.py', 1, 'def helper_value():'),
+                            ('other.py', 2, '    load_data()')],
+                           {'other.py': 'def helper_value():\n    load_data()\n'})
+    result = context.context_blocks_preview(files, None, 1, HeuristicEstimator(), source,
+                                             pairing=False, **{name: True})[name]
+    assert result.text == '' and result.truncated and result.tokens == 0
+
+
+def test_callees_skip_ambiguous_definitions_and_callers_skip_common_names():
+    files = [FilePatch('a.py', 'added', '@@ -0,0 +1,2 @@\n+def load_data():\n+    helper_value()')]
+    hits = [(f'helper{n}.py', 1, 'def helper_value():') for n in range(3)]
+    result = context.context_blocks_preview(files, None, 120000, HeuristicEstimator(),
+                                             FixtureSource(hits), pairing=False, callees=True)
+    assert result['callees'].text == ''
+    hits = [(f'caller{n}.py', 1, 'load_data()') for n in range(41)]
+    result = context.context_blocks_preview(files, None, 120000, HeuristicEstimator(),
+                                             FixtureSource(hits), pairing=False, callers=True)
+    assert result['callers'].text == ''
+
+
+@pytest.mark.parametrize('constructor', ['__init__', '__new__', '__post_init__'])
+def test_changed_constructor_signature_names_only_the_class(constructor):
+    content = f'class Loader:\n    def {constructor}(self, value):\n        pass\n'
+    patch = (f'@@ -2 +2 @@\n-    def {constructor}(self):\n'
+             f'+    def {constructor}(self, value):')
+    assert context.changed_symbols([FilePatch('a.py', 'modified', patch)], lambda _: content) == {
+        'a.py': ['Loader']}
+
+
+def test_removed_constructor_uses_class_in_patch_without_reader():
+    patch = ('@@ -1,3 +1 @@\n class Loader:\n-    def __init__(self):\n-        pass')
+    assert context.changed_symbols([FilePatch('a.py', 'modified', patch)], None) == {
+        'a.py': ['Loader']}
+
+
+def test_pairing_order_limits_and_maximum_line_length():
+    files = [FilePatch('small.py', 'modified', '@@ -1 +1 @@\n+def small_load(): pass'),
+             FilePatch('large.py', 'modified', '@@ -1 +1,2 @@\n+def large_load():\n+    pass')]
+    contents = {}
+    for n, name in enumerate(['config.yaml', 'other.py', 'docs/usage.md',
+                              'tests/a.py', 'tests/b.py', 'tests/c.py', 'tests/d.py', 'tests/e.py']):
+        files.append(FilePatch(name, 'modified', '@@ -1 +1 @@\n+new'))
+        contents[name] = '\n'.join(['large_load() small_load() ' + 'x' * 250] * 5)
+    result = context.pairing_block(files, contents.get,
+                                   {'small.py': ['small_load'], 'large.py': ['large_load']},
+                                   120000, HeuristicEstimator())
+    assert result.entries[0].symbol == 'large_load'
+    for name in ('large_load', 'small_load'):
+        entries = [entry for entry in result.entries if entry.symbol == name]
+        assert list(dict.fromkeys(entry.path for entry in entries)) == [
+            'tests/a.py', 'tests/b.py', 'tests/c.py', 'tests/d.py', 'tests/e.py', 'docs/usage.md']
+        assert all(count == 3 for count in Counter(entry.path for entry in entries).values())
+    assert result.truncated
+    assert all(len(line.split(' > ', 1)[1]) <= 200 for line in result.text.splitlines() if ' > ' in line)
+
+
+def test_pairing_cut_keeps_complete_entries():
+    files, contents = pairing_fixture()
+    contents['tests/test_loader.py'] = '\n'.join(
+        ['# context'] * 7 + ['load_x()'] + ['# gap'] * 10 + ['load_x()'])
+    full = context.pairing_block(files, contents.get, {'loader.py': ['load_x']}, 12000,
+                                 HeuristicEstimator())
+    cap = full.tokens - 1
+    cut = context.pairing_block(files, contents.get, {'loader.py': ['load_x']}, cap,
+                                HeuristicEstimator())
+    assert cut.truncated and cut.tokens <= cap and cut.references == 1
+    assert cut.text.endswith('\n```') and len(cut.entries) == 1
+
+
+def test_preview_ignores_environment_and_render_reads_each_file_once(monkeypatch):
+    files, contents = pairing_fixture()
+    monkeypatch.setenv('ARGUS_CONTEXT_PAIRING', 'yes')
+    reads = Counter()
+    def read(path):
+        reads[path] += 1
+        return contents.get(path)
+    render(files, read)
+    assert reads == Counter({path: 1 for path in contents})
+    preview = context.context_blocks_preview(files, read, 120000, HeuristicEstimator(), pairing=False)
+    assert preview == {} and reads == Counter({path: 1 for path in contents})
+
+
+def test_callees_keep_names_that_are_only_excluded_as_changed_symbols():
+    content = 'def load_data():\n    return setup()\n'
+    files = [FilePatch('a.py', 'modified', '@@ -2 +2 @@\n-    return 1\n+    return setup()')]
+    source = FixtureSource([('helper.py', 1, 'def setup():')], {'helper.py': 'def setup():\n    pass\n'})
+    result = context.context_blocks_preview(files, lambda _: content, 120000,
+                                             HeuristicEstimator(), source, pairing=False, callees=True)
+    assert 'def setup():' in result['callees'].text
+
+
+def test_cochange_symbol_counts_do_not_depend_on_other_blocks(context_mirror):
+    files, source = context_mirror
+    alone = context.context_blocks_preview(files, source.read, 120000, HeuristicEstimator(),
+                                           source, pairing=False, cochange=True)
+    together = context.context_blocks_preview(files, source.read, 120000, HeuristicEstimator(),
+                                              source, pairing=False, cochange=True, callers=True)
+    assert alone['cochange'].symbols == together['cochange'].symbols == 1
+
+
+def test_constructor_class_context_does_not_leak_across_hunks():
+    import difflib
+    before = ('class Alpha:\n    def first_method(self):\n        return 1\n'
+              + '\n' * 10 + 'class Beta:\n    flag = True\n'
+              '    def __init__(self):\n        pass\n')
+    after = before.replace('first_method(self)', 'first_method(self, value)').replace(
+        '__init__(self)', '__init__(self, value)')
+    patch = ''.join(list(difflib.unified_diff(before.splitlines(keepends=True),
+                                             after.splitlines(keepends=True), n=1))[2:])
+    assert context.changed_symbols([FilePatch('a.py', 'modified', patch)], lambda _: after) == {
+        'a.py': ['first_method', 'Beta']}
+
+
+@pytest.mark.parametrize('entrypoint', ['pr', 'diff'])
+def test_review_source_hook_is_only_called_for_mirror_settings(monkeypatch, entrypoint):
+    from types import SimpleNamespace
+    from argus import review
+    from argus import live
+    files, contents = pairing_fixture()
+    calls, prompts = [], []
+    source = FixtureSource([('caller.py', 2, '    load_x()')],
+                           {'caller.py': 'def call_loader():\n    load_x()\n'})
+    def context_source(repo, head_sha):
+        calls.append((repo, head_sha))
+        return source
+    monkeypatch.setattr(live, 'context_source', context_source)
+    monkeypatch.setattr(live, '_pr_meta', lambda *args: {'head_sha': 'head'})
+    monkeypatch.setattr(review, 'fetch_pr_files', lambda *args: files)
+    monkeypatch.setattr(review, '_file_reader', lambda *args: contents.get)
+    monkeypatch.setattr(review, 'fetch_house_rules', lambda *args: None)
+    monkeypatch.setattr(review, '_intent_for_prompt', lambda *args: None)
+    monkeypatch.setattr(review, '_probe_lane', lambda *args: ([], [], {}))
+    monkeypatch.setattr(review, '_ruff_lane', lambda *args: ([], {}))
+    monkeypatch.setattr(review, '_config_lane', lambda *args: ([], {}))
+    monkeypatch.setattr(live, 'probe_scan_for_files', lambda *args: SimpleNamespace(findings=[], coverage={}))
+    monkeypatch.setattr(review, '_suppress_known_fps', lambda repo, pr, findings: findings)
+    def complete(model, system, user, tool):
+        prompts.append(user)
+        return {'findings': []}
+    monkeypatch.setattr(review, 'complete_tool', complete)
+    for name in ('PAIRING', 'CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.delenv('ARGUS_CONTEXT_' + name, raising=False)
+    def run(repo='owner/project', head='head'):
+        if entrypoint == 'pr':
+            return review.run_review(repo, 1)
+        return review.run_diff_review(files, repo=repo, head_sha=head)
+    off = run()
+    assert calls == []
+    assert 'context_blocks' not in next(r for r in off.coverage if r.get('lane') == 'llm')
+    monkeypatch.setenv('ARGUS_CONTEXT_PAIRING', '1')
+    run()
+    assert calls == []
+    monkeypatch.setenv('ARGUS_CONTEXT_CALLERS', '1')
+    on = run()
+    assert calls == [('owner/project', 'head')]
+    assert '#### caller.py' in prompts[-1]
+    assert next(r for r in on.coverage if r.get('lane') == 'llm')['context_blocks']['callers']['status'] == 'ran'
+    if entrypoint == 'diff':
+        run(None, 'head')
+        run('owner/project', None)
+        assert calls == [('owner/project', 'head')]
+
+
+@pytest.mark.parametrize('name', ['callees', 'callers', 'cochange'])
+@pytest.mark.parametrize('error', [github.GitHubAuthError, github.GitHubDenied,
+                                  github.GitHubRateLimited])
+def test_mirror_blocks_propagate_github_errors(name, error):
+    files = [FilePatch('a.py', 'added', '@@ -0,0 +1,2 @@\n+def load_data():\n+    helper_value()')]
+    with pytest.raises(error):
+        context.context_blocks_preview(files, None, 120000, HeuristicEstimator(),
+                                       FixtureSource(error=error('unavailable')),
+                                       pairing=False, **{name: True})
+
+
+@pytest.mark.parametrize('name', ['match', 'func', 'super'])
+def test_changed_symbols_keeps_valid_names_outside_the_explicit_skip_list(name):
+    file = FilePatch('a.py', 'added', f'@@ -0,0 +1 @@\n+def {name}(): pass')
+    assert context.changed_symbols([file], None) == {'a.py': [name]}
+
+
+@pytest.mark.parametrize('path,content,patch,definition', [
+    ('a.py', 'def load_data():\n    return super()\n',
+     '@@ -2 +2 @@\n-    return 1\n+    return super()', ('helper.py', 'def super():')),
+    ('a.ts', 'function load_data() {\n    return service.match(value);\n}\n',
+     '@@ -2 +2 @@\n-    return 1;\n+    return service.match(value);',
+     ('helper.ts', 'export function match(value) {')),
+])
+def test_callees_exclude_keywords_of_the_actual_language(path, content, patch, definition):
+    helper_path, signature = definition
+    source = FixtureSource([(helper_path, 1, signature)], {helper_path: signature + '\n'})
+    result = context.context_blocks_preview([FilePatch(path, 'modified', patch)], lambda _: content,
+                                             120000, HeuristicEstimator(), source,
+                                             pairing=False, callees=True)
+    assert signature in result['callees'].text
+
+
+def test_changed_symbols_survives_unparsable_python_source():
+    patch = '@@ -1 +1,2 @@\n a\n+def changed_name():\n'
+    file = FilePatch('nul.py', 'modified', patch)
+
+    # Python 3.11 raises ValueError for a NUL byte, where later versions raise SyntaxError.
+    assert context.changed_symbols([file], lambda _: 'a\x00b\n') == {'nul.py': ['changed_name']}
+
+
+def greedy_reference(files, read, budget_tokens, estimator=None, *, source=None):
+    """Frozen packing algorithm before coverage was reserved for later files."""
+    estimator = estimator or HeuristicEstimator()
+    if any(context.context_setting(name) for name in context._BLOCK_SHARES):
+        read = context.cached_reader(read)
+    result = context.RenderedContext(deleted=[f.filename for f in files if f.status == context.REMOVED_STATUS])
+    blocks: list[str] = []
+    candidates = sorted((f for f in files if f.status != context.REMOVED_STATUS and f.patch), key=context._rank)
+    for file in candidates:
+        hunks = context._block(file, 'hunks', [context._line(*line) for line in context._patch_lines(file.patch)])
+        if estimator.estimate('\n\n'.join([*blocks, hunks])) > budget_tokens:
+            result.overflow.append(file.filename)
+            continue
+        for mode, block in context._file_views(file, read, result):
+            cost = estimator.estimate('\n\n'.join([*blocks, block]))
+            if cost <= budget_tokens:
+                blocks.append(block)
+                getattr(result, mode).append(file.filename)
+                result.views[file.filename] = block
+                break
+        else:
+            result.overflow.append(file.filename)
+    if result.deleted:
+        note = '## Deleted files:\n' + '\n'.join(result.deleted)
+        if estimator.estimate('\n\n'.join([*blocks, note])) <= budget_tokens:
+            blocks.append(note)
+    if result.overflow:
+        blocks.append('## Other modified files (over budget, names only):\n' + '\n'.join(result.overflow))
+    result.prompt = '\n\n'.join(blocks)
+    context._append_context_blocks(result, files, read, budget_tokens, estimator, source)
+    result.estimated_tokens = estimator.estimate(result.prompt)
+    return result
+
+
+def packing_fixture(count=60, lines=550):
+    content = '\n'.join('value = ' + '1' * 72 for _ in range(lines))
+    patch = '@@ -275,3 +275,3 @@\n' + '\n'.join(
+        ['-' + 'old = ' + '0' * 72, '+' + 'value = ' + '1' * 72] * 3)
+    files = [FilePatch(f'file_{n:04}.py', 'modified', patch) for n in range(count)]
+    return files, content
+
+
+def test_reserves_all_sixty_files_before_upgrading_in_rank_order():
+    files, content = packing_fixture()
+    files.reverse()
+    reads = Counter()
+    def read(path):
+        reads[path] += 1
+        return content
+    result = render(files, read)
+    ranked = [f.filename for f in sorted(files, key=context._rank)]
+    assert result.overflow == []
+    assert list(result.views) == ranked
+    assert result.prompt == '\n\n'.join(result.views.values())
+    assert result.estimated_tokens <= 120_000
+    assert 0 < len(result.full) < len(files)
+    assert result.full == ranked[:len(result.full)]
+    assert result.windowed == ranked[len(result.full):]
+    assert result.hunks_only == []
+    assert Counter(result.full + result.windowed + result.hunks_only) == Counter(ranked)
+    assert reads == Counter({name: 1 for name in ranked})
+
+
+def test_reserve_pass_skips_large_hunks_and_reads_only_accepted_files():
+    files = [FilePatch(name, 'modified', '@@ -1 +1 @@\n+' + 'x' * size)
+             for name, size in [('first.py', 300), ('huge.py', 5000), ('later.py', 500),
+                                ('large.py', 2400), ('last.py', 100)]]
+    expected, overflow, blocks = [], [], []
+    estimator = HeuristicEstimator()
+    for file in sorted(files, key=context._rank):
+        block = render([file]).views[file.filename]
+        if estimator.estimate('\n\n'.join([*blocks, block])) <= 800:
+            expected.append(file.filename)
+            blocks.append(block)
+        else:
+            overflow.append(file.filename)
+    reads = []
+    def read(path):
+        reads.append(path)
+        return next(f.patch.split('\n+')[1] for f in files if f.filename == path)
+    result = render(files, read, budget=800)
+    assert expected == ['first.py', 'later.py', 'last.py']
+    assert list(result.views) == expected
+    assert result.overflow == overflow == ['huge.py', 'large.py']
+    assert reads == expected
+    assert estimator.estimate('\n\n'.join(result.views.values())) <= 800
+
+
+def test_windowed_sweep_precedes_any_full_upgrade():
+    files, content = packing_fixture(count=4, lines=300)
+    views = [dict(context._file_views(f, lambda _: content, context.RenderedContext()))
+             for f in files]
+    estimator = HeuristicEstimator()
+    budget = estimator.estimate('\n\n'.join(
+        [views[0]['full'], *[v['hunks_only'] for v in views[1:]]]))
+    assert estimator.estimate('\n\n'.join(v['windowed'] for v in views)) < budget
+    result = render(files, lambda _: content, budget=budget)
+    assert result.full == []
+    assert result.windowed == [f.filename for f in files]
+    assert result.hunks_only == result.overflow == []
+
+
+@pytest.mark.parametrize('extra', range(12))
+def test_smaller_full_view_keeps_nonbinding_budget_identical_to_greedy(extra):
+    app = [f'value_{n} = compute({n})' for n in range(1, 301)]
+    barrel = [f"export * from './module_{n}';" for n in range(1, 301)]
+    files = [FilePatch('app.py', 'modified', '@@ -9,3 +9,4 @@\n ' + app[8]
+                       + '\n-old\n+' + app[9] + '\n+' + app[10] + '\n ' + app[11]),
+             FilePatch('index.ts', 'modified', '@@ -10 +10 @@\n-old\n+' + barrel[9])]
+    contents = {'app.py': '\n'.join(app) + '\n', 'index.ts': '\n'.join(barrel) + '\n'}
+    views = [dict(context._file_views(f, contents.get, context.RenderedContext())) for f in files]
+    estimator = HeuristicEstimator()
+    assert estimator.estimate(views[1]['full']) == 3265
+    assert estimator.estimate(views[1]['windowed']) == 3275
+    budget = estimator.estimate('\n\n'.join(v['full'] for v in views))
+    assert budget == 6067
+    result = render(files, contents.get, budget + extra)
+    assert result.full == ['app.py', 'index.ts']
+    assert result == greedy_reference(files, contents.get, budget + extra)
+
+
+def test_fruitless_reads_are_bounded_for_a_thousand_files():
+    content = '\n'.join(f'  const value{i} = computeSomething(arg{i});' for i in range(300)) + '\n'
+    patch = ('@@ -150,3 +150,3 @@\n   const value149 = computeSomething(arg149);\n'
+             '-  old\n+  const value150 = computeSomething(arg150);\n'
+             '   const value151 = computeSomething(arg151);')
+    files = [FilePatch(f'src/m{i}.ts', 'modified', patch) for i in range(1000)]
+    reads = []
+    result = render(files, lambda path: reads.append(path) or content)
+    upgraded = len(result.full) + len(result.windowed)
+    assert len(reads) < 100
+    assert len(reads) == upgraded + 2 * context.MAX_FRUITLESS_READS
+    assert len(reads) == len(set(reads))
+    assert len(result.views) == 1000
+    assert result.overflow == []
+    assert result.estimated_tokens <= 120_000
+
+
+@pytest.mark.parametrize('failure', ['missing', 'error', 'too_large'])
+def test_successful_upgrade_resets_a_short_fruitless_run(failure):
+    cap = context.MAX_FRUITLESS_READS
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(2 * cap)]
+    fitting = [files[cap - 1].filename, files[-1].filename]
+    reads = []
+    def read(path):
+        reads.append(path)
+        if path in fitting:
+            return 'first\nkeep\nnew\ntail\n'
+        if failure == 'error':
+            raise OSError('unavailable')
+        if failure == 'too_large':
+            return ('x' * 1000 + '\n') * 300
+        return None
+    result = render(files, read, budget=2000)
+    assert result.full == fitting
+    assert reads == [f.filename for f in files]
+    assert result.files_read_failed == (2 * (cap - 1) if failure == 'error' else 0)
+
+
+@pytest.mark.parametrize('failure', ['missing', 'error', 'too_large'])
+def test_exact_fruitless_cap_stops_each_sweep(failure):
+    cap = context.MAX_FRUITLESS_READS
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(2 * cap + 1)]
+    reads = []
+    def read(path):
+        reads.append(path)
+        if path == files[-1].filename:
+            return 'first\nkeep\nnew\ntail\n'
+        if failure == 'error':
+            raise OSError('unavailable')
+        if failure == 'too_large':
+            return ('x' * 1000 + '\n') * 300
+        return None
+    result = render(files, read, budget=2000)
+    assert reads == [f.filename for f in files[:-1]]
+    assert result.hunks_only == [f.filename for f in files]
+    assert result.files_read_failed == (2 * cap if failure == 'error' else 0)
+
+
+@pytest.mark.parametrize('content,mode', [('first\nkeep\nnew\ntail\n', 'full'),
+                                         ('pass\n' * 300, 'windowed')])
+def test_second_sweep_reads_unvisited_files_and_falls_back_to_windowed(content, mode):
+    cap = context.MAX_FRUITLESS_READS
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(2 * cap + 1)]
+    fitting = files[cap].filename
+    reads = []
+    def read(path):
+        reads.append(path)
+        return content if path == fitting else None
+    result = render(files, read, budget=render(files).estimated_tokens + 600)
+    assert getattr(result, mode) == [fitting]
+    assert reads == [f.filename for f in files]
+
+
+@pytest.mark.parametrize('sweep', ['windowed', 'full'])
+@pytest.mark.parametrize('error', [context.ForgeAuthError, context.ForgeDenied,
+                                  context.ForgeRateLimited])
+def test_forge_errors_propagate_from_each_upgrade_sweep(error, sweep):
+    cap = context.MAX_FRUITLESS_READS
+    offset = 0 if sweep == 'windowed' else cap
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(offset + 1)]
+    reads = []
+    def read(path):
+        reads.append(path)
+        if path == files[-1].filename:
+            raise error('unavailable')
+        return None
+    with pytest.raises(error):
+        render(files, read)
+    assert reads == [f.filename for f in files]
+
+
+def test_smaller_added_views_make_room_for_overflow(monkeypatch):
+    # Isolate reclaimed space from the independent minimum-read cutoff.
+    monkeypatch.setattr(context, 'MIN_UPGRADE_TOKENS', 0)
+    content = '\n'.join('x' * 3 for _ in range(3)) + '\n'
+    patch = '@@ -0,0 +1,3 @@\n' + '\n'.join('+' + 'xxx' for _ in range(3))
+    files = [FilePatch('a.py', 'added', patch), FilePatch('b.py', 'added', patch),
+             FilePatch('c.py', 'modified', '@@ -1 +1 @@\n-y\n+z')]
+    contents = {'a.py': content, 'b.py': content, 'c.py': 'z\n'}
+    views = [dict(context._file_views(f, contents.get, context.RenderedContext())) for f in files]
+    expected = [views[0]['full'], views[1]['full'], views[2]['hunks_only']]
+    budget = HeuristicEstimator().estimate('\n\n'.join(expected))
+    assert budget == 65
+    reads = []
+    result = render(files, lambda path: reads.append(path) or contents[path], budget)
+    assert reads == ['a.py', 'b.py']
+    assert result.full == ['a.py', 'b.py']
+    assert result.hunks_only == ['c.py']
+    assert result.overflow == []
+    assert list(result.views) == ['a.py', 'b.py', 'c.py']
+    assert result.prompt == '\n\n'.join(expected)
+    assert result.estimated_tokens <= budget
+    assert greedy_reference(files, contents.get, budget).overflow == []
+
+
+def test_reclaimed_overflow_is_inserted_in_rank_order():
+    files = [FilePatch(f'{i}.py', 'modified', '@@ -1 +1 @@\n+new\n ' + 'x' * size)
+             for i, size in enumerate([1200, 2400, 100, 10000, 11000])]
+    reads = []
+    result = render(files, lambda path: reads.append(path) or 'new\n', budget=1000)
+    assert reads == ['0.py', '2.py']
+    assert result.full == ['0.py', '2.py']
+    assert result.hunks_only == ['1.py']
+    assert result.overflow == ['3.py', '4.py']
+    assert list(result.views) == ['0.py', '1.py', '2.py']
+    assert result.prompt.startswith('\n\n'.join(result.views.values()) + '\n\n')
+    assert HeuristicEstimator().estimate('\n\n'.join(result.views.values())) <= 1000
+
+
+@pytest.mark.parametrize('reader', [False, True])
+@pytest.mark.parametrize('fixture', ['mixed', 'pairing', 'packing'])
+def test_nonbinding_budget_matches_frozen_greedy_reference(fixture, reader):
+    if fixture == 'pairing':
+        files, contents = pairing_fixture()
+    elif fixture == 'packing':
+        files, content = packing_fixture(count=3)
+        contents = {f.filename: content for f in files}
+    else:
+        files = [FilePatch(name, 'modified', PATCH) for name in
+                 ('README.md', 'small.py', 'large.py', 'missing.py', 'dist/generated.py')]
+        files.append(FilePatch('gone.py', 'removed', PATCH))
+        contents = {'small.py': 'first\nkeep\nnew\ntail\n', 'large.py': 'pass\n' * 700}
+    read = contents.get if reader else None
+    assert render(files, read) == greedy_reference(files, read, 120_000)
+
+
+def test_nonbinding_budget_with_context_blocks_matches_greedy(monkeypatch, context_mirror):
+    files, source = context_mirror
+    for name in ('PAIRING', 'CALLEES', 'CALLERS', 'COCHANGE'):
+        monkeypatch.setenv('ARGUS_CONTEXT_' + name, '1')
+    assert context.render_review_context(files, source.read, 120_000, source=source) == \
+        greedy_reference(files, source.read, 120_000, source=source)
+
+
+def test_nonbinding_failed_read_matches_greedy():
+    def read(path):
+        raise OSError('unavailable')
+    files = [FilePatch('a.py', 'modified', PATCH)]
+    assert render(files, read) == greedy_reference(files, read, 120_000)
+
+
+def test_estimator_calls_are_linear_for_fifteen_hundred_files():
+    class CountingEstimator:
+        calls = 0
+        def estimate(self, text):
+            self.calls += 1
+            return HeuristicEstimator().estimate(text)
+    files = [FilePatch(f'{n}.py', 'modified', PATCH) for n in range(1500)]
+    estimator = CountingEstimator()
+    result = context.render_review_context(files, lambda _: 'x\n' * 550, 120_000, estimator)
+    assert len(result.views) == len(files)
+    assert estimator.calls <= 8 * len(files) + 50
+    assert HeuristicEstimator().estimate('\n\n'.join(result.views.values())) <= 120_000
+
+
+@pytest.mark.parametrize('remaining', [0, 199, 200])
+def test_upgrade_reads_stop_below_minimum_remaining_budget(remaining):
+    files = [FilePatch(f'{n}.py', 'modified', PATCH) for n in range(10)]
+    hunks = render(files)
+    reads = []
+    assert context.MIN_UPGRADE_TOKENS == 200
+    result = render(files, lambda path: reads.append(path) or 'pass\n' * 700,
+                    budget=hunks.estimated_tokens + remaining)
+    assert reads == (['0.py'] if remaining == context.MIN_UPGRADE_TOKENS else [])
+    assert result.overflow == []
+    assert list(result.views) == [f.filename for f in files]
+    assert result.windowed == (['0.py'] if reads else [])
+
+
+def test_fit_checks_use_joined_text_with_nonadditive_estimator():
+    class NonadditiveEstimator:
+        def estimate(self, text):
+            return len(text) + 100 * text.count('## File:') ** 2
+    files = [FilePatch(f'{n}.py', 'modified', PATCH) for n in range(6)]
+    estimator = NonadditiveEstimator()
+    result = context.render_review_context(files, lambda _: 'pass\n' * 550, 1600, estimator)
+    assert len(result.views) == 3
+    assert estimator.estimate('\n\n'.join(result.views.values())) <= 1600
+    assert result.overflow == ['3.py', '4.py', '5.py']
+
+
+@pytest.mark.parametrize('error', [context.ForgeAuthError, context.ForgeDenied,
+                                  context.ForgeRateLimited])
+def test_upgrade_reads_propagate_access_errors(error):
+    def read(path):
+        raise error('unavailable')
+    with pytest.raises(error):
+        render([FilePatch('a.py', 'modified', PATCH)], read)
+
+
+def test_patchless_names_follow_overflow_and_keep_input_order():
+    files = [FilePatch('image.png', 'modified', None), FilePatch('a.py', 'modified', PATCH),
+             FilePatch('renamed.py', 'renamed', ''), FilePatch('gone.py', 'removed', None),
+             FilePatch('huge.py', 'modified', '@@ -1 +1 @@\n+' + 'x' * 10000)]
+    reads = []
+    result = render(files, lambda path: reads.append(path), budget=2000)
+    assert result.patchless == ['image.png', 'renamed.py']
+    assert result.deleted == ['gone.py']
+    assert result.overflow == ['huge.py']
+    assert list(result.views) == reads == ['a.py']
+    assert result.prompt.endswith(
+        '## Other modified files (over budget, names only):\nhuge.py\n\n'
+        '## Changed files without a patch (content not shown):\n'
+        'image.png (modified)\nrenamed.py (renamed)')
+    assert result.estimated_tokens == HeuristicEstimator().estimate(result.prompt)
+
+
+def test_patchless_names_fall_back_to_count_over_budget():
+    files = [FilePatch('a.py', 'modified', PATCH)]
+    files += [FilePatch(f'assets/{n}.png', 'added', None) for n in range(1234)]
+    budget = render(files[:1]).estimated_tokens + 60
+    result = render(files, lambda _: pytest.fail('patchless content must not be read'), budget=budget)
+    assert result.patchless == [f.filename for f in files[1:]]
+    assert result.hunks_only == ['a.py']
+    assert result.prompt.endswith('## Changed files without a patch: 1,234 (names omitted, over budget)')
+    assert 'assets/0.png' not in result.prompt
+
+
+def test_patchless_note_is_dropped_when_even_the_count_line_does_not_fit():
+    files = [FilePatch('a.py', 'modified', PATCH), FilePatch('image.png', 'added', None)]
+    budget = render(files[:1]).estimated_tokens
+    result = render(files, budget=budget)
+    assert result.patchless == ['image.png']
+    assert 'image.png' not in result.prompt
+    assert 'without a patch' not in result.prompt
+    assert HeuristicEstimator().estimate('\n\n'.join(result.views.values())) <= budget
+
+
+def test_patchless_only_pull_request_has_no_views_and_no_prompt():
+    files = [FilePatch('image.png', 'added', None)]
+    result = render(files)
+    assert result.patchless == ['image.png']
+    assert result.views == {}
+    assert result.prompt == ''
+
+
+def test_patchless_files_are_named_but_still_count_as_unreviewed(monkeypatch):
+    from argus import review, verdict
+    from argus.schema import Review
+    prompts = []
+    def deep_review(diff, *args, **kwargs):
+        prompts.append(diff)
+        return Review(findings=[])
+    monkeypatch.setattr(review, '_deep_review', deep_review)
+    files = [FilePatch('a.py', 'modified', PATCH), FilePatch('image.png', 'added', None),
+             FilePatch('renamed.py', 'renamed', None)]
+    rendered = render(files)
+    counts = review._llm_file_counts(files, rendered)
+    assert counts['files_omitted'] == counts['files_without_patch'] == 2
+    result = review.run_diff_review(files)
+    assert rendered.prompt in prompts[0]
+    assert prompts[0].index('## File: a.py') < prompts[0].index('image.png (added)')
+    assert 'renamed.py (renamed)' in prompts[0]
+    assert verdict.coverage_level(result.coverage) == verdict.COVERAGE_PARTIAL

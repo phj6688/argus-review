@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import cli, diff, github
 from argus.api import db, main
@@ -27,6 +28,7 @@ def database(tmp_path, monkeypatch):
     monkeypatch.setenv("ARGUS_PUBLISH_MAX_COMMENTS", "1")
     monkeypatch.setattr(httpx, "get", Mock(side_effect=AssertionError("unexpected HTTP")))
     monkeypatch.setattr(httpx, "post", Mock(side_effect=AssertionError("unexpected HTTP")))
+    stub_github_client(monkeypatch, get=httpx.get, post=httpx.post)
     monkeypatch.setattr(diff, "fetch_pr_files", lambda *a: [diff.FilePatch("app.py", "modified", "@@ -9,3 +9,3 @@\n a\n-b\n+c\n d")])
     db.init_db(path)
     return path
@@ -269,6 +271,7 @@ def test_collector_recovers_lost_post(database, collector_state, monkeypatch, fa
         return httpx.Response(200, json=body)
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
         monkeypatch.setattr(httpx, "get", http.get)
+        stub_github_client(monkeypatch, get=http.get)
         monkeypatch.setattr(httpx, "post", http.post)
         with monkeypatch.context() as patch:
             if failure == "storage":

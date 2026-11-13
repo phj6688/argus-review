@@ -7,11 +7,19 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .. import github
 from ..client import DEFAULT_MODEL, LLM_MAX_CONCURRENCY, llm_in_flight
+from ..forge import forge_for
+from ..forge.keys import gitlab_key, is_gitlab_key, parse_repo_key
+from ..forge.types import ChangeMeta, RepoRef
+from ..gitlab import client as gitlab_client
+from ..gitlab import config as gitlab_config
+from ..gitlab import listing, projects, trust
+from ..gitlab.client import GitLabAuthError, GitLabDenied, GitLabHTTPError, GitLabRateLimited
+from ..gitlab.entry import _classification
 from ..repo_policy import env_int, hard_deny_owners, validate_repo, watch_owners
 from ..review import DEFAULT_BUG_CAP
 from . import db, watch_config, watch_store
@@ -21,13 +29,24 @@ ENV_ENABLED = "ARGUS_WATCH_ENABLED"
 ENV_INTERVAL = "ARGUS_WATCH_INTERVAL"
 ENV_AUTODISCOVER = "ARGUS_AUTODISCOVER"
 DEFAULT_INTERVAL_SECONDS = 60
+# Delay used when a rate limit error carries no future reset time.
+_RATE_LIMIT_RETRY_S = 60
+_PERMANENT_LOOKUP_FAILURES = frozenset({
+    "forbidden", "not_found", "redirect_refused", "guard",
+    "invalid_project", "policy_invalid",
+})
 _ticks = {}
 _last_tick = {}
 _repo_pushed_at = {}
 _previous_watched_repos = {}
+_gitlab_expanded = {}
+_gitlab_ticks = {}
+_gitlab_pass_errors = {}
+GITLAB_TRUST_SWEEP_LIMIT = 5
 _watched_repos_lock = threading.Lock()
 _outcome_tasks = {}
 _pause_logged = 0
+_gitlab_pause_logged = 0
 _active_lock = threading.Lock()
 _active_heads = set()
 
@@ -102,6 +121,17 @@ def _watched_repos(path):
     return watch_config.effective(db.get_config(path))
 
 
+def _previous_key(path, forge="github"):
+    # Separate buckets keep one provider's set changes from invalidating the other.
+    key = str(Path(path).resolve())
+    return (key, "gitlab") if forge == "gitlab" else key
+
+
+def set_gitlab_expanded(path, keys):
+    with _watched_repos_lock:
+        _gitlab_expanded[str(Path(path).resolve())] = frozenset(keys)
+
+
 def _open_prs(repo):
     validate_repo(repo)
     return github.list_cached(f"/repos/{repo}/pulls", {"state": "open", "per_page": 100})
@@ -147,7 +177,7 @@ def _advanced_repos(path, repos):
 def trigger_review(path, repo, pr, head_sha, *, head=None):
     from . import main
 
-    validate_repo(repo, (db.get_config(path) or {}).get("deny", []))
+    validate_repo(repo, (db.get_config(path) or {}).get("deny", []), allow_gitlab=is_gitlab_key(repo))
     stored = db.get_config(path)
     model = stored["model"] if stored else DEFAULT_MODEL
     bug_cap = stored["bug_cap"] if stored else DEFAULT_BUG_CAP
@@ -177,13 +207,26 @@ def trigger_review(path, repo, pr, head_sha, *, head=None):
     return review_id, error
 
 
-def quota_paused():
-    global _pause_logged
+def quota_paused(forge="github"):
+    global _pause_logged, _gitlab_pause_logged
+    if forge == "gitlab":
+        try:
+            client = gitlab_client.client()
+            reset = client.pause_until() if client is not None else 0
+        except Exception:
+            reset = 0
+        if reset > time.time():
+            if reset != _gitlab_pause_logged:
+                log.info("watcher: quota pause forge=gitlab reset=%s", reset)
+                _gitlab_pause_logged = reset
+            return True
+        _gitlab_pause_logged = 0
+        return False
     reset = github.pause_until()
     if reset > time.time():
         if reset != _pause_logged:
             remaining = github.quota_snapshot().get("core", {}).get("remaining", "?")
-            log.info("watcher: quota pause remaining=%s reset=%s", remaining, reset)
+            log.info("watcher: quota pause forge=github remaining=%s reset=%s", remaining, reset)
             _pause_logged = reset
         return True
     _pause_logged = 0
@@ -210,7 +253,7 @@ async def _collect_outcomes(path):
         raise
 
 
-async def poll_once(path=None):
+async def _poll_github_once(path=None):
     from . import watch_metrics
 
     path = path or db.db_path()
@@ -235,8 +278,8 @@ async def poll_once(path=None):
                 log.warning("watcher: discovery failed; using cached repos", exc_info=True)
         _ticks[path] = tick + 1
         repos = await asyncio.to_thread(_watched_repos, path)
-        await asyncio.to_thread(watch_store.restrict_repos, path, repos)
-        key = str(Path(path).resolve())
+        await asyncio.to_thread(watch_store.restrict_repos, path, repos, forge="github")
+        key = _previous_key(path)
         with _watched_repos_lock:
             previous = _previous_watched_repos.get(key)
             # Startup must not restore heads closed by an earlier process.
@@ -309,21 +352,241 @@ async def poll_once(path=None):
         )
 
 
+def _transient_lookup(reason):
+    return (
+        reason.startswith("lookup failed: ")
+        and reason.removeprefix("lookup failed: ") not in _PERMANENT_LOOKUP_FAILURES
+    )
+
+
+def _gitlab_watching():
+    try:
+        return (gitlab_config.watch_enabled() and bool(os.getenv("ARGUS_GITLAB_URL", "").strip())
+                and gitlab_client.client() is not None)
+    except gitlab_config.GitLabConfigError:
+        log.debug("watcher: GitLab configuration invalid")
+    except Exception:
+        log.warning("watcher: GitLab client unavailable")
+    return False
+
+
+def gitlab_pass_error(path):
+    return _gitlab_pass_errors.get(str(Path(path).resolve()))
+
+
+def _gitlab_lookup_error(reason):
+    if reason == "lookup failed: auth":
+        return GitLabAuthError("GitLab authentication failed")
+    if reason == "lookup failed: rate_limited":
+        return GitLabRateLimited(gitlab_client.client().pause_until())
+    if reason in {"lookup failed: forbidden", "lookup failed: not_found", "lookup failed: redirect_refused"}:
+        return GitLabDenied("GitLab project unavailable")
+    return GitLabHTTPError("GitLab lookup failed")
+
+
+def _gitlab_project_error(path, key, error):
+    with watch_store.connection(path) as conn:
+        db.set_gitlab_poll_cursor(conn, key, last_error=_classification(error),
+                                  last_polled_at=watch_store.utcnow().isoformat())
+
+
+def _poll_gitlab_project(path, key, full, started, cache, sources):
+    decision = projects.live_deny(key, db_path=path)
+    if not decision.allowed:
+        if decision.reason.startswith("lookup failed: "):
+            raise _gitlab_lookup_error(decision.reason)
+        return None
+    with watch_store.connection(path) as conn:
+        cursor = (db.gitlab_poll_cursor(conn, key) or {}).get("updated_after")
+    full = full or not cursor
+    result = listing.full_listing(key, cache=cache) if full else listing.list_changes(key, cursor, cache=cache)
+    ref = parse_repo_key(key)
+    cutoff = started - timedelta(days=env_int("ARGUS_WATCH_ACTIVE_DAYS", 90))
+    opened = []
+    for row in result.changes:
+        if db._parse_created_at(row["updated_at"]) < cutoff:
+            continue
+        source_id = row.get("source_project_id")
+        if type(source_id) is int and source_id != ref.project_id:
+            source = RepoRef("gitlab", ref.host, None, source_id)
+            if source not in sources:
+                meta = ChangeMeta(row["head"]["sha"], None, "open", False, row["draft"],
+                                  str(row["author_id"]), row["user"]["login"],
+                                  row["user"]["type"] == "Bot", "", row["updated_at"], source)
+                reason = projects.live_deny_change(key, meta, db_path=path).reason
+                if reason == "fork_source_denied":
+                    # The shared policy helper also denies unavailable sources; retry those at claim time.
+                    try:
+                        source_decision = projects.live_deny(gitlab_key(ref.host, source_id), db_path=path)
+                    except ValueError:
+                        pass
+                    else:
+                        if source_decision.allowed or source_decision.reason.startswith("lookup failed: "):
+                            reason = source_decision.reason
+                sources[source] = reason
+            if sources[source] == "fork_source_denied":
+                row = {**row, "skip_reason": "fork_source_denied"}
+        opened.append(row)
+    if quota_paused("gitlab"):
+        raise GitLabRateLimited(gitlab_client.client().pause_until())
+    stored_shas = watch_store.open_head_shas(path, key)
+    pushed = sum(row["number"] in stored_shas and stored_shas[row["number"]] != row["head"]["sha"]
+                 for row in opened)
+    queued = watch_store.record_changes(path, key, opened, result.closed, result.complete)
+    now = watch_store.utcnow().isoformat()
+    with watch_store.connection(path) as conn:
+        db.set_gitlab_poll_cursor(conn, key, updated_after=result.cursor or started.isoformat(),
+                                  last_polled_at=now, last_error=None,
+                                  **({"last_full_reconcile": now} if result.complete else {}))
+    return queued, pushed
+
+
+async def _poll_gitlab_once(path):
+    queued = polled = pushed = 0
+    ran = False
+    path_key = str(Path(path).resolve())
+    try:
+        if not _gitlab_watching() or quota_paused("gitlab"):
+            return 0
+        reconcile = gitlab_config.reconcile_ticks()
+        ran = True
+        started = watch_store.utcnow()
+        tick = _gitlab_ticks.get(path_key, 0)
+        _gitlab_ticks[path_key] = tick + 1
+        with _watched_repos_lock:
+            keys = _gitlab_expanded.get(path_key)
+        if keys is None or tick % env_int("ARGUS_WATCH_DISCOVERY_TICKS", 1) == 0:
+            try:
+                keys = frozenset(await asyncio.to_thread(listing.expand_allow, db_path=path, strict=True))
+                _gitlab_pass_errors.pop(path_key, None)
+            except Exception as error:
+                _gitlab_pass_errors[path_key] = _classification(error)
+                log.warning("watcher: GitLab discovery failed; using cached projects")
+                if keys is None:
+                    return 0
+        set_gitlab_expanded(path, keys)
+        await asyncio.to_thread(watch_store.restrict_repos, path, list(keys), forge="gitlab")
+        previous_key = _previous_key(path, "gitlab")
+        with _watched_repos_lock:
+            previous = _previous_watched_repos.get(previous_key)
+            reentered = keys - previous if previous is not None else keys
+            _previous_watched_repos[previous_key] = set(keys)
+        cache, sources = trust.TrustCache(), {}
+        stopped = False
+        pending = set(keys)
+        try:
+            for key in sorted(keys):
+                if quota_paused("gitlab"):
+                    break
+                try:
+                    counts = await asyncio.to_thread(
+                        _poll_gitlab_project, path, key, key in reentered or (tick + 1) % reconcile == 0,
+                        started, cache, sources,
+                    )
+                    if counts is not None:
+                        queued += counts[0]
+                        pushed += counts[1]
+                        polled += 1
+                        pending.discard(key)
+                except Exception as error:
+                    await asyncio.to_thread(_gitlab_project_error, path, key, error)
+                    log.warning("watcher: GitLab project poll failed: %s", _classification(error))
+                    if isinstance(error, (GitLabRateLimited, GitLabAuthError)):
+                        stopped = True
+                        break
+        finally:
+            # Even error persistence can fail; unfinished projects still need a full retry.
+            with _watched_repos_lock:
+                _previous_watched_repos[previous_key].difference_update(pending)
+        if not stopped and not quota_paused("gitlab"):
+            try:
+                swept = await asyncio.to_thread(trust.sweep_unknown, path, GITLAB_TRUST_SWEEP_LIMIT, cache=cache)
+                queued += swept["requeued"]
+            except Exception:
+                log.warning("watcher: GitLab trust sweep failed")
+    except gitlab_config.GitLabConfigError:
+        log.debug("watcher: GitLab configuration invalid")
+    except Exception as error:
+        _gitlab_pass_errors[path_key] = _classification(error)
+        log.warning("watcher: GitLab poll failed: %s", _classification(error))
+    finally:
+        if ran:
+            log.info("watcher: forge=gitlab projects=%d queued=%d pushed=%d", polled, queued, pushed)
+    return queued
+
+
+async def poll_once(path=None):
+    path = path or db.db_path()
+    queued = await _poll_github_once(path)
+    return queued + await _poll_gitlab_once(path)
+
+
+def _gitlab_head_allowed(path, head):
+    with _watched_repos_lock:
+        expanded = _gitlab_expanded.get(str(Path(path).resolve()))
+    reason = None
+    if expanded is not None and head["repo"] not in expanded:
+        reason = "not in watched gitlab set"
+    else:
+        try:
+            meta = forge_for(head["repo"]).change_meta(head["repo"], head["pr"])
+            decision = projects.live_deny_change(head["repo"], meta, db_path=path)
+            if decision.allowed:
+                return True
+            reason = decision.reason
+            if reason == "fork_source_denied" and meta.source_repo is not None:
+                source = meta.source_repo
+                try:
+                    source_key = gitlab_key(source.host, source.project_id)
+                except ValueError:
+                    pass
+                else:
+                    source_decision = projects.live_deny(source_key, db_path=path)
+                    if source_decision.allowed:
+                        raise RuntimeError("gitlab lookup failed")
+                    source_reason = source_decision.reason
+                    if _transient_lookup(source_reason):
+                        reason = source_reason
+            if _transient_lookup(reason):
+                failure = reason.removeprefix("lookup failed: ")
+                if failure == "rate_limited":
+                    raise GitLabRateLimited(gitlab_client.client().pause_until())
+                raise RuntimeError("gitlab lookup failed")
+        except Exception as exc:
+            if isinstance(exc, GitLabRateLimited) and exc.reset_at <= time.time():
+                exc = GitLabRateLimited(time.time() + _RATE_LIMIT_RETRY_S)
+            watch_store.finish(path, head, None, exc)
+            return False
+    with _watched_repos_lock:
+        watch_store.close_claim(path, head, reason=reason)
+        previous = _previous_watched_repos.get(_previous_key(path, "gitlab"))
+        if previous is not None:
+            previous.discard(head["repo"])
+    return False
+
+
 def process_one(path):
-    if quota_paused():
+    github_paused = quota_paused()
+    gitlab_watching = _gitlab_watching()
+    if github_paused and (not gitlab_watching or quota_paused("gitlab")):
         return False
+    # Keep disabled GitLab work queued without constructing its client in claim().
+    pauses = None if gitlab_watching else {"github": github.pause_until(), "gitlab": float("inf")}
     with _active_lock:
         active = [head_id for target, head_id in _active_heads if target == path]
-        head = watch_store.claim(path, exclude=active)
+        head = watch_store.claim(path, exclude=active, pauses=pauses)
         if not head:
             return False
         _active_heads.add((path, head["id"]))
     try:
-        if head["repo"].casefold() not in {name.casefold() for name in _watched_repos(path)}:
+        if is_gitlab_key(head["repo"]):
+            if not _gitlab_head_allowed(path, head):
+                return True
+        elif head["repo"].casefold() not in {name.casefold() for name in _watched_repos(path)}:
             with _watched_repos_lock:
                 watch_store.close_claim(path, head)
                 # An unwatch between ticks must still allow the next tick to restore this head.
-                previous = _previous_watched_repos.get(str(Path(path).resolve()))
+                previous = _previous_watched_repos.get(_previous_key(path))
                 if previous is not None:
                     previous.discard(head["repo"].casefold())
             return True

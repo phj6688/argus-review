@@ -1,0 +1,102 @@
+{
+  "derived": {
+    "count": 50,
+    "expected_path_count": 150,
+    "first_keys": [
+      "a_mode",
+      "b_mode",
+      "collapsed",
+      "deleted_file",
+      "diff",
+      "generated_file",
+      "new_file",
+      "new_path",
+      "old_path",
+      "renamed_file",
+      "too_large"
+    ],
+    "flag_counts": {
+      "collapsed": 0,
+      "deleted_file": 0,
+      "generated_file": 0,
+      "new_file": 50,
+      "renamed_file": 0,
+      "too_large": 0
+    },
+    "headers": {
+      "x-next-page": "",
+      "x-page": "2",
+      "x-per-page": "100",
+      "x-prev-page": "1",
+      "x-total": "150",
+      "x-total-pages": "2"
+    },
+    "link_rels": [
+      "first",
+      "last",
+      "prev"
+    ],
+    "page_1_2_path_count": 150
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diffs_pp100_p2",
+    "question": 1
+  },
+  "request": {
+    "auth": "argus-bot",
+    "method": "GET",
+    "params": {
+      "page": 2,
+      "per_page": 100
+    },
+    "path": "/projects/1/merge_requests/5/diffs"
+  },
+  "response": {
+    "body": [
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "@@ -0,0 +1 @@\n+VALUE = 101\n",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "bulk/file_101.py",
+        "old_path": "bulk/file_101.py",
+        "renamed_file": false,
+        "too_large": false
+      },
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "@@ -0,0 +1 @@\n+VALUE = 102\n",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "bulk/file_102.py",
+        "old_path": "bulk/file_102.py",
+        "renamed_file": false,
+        "too_large": false
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"66d92cca9dbf6b767f5c1d870f3a8517\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/5/diffs?id=1&merge_request_iid=5&page=1&per_page=100&unidiff=false>; rel=\"prev\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/5/diffs?id=1&merge_request_iid=5&page=1&per_page=100&unidiff=false>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/5/diffs?id=1&merge_request_iid=5&page=2&per_page=100&unidiff=false>; rel=\"last\"",
+      "vary": "Accept-Encoding, Origin",
+      "x-next-page": "",
+      "x-page": "2",
+      "x-per-page": "100",
+      "x-prev-page": "1",
+      "x-total": "150",
+      "x-total-pages": "2"
+    },
+    "status": 200
+  },
+  "trimmed": {
+    "body": 50
+  }
+}

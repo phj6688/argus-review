@@ -1,0 +1,127 @@
+{
+  "case": "publish-repos",
+  "db_rows": {
+    "config": {
+      "columns": [
+        "id",
+        "repo_allowlist",
+        "model",
+        "bug_cap",
+        "min_confidence",
+        "deny",
+        "watch_mode",
+        "owned_repos",
+        "publish_repos"
+      ],
+      "rows": [
+        [
+          1,
+          [],
+          "model-a",
+          5,
+          0.55,
+          [],
+          "auto",
+          [],
+          [
+            "example/app"
+          ]
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app"
+    }
+  ],
+  "result": {
+    "allowed": {
+      "json": {
+        "botLogin": null,
+        "mode": "on",
+        "repos": [
+          {
+            "access": {
+              "detail": "bot can push",
+              "grant": null,
+              "settingsUrl": "https://github.com/example/app/settings/access",
+              "state": "ok"
+            },
+            "name": "example/app"
+          }
+        ],
+        "source": "dashboard",
+        "tokenConfigured": true
+      },
+      "status": 200
+    },
+    "denied": {
+      "json": {
+        "detail": "repository denied: denied-org/private"
+      },
+      "status": 422
+    },
+    "loaded": {
+      "json": {
+        "bugCap": 5,
+        "deny": [],
+        "hard_denied_owners": [
+          "denied-org"
+        ],
+        "hiddenCount": 0,
+        "minConfidence": 0.55,
+        "modelOptions": [
+          "model-a"
+        ],
+        "models": [
+          {
+            "caption": "reports every candidate",
+            "model": "model-a",
+            "name": "Deep review",
+            "tier": "deep"
+          },
+          {
+            "caption": "skeptical adjudicator, drops the unverifiable",
+            "model": "model-a",
+            "name": "Verification",
+            "tier": "deep"
+          }
+        ],
+        "publish": {
+          "botLogin": null,
+          "mode": "on",
+          "repos": [
+            {
+              "access": {
+                "detail": "bot can push",
+                "grant": null,
+                "settingsUrl": "https://github.com/example/app/settings/access",
+                "state": "ok"
+              },
+              "name": "example/app"
+            }
+          ],
+          "source": "dashboard",
+          "tokenConfigured": true
+        },
+        "repos": [],
+        "totalRepos": 0,
+        "watch_mode": "auto"
+      },
+      "status": 200
+    }
+  },
+  "scenario": "api"
+}
