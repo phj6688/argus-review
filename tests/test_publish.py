@@ -805,9 +805,54 @@ def test_on_outside_only_retry_keeps_the_repeat_section():
     assert publish.summary_fingerprints(body)[0] == {"fp-reworded", "fp-other"}
 
 
-def test_on_repeat_section_is_bounded():
-    title = "Long title " * 400
-    repeats = [reworded(title=f"{title}{i}", fingerprint=f"fp-r{i}") for i in range(50)]
+def repeat_items(count, **extra):
+    return [reworded(title=f"Reworded {i}", fingerprint=f"fp-r{i}", **extra) for i in range(count)]
+
+
+def test_on_repeats_past_the_list_cap_go_to_the_comment_limit_section():
+    doc = document(*repeat_items(12))
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, max_comments=4, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL})
+    body = payload["body"]
+    assert payload["comments"] == []
+    listed = body.split("### Raised earlier on this pull request")[1]
+    assert listed.count("[earlier comment](") == 10
+    limit = body.split("### Comment limit")[1].split("### Raised earlier")[0]
+    assert "Reworded 10" in limit and "Reworded 11" in limit and "Reworded 9" not in limit
+    assert "more findings match" not in body
+    assert publish.summary_fingerprints(body) == ({f"fp-r{i}" for i in range(12)}, set())
+    items = publish._placed_items(doc, payload)
+    assert [(i["fingerprint"], i["placement"]) for i in items] == [
+        (f"fp-r{i}", "summary") for i in range(12)]
+
+
+def test_on_repeat_overflow_renders_like_ordinary_overflow():
+    items = repeat_items(12)
+    on = publish.render_review(HEAD, 7, document(*items), HEAD_TWO_FILES, max_comments=4,
+                               repeat_key="on", earlier_locations={LOC: EARLIER_URL})["body"]
+    expected = publish._summary_findings("Comment limit", items[10:])
+    assert expected in on
+
+
+def test_on_repeat_overflow_takes_no_inline_slot():
+    other = finding(line=22, title="Compute overflows", fingerprint="fp-other", severity="minor")
+    payload = publish.render_review(HEAD, 7, document(*repeat_items(12), other), HEAD_TWO_FILES,
+                                    max_comments=4, repeat_key="on", earlier_locations={LOC: EARLIER_URL})
+    assert [publish.inline_fingerprint(c["body"]) for c in payload["comments"]] == [("fp", "fp-other")]
+
+
+def test_on_repeat_overflow_survives_the_outside_only_retry():
+    doc = document(*repeat_items(12))
+    payload = publish.render_review(HEAD, 7, doc, HEAD_TWO_FILES, max_comments=4, repeat_key="on",
+                                    earlier_locations={LOC: EARLIER_URL}, outside_only=True)
+    assert payload["comments"] == []
+    assert payload["body"].count("[earlier comment](") == 10
+    assert "### Comment limit" in payload["body"]
+    assert publish.summary_fingerprints(payload["body"])[0] == {f"fp-r{i}" for i in range(12)}
+
+
+def test_on_fifty_repeats_stay_within_the_body_limit_and_are_all_accounted_for():
+    repeats = [reworded(title=f"Reworded {i}", fingerprint=f"fp-r{i}") for i in range(50)]
     disputed = [finding(title=f"Disputed {i}", fingerprint=f"ufp-{i}", description="d " * 2000)
                 for i in range(10)]
     doc = document(*repeats) | {"unverified": disputed}
@@ -816,10 +861,22 @@ def test_on_repeat_section_is_bounded():
     body = payload["body"]
     assert len(body) <= publish._MAX_BODY
     assert body.count("[earlier comment](") == 10
-    assert "40 more findings match an earlier comment and are not listed." in body
+    assert "more findings match" not in body
     confirmed, unverified = publish.summary_fingerprints(body)
-    assert confirmed == {f"fp-r{i}" for i in range(10)}
+    assert confirmed == {f"fp-r{i}" for i in range(50)}
     assert unverified and unverified <= {f"ufp-{i}" for i in range(10)}
+
+
+def test_comment_limit_section_has_no_size_budget_for_repeats_or_ordinary_findings():
+    # Today only the unverified section is budgeted. Repeats past the cap follow the ordinary
+    # overflow rule, so a body made of very long titles is as large either way.
+    title = "Long title " * 400
+    repeats = [reworded(title=f"{title}{i}", fingerprint=f"fp-r{i}") for i in range(50)]
+    on = publish.render_review(HEAD, 7, document(*repeats), HEAD_TWO_FILES, repeat_key="on",
+                               earlier_locations={LOC: EARLIER_URL})["body"]
+    assert publish._summary_findings("Comment limit", repeats[10:]) in on
+    assert publish.summary_fingerprints(on)[0] == {f"fp-r{i}" for i in range(50)}
+    assert len(on) > publish._MAX_BODY
 
 
 def test_earlier_link_must_be_a_plain_https_url():
@@ -920,6 +977,28 @@ def test_on_422_retry_keeps_the_repeat_section(monkeypatch):
     for post in posts:
         assert post["body"].count("### Raised earlier on this pull request") == 1
     assert "### Outside the diff" in posts[1]["body"]
+
+
+def test_on_twelve_repeats_are_stored_and_the_next_head_posts_nothing(monkeypatch):
+    doc = document(*repeat_items(12))
+    outcome, posts = repeat_publish(monkeypatch, "on", [earlier_comment()], doc=doc)
+    assert outcome.status == "posted" and outcome.comments_posted == 0
+    assert posts[0]["comments"] == []
+    assert [(i["fingerprint"], i["placement"]) for i in outcome.items] == [
+        (f"fp-r{i}", "summary") for i in range(12)]
+    previous = {"id": 9, "user": {"login": "publisher"}, "body": posts[0]["body"]}
+    again, more = repeat_publish(monkeypatch, "on", [earlier_comment()], [previous], doc=doc, review_id=8)
+    assert (again.status, again.reason, again.already_posted) == ("skipped", "nothing new", 12)
+    assert more == []
+
+
+def test_on_twelve_repeats_keep_the_accounting_on_a_422_retry(monkeypatch):
+    doc = document(*repeat_items(12))
+    outcome, posts = repeat_publish(monkeypatch, "on", [earlier_comment()], doc=doc, status=422)
+    assert outcome.status == "posted" and len(posts) == 2
+    for post in posts:
+        assert publish.summary_fingerprints(post["body"])[0] == {f"fp-r{i}" for i in range(12)}
+    assert len(outcome.items) == 12 and {i["placement"] for i in outcome.items} == {"summary"}
 
 
 def test_dry_run_on_reads_nothing_and_matches_off(monkeypatch):

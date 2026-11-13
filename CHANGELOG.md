@@ -2,9 +2,9 @@
 
 ## Unreleased
 
+- Repeats of an earlier inline comment past the 10-entry list now appear under "Comment limit" and are stored, instead of being reduced to a count.
 - The reviewer prompt now reserves the patch hunks of every changed file first, then spends the rest of the budget on windows and full files in rank order, so large pull requests no longer drop files to names only while earlier files get full views. Changed files without a patch (binary, too large for the forge, pure renames) are now named in the prompt with their status. Added `scripts/context_packing_report.py` to measure packing offline.
 - GitHub inline comments now carry a location key: a hash of the file, the category and the first flagged line, without the title. A reworded repeat of an earlier inline comment is now listed in the review body with a link to that comment and is not posted again. Set `ARGUS_PUBLISH_REPEAT_KEY=shadow` to only count and log repeats, or `off` to skip the check.
-
 - A judge lane where every second-opinion call failed is now recorded as `error`, with the failure cause names as the reason, instead of `ran`. The review's coverage level drops to `partial` in that case. The decision does not change.
 
 - Moved the finding-trace and auto-label modules into the main argus package; their commands are now argus subcommands (explain, why-quiet, automark); the corpus database setting is ARGUS_CORPUS_DB_PATH and its default file is data/corpus.db.

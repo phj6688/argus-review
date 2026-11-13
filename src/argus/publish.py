@@ -280,7 +280,7 @@ def _earlier_locations(comments: list[dict]) -> dict[str, str | None]:
 
 def _repeat_section(repeats: list[tuple[dict, str | None]]) -> str:
     lines = []
-    for finding, url in repeats[:_MAX_REPEATS]:
+    for finding, url in repeats:
         title = finding["title"]
         if len(title) > _MAX_REPEAT_TITLE:
             title = title[:_MAX_REPEAT_TITLE] + "..."
@@ -288,12 +288,10 @@ def _repeat_section(repeats: list[tuple[dict, str | None]]) -> str:
                 else "earlier comment")
         lines.append(f"- {code_span(str(finding['file']) + ':' + str(finding['line']))} "
                      f"**{escape_inline(title)}** (_{finding['severity'].capitalize()}_), {link}")
-    section = ["### Raised earlier on this pull request",
-               "These findings sit on the same code line as an earlier comment and were not posted again.",
-               "\n".join(lines)]
-    if remaining := len(repeats) - len(lines):
-        section.append(f"{remaining} more findings match an earlier comment and are not listed.")
-    return "\n\n".join(section)
+    return "\n\n".join(["### Raised earlier on this pull request",
+                         "These findings sit on the same code line as an earlier comment "
+                         "and were not posted again.",
+                         "\n".join(lines)])
 
 
 def _summary_findings(title: str, findings: list[dict], description: str = "") -> str:
@@ -348,6 +346,10 @@ def render_review(
             if end > start:
                 comment.update(start_line=start, start_side="RIGHT")
             comments.append(comment)
+    # Repeats past the list cap still need a body slot and a stored row: they take the
+    # comment-limit path, never an inline comment and never a bare count.
+    listed_repeats = repeats[:_MAX_REPEATS]
+    overflow.extend(finding for finding, _ in repeats[_MAX_REPEATS:])
     coverage = document.get("coverage") or {}
     lanes = [lane for lane in coverage.get("lanes", []) if lane.get("lane") == "llm"]
     reviewed = sum(lane.get("files_reviewed") or 0 for lane in lanes)
@@ -371,10 +373,9 @@ def render_review(
         body.append(_summary_findings("Outside the diff", outside))
     if overflow:
         body.append(_summary_findings("Comment limit", overflow))
-    listed_repeats = [finding for finding, _ in repeats[:_MAX_REPEATS]]
-    if repeats:
-        body.append(_repeat_section(repeats))
-    confirmed = ",".join(f["fingerprint"] for f in outside + overflow + listed_repeats
+    if listed_repeats:
+        body.append(_repeat_section(listed_repeats))
+    confirmed = ",".join(f["fingerprint"] for f in outside + overflow + [f for f, _ in listed_repeats]
                          if f.get("fingerprint"))
 
     def footer(count):

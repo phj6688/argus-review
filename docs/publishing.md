@@ -67,7 +67,7 @@ A new verified finding is a repeat when its key matches the key of an earlier in
 
 - `off`: Argus does not look for repeats. The repeat is posted inline as before.
 - `shadow`: the post is the same as with `off`. Argus counts the repeats and writes one INFO log line for each review that has one.
-- `on` (the default): Argus does not post the repeat inline, and the repeat uses no inline slot. The review body lists it under "Raised earlier on this pull request", with the file and line, the title, the severity, and a link to the earliest matching comment. The section lists at most 10 repeats and says how many it left out. The review body stores the fingerprint of each listed repeat, so a later head does not list the same finding again. A repeat with yet another title is listed again.
+- `on` (the default): Argus does not post the repeat inline, and the repeat uses no inline slot. The review body lists it under "Raised earlier on this pull request", with the file and line, the title, the severity, and a link to the earliest matching comment. The section lists at most 10 repeats. Later repeats go under "Comment limit" like any finding without an inline slot. The review body stores the fingerprint of each listed repeat, so a later head does not list the same finding again. A repeat with yet another title is listed again.
 
 The fingerprint check runs first. A finding with a known fingerprint is already posted and is never a repeat. Unverified findings, findings in one review that share a key, and GitLab notes are not affected. A dry run reads nothing from GitHub, so it finds no repeats.
 
