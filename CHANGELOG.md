@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Context packing now stops reading files after 8 reads in a row that bring no richer view, so a large pull request no longer costs one forge request per file. A whole-file view that is smaller than its window is now taken first, and files left out are checked again for the space the upgrades freed.
 - Repeats of an earlier inline comment past the 10-entry list now appear under "Comment limit" and are stored, instead of being reduced to a count.
 - The reviewer prompt now reserves the patch hunks of every changed file first, then spends the rest of the budget on windows and full files in rank order, so large pull requests no longer drop files to names only while earlier files get full views. Changed files without a patch (binary, too large for the forge, pure renames) are now named in the prompt with their status. Added `scripts/context_packing_report.py` to measure packing offline.
 - GitHub inline comments now carry a location key: a hash of the file, the category and the first flagged line, without the title. A reworded repeat of an earlier inline comment is now listed in the review body with a link to that comment and is not posted again. Set `ARGUS_PUBLISH_REPEAT_KEY=shadow` to only count and log repeats, or `off` to skip the check.

@@ -19,6 +19,8 @@ WINDOW_LINES = 30
 REVIEW_CONTEXT_BUDGET_TOKENS = 120_000
 # Avoid fetching more files when less than a small context window remains.
 MIN_UPGRADE_TOKENS = 200
+# Failed upgrades free nothing; a long run of fruitless reads means the budget is spent.
+MAX_FRUITLESS_READS = 8
 PAIRING_BUDGET_SHARE = 0.10
 CALLEES_BUDGET_SHARE = 0.05
 CALLERS_BUDGET_SHARE = 0.05
@@ -668,43 +670,94 @@ def render_review_context(
                              patchless=[f.filename for f in patchless])
     blocks: list[str] = []
     accepted: list[FilePatch] = []
+    overflow: list[tuple[int, FilePatch, str]] = []
+    ranks: list[int] = []
     tokens = 0
     candidates = sorted((f for f in files if f.status != REMOVED_STATUS and f.patch), key=_rank)
-    for file in candidates:
+    for rank, file in enumerate(candidates):
         hunks = _block(file, 'hunks', [_line(*line) for line in _patch_lines(file.patch)])
         cost = estimator.estimate('\n\n'.join([*blocks, hunks]))
         if cost > budget_tokens:
-            result.overflow.append(file.filename)
+            overflow.append((rank, file, hunks))
             continue
         blocks.append(hunks)
         accepted.append(file)
+        ranks.append(rank)
         tokens = cost
 
     modes = ['hunks_only'] * len(accepted)
-    full_views: dict[int, str] = {}
+    full_views: dict[int, str | None] = {}
 
-    def upgrade(index: int, mode: str, block: str) -> None:
+    def upgrade(index: int, mode: str, block: str) -> bool:
         nonlocal tokens
         previous = blocks[index]
         blocks[index] = block
         cost = estimator.estimate('\n\n'.join(blocks))
         if cost <= budget_tokens:
             modes[index], tokens = mode, cost
-        else:
-            blocks[index] = previous
+            return True
+        blocks[index] = previous
+        return False
 
     if read is not None:
+        fruitless = 0
         for index, file in enumerate(accepted):
+            if _generated(file.filename):
+                continue
             if budget_tokens - tokens < MIN_UPGRADE_TOKENS:
                 break
-            # Retain full views so the second sweep needs no additional reads.
+            # Retain missing views too, so failed reads are not retried in the second sweep.
             views = dict(_file_views(file, read, result))
-            if 'full' in views:
-                full_views[index] = views['full']
+            full_views[index] = views.get('full')
+            upgraded = False
             if 'windowed' in views:
-                upgrade(index, 'windowed', views['windowed'])
-        for index, block in full_views.items():
-            upgrade(index, 'full', block)
+                # Signature outlines can make a window larger than the whole file.
+                if ('full' in views
+                        and estimator.estimate(views['full']) <= estimator.estimate(views['windowed'])):
+                    upgraded = upgrade(index, 'full', views['full'])
+                if not upgraded:
+                    upgraded = upgrade(index, 'windowed', views['windowed'])
+            fruitless = 0 if upgraded else fruitless + 1
+            if fruitless >= MAX_FRUITLESS_READS:
+                break
+        fruitless = 0
+        for index, file in enumerate(accepted):
+            if modes[index] == 'full' or _generated(file.filename):
+                continue
+            newly_read = index not in full_views
+            views = {}
+            if newly_read:
+                if budget_tokens - tokens < MIN_UPGRADE_TOKENS:
+                    break
+                views = dict(_file_views(file, read, result))
+                full_views[index] = views.get('full')
+            block = full_views[index]
+            upgraded = block is not None and upgrade(index, 'full', block)
+            if not upgraded and modes[index] == 'hunks_only' and 'windowed' in views:
+                upgraded = upgrade(index, 'windowed', views['windowed'])
+            if upgraded:
+                fruitless = 0
+            elif newly_read:
+                fruitless += 1
+            if fruitless >= MAX_FRUITLESS_READS:
+                break
+
+    if overflow:
+        index = 0
+        for rank, file, hunks in overflow:
+            while index < len(accepted) and ranks[index] < rank:
+                index += 1
+            blocks.insert(index, hunks)
+            cost = estimator.estimate('\n\n'.join(blocks))
+            if cost > budget_tokens:
+                blocks.pop(index)
+                result.overflow.append(file.filename)
+                continue
+            accepted.insert(index, file)
+            ranks.insert(index, rank)
+            modes.insert(index, 'hunks_only')
+            tokens = cost
+            index += 1
 
     for file, mode, block in zip(accepted, modes, blocks):
         getattr(result, mode).append(file.filename)

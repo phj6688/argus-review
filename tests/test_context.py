@@ -165,17 +165,20 @@ def test_crlf_content_numbering():
 
 
 def test_overflow_files_are_not_read():
-    files = [FilePatch(f"{i}.py", "modified", PATCH) for i in range(20)]
-    baseline = render(files[:1], lambda _: "first\nkeep\nnew\ntail\n")
-    reads = []
-    result = render(files, lambda path: reads.append(path) or "first\nkeep\nnew\ntail\n",
-                    budget=baseline.estimated_tokens)
-    assert reads == []
+    content = 'x' * 1000 + '\n'
+    patch = '@@ -1 +1 @@\n-old\n+' + content.rstrip('\n')
+    files = [FilePatch(f'{i}.py', 'modified', patch) for i in range(20)]
     hunks = render(files[:1])
-    assert result.views == hunks.views
-    assert result.hunks_only == ['0.py']
-    assert result.prompt.startswith(hunks.prompt)
-    assert result.overflow == [f"{i}.py" for i in range(1, 20)]
+    budget = hunks.estimated_tokens + context.MIN_UPGRADE_TOKENS
+    assert render(files[:2]).estimated_tokens > budget
+    reads = []
+    result = render(files, lambda path: reads.append(path) or content, budget=budget)
+    assert reads == ['0.py']
+    assert result.full == ['0.py']
+    assert list(result.views) == ['0.py']
+    assert result.prompt.startswith(result.views['0.py'] + '\n\n')
+    assert result.views == render(files[:1], lambda _: content).views
+    assert result.overflow == [f'{i}.py' for i in range(1, 20)]
 
 
 def test_changed_symbols_post_image_and_removed_declarations():
@@ -741,6 +744,154 @@ def test_windowed_sweep_precedes_any_full_upgrade():
     assert result.full == []
     assert result.windowed == [f.filename for f in files]
     assert result.hunks_only == result.overflow == []
+
+
+@pytest.mark.parametrize('extra', range(12))
+def test_smaller_full_view_keeps_nonbinding_budget_identical_to_greedy(extra):
+    app = [f'value_{n} = compute({n})' for n in range(1, 301)]
+    barrel = [f"export * from './module_{n}';" for n in range(1, 301)]
+    files = [FilePatch('app.py', 'modified', '@@ -9,3 +9,4 @@\n ' + app[8]
+                       + '\n-old\n+' + app[9] + '\n+' + app[10] + '\n ' + app[11]),
+             FilePatch('index.ts', 'modified', '@@ -10 +10 @@\n-old\n+' + barrel[9])]
+    contents = {'app.py': '\n'.join(app) + '\n', 'index.ts': '\n'.join(barrel) + '\n'}
+    views = [dict(context._file_views(f, contents.get, context.RenderedContext())) for f in files]
+    estimator = HeuristicEstimator()
+    assert estimator.estimate(views[1]['full']) == 3265
+    assert estimator.estimate(views[1]['windowed']) == 3275
+    budget = estimator.estimate('\n\n'.join(v['full'] for v in views))
+    assert budget == 6067
+    result = render(files, contents.get, budget + extra)
+    assert result.full == ['app.py', 'index.ts']
+    assert result == greedy_reference(files, contents.get, budget + extra)
+
+
+def test_fruitless_reads_are_bounded_for_a_thousand_files():
+    content = '\n'.join(f'  const value{i} = computeSomething(arg{i});' for i in range(300)) + '\n'
+    patch = ('@@ -150,3 +150,3 @@\n   const value149 = computeSomething(arg149);\n'
+             '-  old\n+  const value150 = computeSomething(arg150);\n'
+             '   const value151 = computeSomething(arg151);')
+    files = [FilePatch(f'src/m{i}.ts', 'modified', patch) for i in range(1000)]
+    reads = []
+    result = render(files, lambda path: reads.append(path) or content)
+    upgraded = len(result.full) + len(result.windowed)
+    assert len(reads) < 100
+    assert len(reads) == upgraded + 2 * context.MAX_FRUITLESS_READS
+    assert len(reads) == len(set(reads))
+    assert len(result.views) == 1000
+    assert result.overflow == []
+    assert result.estimated_tokens <= 120_000
+
+
+@pytest.mark.parametrize('failure', ['missing', 'error', 'too_large'])
+def test_successful_upgrade_resets_a_short_fruitless_run(failure):
+    cap = context.MAX_FRUITLESS_READS
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(2 * cap)]
+    fitting = [files[cap - 1].filename, files[-1].filename]
+    reads = []
+    def read(path):
+        reads.append(path)
+        if path in fitting:
+            return 'first\nkeep\nnew\ntail\n'
+        if failure == 'error':
+            raise OSError('unavailable')
+        if failure == 'too_large':
+            return ('x' * 1000 + '\n') * 300
+        return None
+    result = render(files, read, budget=2000)
+    assert result.full == fitting
+    assert reads == [f.filename for f in files]
+    assert result.files_read_failed == (2 * (cap - 1) if failure == 'error' else 0)
+
+
+@pytest.mark.parametrize('failure', ['missing', 'error', 'too_large'])
+def test_exact_fruitless_cap_stops_each_sweep(failure):
+    cap = context.MAX_FRUITLESS_READS
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(2 * cap + 1)]
+    reads = []
+    def read(path):
+        reads.append(path)
+        if path == files[-1].filename:
+            return 'first\nkeep\nnew\ntail\n'
+        if failure == 'error':
+            raise OSError('unavailable')
+        if failure == 'too_large':
+            return ('x' * 1000 + '\n') * 300
+        return None
+    result = render(files, read, budget=2000)
+    assert reads == [f.filename for f in files[:-1]]
+    assert result.hunks_only == [f.filename for f in files]
+    assert result.files_read_failed == (2 * cap if failure == 'error' else 0)
+
+
+@pytest.mark.parametrize('content,mode', [('first\nkeep\nnew\ntail\n', 'full'),
+                                         ('pass\n' * 300, 'windowed')])
+def test_second_sweep_reads_unvisited_files_and_falls_back_to_windowed(content, mode):
+    cap = context.MAX_FRUITLESS_READS
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(2 * cap + 1)]
+    fitting = files[cap].filename
+    reads = []
+    def read(path):
+        reads.append(path)
+        return content if path == fitting else None
+    result = render(files, read, budget=render(files).estimated_tokens + 600)
+    assert getattr(result, mode) == [fitting]
+    assert reads == [f.filename for f in files]
+
+
+@pytest.mark.parametrize('sweep', ['windowed', 'full'])
+@pytest.mark.parametrize('error', [context.ForgeAuthError, context.ForgeDenied,
+                                  context.ForgeRateLimited])
+def test_forge_errors_propagate_from_each_upgrade_sweep(error, sweep):
+    cap = context.MAX_FRUITLESS_READS
+    offset = 0 if sweep == 'windowed' else cap
+    files = [FilePatch(f'{i}.py', 'modified', PATCH) for i in range(offset + 1)]
+    reads = []
+    def read(path):
+        reads.append(path)
+        if path == files[-1].filename:
+            raise error('unavailable')
+        return None
+    with pytest.raises(error):
+        render(files, read)
+    assert reads == [f.filename for f in files]
+
+
+def test_smaller_added_views_make_room_for_overflow(monkeypatch):
+    # Isolate reclaimed space from the independent minimum-read cutoff.
+    monkeypatch.setattr(context, 'MIN_UPGRADE_TOKENS', 0)
+    content = '\n'.join('x' * 3 for _ in range(3)) + '\n'
+    patch = '@@ -0,0 +1,3 @@\n' + '\n'.join('+' + 'xxx' for _ in range(3))
+    files = [FilePatch('a.py', 'added', patch), FilePatch('b.py', 'added', patch),
+             FilePatch('c.py', 'modified', '@@ -1 +1 @@\n-y\n+z')]
+    contents = {'a.py': content, 'b.py': content, 'c.py': 'z\n'}
+    views = [dict(context._file_views(f, contents.get, context.RenderedContext())) for f in files]
+    expected = [views[0]['full'], views[1]['full'], views[2]['hunks_only']]
+    budget = HeuristicEstimator().estimate('\n\n'.join(expected))
+    assert budget == 65
+    reads = []
+    result = render(files, lambda path: reads.append(path) or contents[path], budget)
+    assert reads == ['a.py', 'b.py']
+    assert result.full == ['a.py', 'b.py']
+    assert result.hunks_only == ['c.py']
+    assert result.overflow == []
+    assert list(result.views) == ['a.py', 'b.py', 'c.py']
+    assert result.prompt == '\n\n'.join(expected)
+    assert result.estimated_tokens <= budget
+    assert greedy_reference(files, contents.get, budget).overflow == []
+
+
+def test_reclaimed_overflow_is_inserted_in_rank_order():
+    files = [FilePatch(f'{i}.py', 'modified', '@@ -1 +1 @@\n+new\n ' + 'x' * size)
+             for i, size in enumerate([1200, 2400, 100, 10000, 11000])]
+    reads = []
+    result = render(files, lambda path: reads.append(path) or 'new\n', budget=1000)
+    assert reads == ['0.py', '2.py']
+    assert result.full == ['0.py', '2.py']
+    assert result.hunks_only == ['1.py']
+    assert result.overflow == ['3.py', '4.py']
+    assert list(result.views) == ['0.py', '1.py', '2.py']
+    assert result.prompt.startswith('\n\n'.join(result.views.values()) + '\n\n')
+    assert HeuristicEstimator().estimate('\n\n'.join(result.views.values())) <= 1000
 
 
 @pytest.mark.parametrize('reader', [False, True])
