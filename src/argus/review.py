@@ -924,14 +924,19 @@ def _judge_lane(bug_items: list[VerifiedFinding], patches: dict[str, str],
             model=spec.model,
         )
         judged += 1
+    causes = ", ".join(f"{cause} x{count}" for cause, count in failure_causes.items())
     if failures:
-        causes = ", ".join(f"{cause} x{count}" for cause, count in failure_causes.items())
         log.warning("judge lane: %d/%d second opinions failed (%s); those findings stay "
                     "single_critic", failures, len(bug_items), causes)
-    return {"lane": JUDGE_LANE, "status": verdict.LANE_RAN, "model": spec.model,
-            "family": spec.family, "reviewer_family": judges.family_of(reviewer_model),
-            "checks": judged, "eligible": len(bug_items), "failures": failures,
-            "failure_causes": dict(failure_causes)}
+    record = {"lane": JUDGE_LANE, "status": verdict.LANE_RAN, "model": spec.model,
+              "family": spec.family, "reviewer_family": judges.family_of(reviewer_model),
+              "checks": judged, "eligible": len(bug_items), "failures": failures,
+              "failure_causes": dict(failure_causes)}
+    if failures and not judged:
+        # Every attempted call raised: the second opinion did not happen. Cause
+        # names only, never exception text, which can carry response bodies.
+        return {**record, "status": verdict.LANE_ERROR, "reason": causes}
+    return record
 
 
 def _suppress_known_fps(repo: str, pr: int, findings: list) -> list:
