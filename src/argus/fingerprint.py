@@ -11,6 +11,9 @@ import hashlib
 import re
 
 PREFIX = "argusfp"
+LOCATION_PREFIX = "argusloc"
+# A short line such as "}" or "else:" repeats all over a file, so it cannot name one location.
+MIN_LOCATION_CONTEXT = 8
 
 _WS = re.compile(r"\s+")
 _DIGITS = re.compile(r"\d+")
@@ -53,7 +56,25 @@ def context_line(patch: str | None, line: int) -> str:
 def compute(file: str, rule_id: str | None, title: str, context: str) -> str:
     """`argusfp:<sha256/32>` over (rule-or-title key, normalized path, line content)."""
     key = rule_id or title_key(title)
-    path = file.replace("\\", "/").lstrip("./")
-    ctx = _WS.sub(" ", context.strip())
-    digest = hashlib.sha256(f"{key}\0{path}\0{ctx}".encode()).hexdigest()
+    digest = hashlib.sha256(f"{key}\0{_path(file)}\0{_context(context)}".encode()).hexdigest()
     return f"{PREFIX}:{digest[:32]}"
+
+
+def location_key(file: str, category: str | None, context: str) -> str | None:
+    """`argusloc:<sha256/32>` over (path, category, line content), without the title.
+
+    A reworded finding on the same line keeps this key while its fingerprint changes.
+    """
+    ctx = _context(context or "")
+    if not category or len(ctx) < MIN_LOCATION_CONTEXT:
+        return None
+    digest = hashlib.sha256(f"{_path(file)}\0{category}\0{ctx}".encode()).hexdigest()
+    return f"{LOCATION_PREFIX}:{digest[:32]}"
+
+
+def _path(file: str) -> str:
+    return file.replace("\\", "/").lstrip("./")
+
+
+def _context(context: str) -> str:
+    return _WS.sub(" ", context.strip())

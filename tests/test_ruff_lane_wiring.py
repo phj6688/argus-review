@@ -5,7 +5,7 @@ import pytest
 from argus import review as review_mod
 from argus import verdict
 from argus.diff import FilePatch
-from argus.jarvis import ruff_lane
+from argus import ruff_lane
 from argus.review import run_diff_review
 from argus.schema import Review, Verdict
 
@@ -44,7 +44,7 @@ def quiet_llm(monkeypatch):
 def whole_files(monkeypatch):
     """With repo + head_sha the engine can fetch whole files, which is what ruff
     needs; a patch fragment would report a syntax error on every truncation."""
-    from argus.jarvis import live
+    from argus import live
     monkeypatch.setattr(live, "_fetch_file_at", lambda repo, path, sha: BAD)
 
 
@@ -125,7 +125,7 @@ def test_a_security_hit_alone_does_not_block(quiet_llm, whole_files):
 
 
 def test_ruff_only_reports_security_hits_on_added_lines(monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     content = "import pickle\nold = pickle.loads(b'old')\nnew = pickle.loads(b'new')\n"
     monkeypatch.setattr(live, "_fetch_file_at", lambda *args: content)
@@ -141,7 +141,7 @@ def test_ruff_only_reports_security_hits_on_added_lines(monkeypatch):
 
 @pytest.mark.parametrize("code", ["invalid-syntax", "E902", "E999", "F821"])
 def test_ruff_keeps_file_breaking_hits_on_unchanged_lines(monkeypatch, code):
-    from argus.jarvis import live
+    from argus import live
 
     monkeypatch.setattr(live, "_fetch_file_at", lambda *args: "content")
     monkeypatch.setattr(ruff_lane, "scan_content",
@@ -154,7 +154,7 @@ def test_ruff_keeps_file_breaking_hits_on_unchanged_lines(monkeypatch, code):
 
 
 def test_ruff_caps_and_sorts_distinct_suppressed_codes(monkeypatch):
-    from argus.jarvis import live
+    from argus import live
 
     monkeypatch.setattr(live, "_fetch_file_at", lambda *args: "content")
     codes = [f"S{n}" for n in range(100, 125)]
@@ -176,7 +176,7 @@ def test_ruff_caps_and_sorts_distinct_suppressed_codes(monkeypatch):
 ])
 def test_ruff_keeps_hits_spanning_touched_lines(monkeypatch, patch, code, line, end):
     from argus import review
-    from argus.jarvis import ruff_lane
+    from argus import ruff_lane
     hit = ruff_lane.Hit(code, "introduced", "a.py", line, end_line=end)
     old = ruff_lane.Hit("S605", "preexisting", "a.py", 100, end_line=101)
     monkeypatch.setattr(ruff_lane, "scan_content", lambda *args: [hit, old])
@@ -190,7 +190,7 @@ def test_ruff_keeps_hits_spanning_touched_lines(monkeypatch, patch, code, line, 
 
 def test_ruff_suppresses_hits_in_a_pure_rename(monkeypatch):
     from argus import review
-    from argus.jarvis import ruff_lane
+    from argus import ruff_lane
     hit = ruff_lane.Hit("S608", "preexisting", "b.py", 10, end_line=12)
     monkeypatch.setattr(ruff_lane, "scan_content", lambda *args: [hit])
     monkeypatch.setattr(ruff_lane, "tool_identity", lambda: {})

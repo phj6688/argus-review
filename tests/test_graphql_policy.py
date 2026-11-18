@@ -5,6 +5,7 @@ from email.utils import formatdate
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import github
 
@@ -29,7 +30,7 @@ def test_denied_owner_refused_before_transport(monkeypatch, caplog, query, varia
         return httpx.Response(200, json={"data": {}})
     before = github.refusal_count()
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         with pytest.raises(github.GitHubDenied):
             github.graphql_read(query, variables)
     assert requests == []
@@ -69,7 +70,7 @@ def test_repository_deny_matches_resolved_identity(monkeypatch, query, variables
         return httpx.Response(200, json={"data": {"ok": True}})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         if denied:
             with pytest.raises(github.GitHubDenied):
                 github.graphql_read(query, variables)
@@ -89,6 +90,7 @@ def test_repository_deny_matches_resolved_identity(monkeypatch, query, variables
 def test_owner_deny_refuses_all_repositories_and_logins(monkeypatch, query, variables):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme")
     monkeypatch.setattr(httpx, "post", lambda *a, **k: pytest.fail("must refuse before transport"))
+    stub_github_client(monkeypatch, post=httpx.post)
     with pytest.raises(github.GitHubDenied):
         github.graphql_read(query, variables)
 
@@ -114,7 +116,7 @@ def test_query_pause_does_not_pause_rest(monkeypatch, caplog, status, headers, b
         requests.append(request)
         return httpx.Response(status, headers=headers, json=body)
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         with pytest.raises(github.GraphQLRateLimited):
             github.graphql_read("query { viewer { login } }", {"owner": "allowed"})
         assert github.pause_until() == 0
@@ -135,7 +137,7 @@ def test_rest_pause_blocks_query_without_request(monkeypatch):
     monkeypatch.setattr(github, "_pause_until", time.time() + 60)
     requests = []
     with httpx.Client(transport=httpx.MockTransport(lambda r: requests.append(r))) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         with pytest.raises(github.GitHubRateLimited):
             github.graphql_read("query { viewer { login } }", {})
     assert requests == []
@@ -145,7 +147,7 @@ def test_other_query_errors_hide_body(monkeypatch):
     with httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(
         200, json={"errors": [{"type": "OTHER", "message": "private body"}]}
     ))) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         with pytest.raises(RuntimeError, match="^Read query returned errors$"):
             github.graphql_read("query { viewer { login } }", {})
     assert github.pause_until() == 0
@@ -178,7 +180,7 @@ def test_nested_repository_resolves_against_parent_login(monkeypatch, query, var
         return httpx.Response(200, json={"data": {"ok": True}})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         if denied:
             with pytest.raises(github.GitHubDenied):
                 github.graphql_read(query, variables)
@@ -195,5 +197,5 @@ def test_nested_repository_allowed_with_empty_deny_list(monkeypatch, query):
     monkeypatch.delenv("ARGUS_DENY_OWNERS", raising=False)
     with httpx.Client(transport=httpx.MockTransport(
             lambda request: httpx.Response(200, json={"data": {"ok": True}}))) as http:
-        monkeypatch.setattr(httpx, "post", http.post)
+        stub_github_client(monkeypatch, post=http.post)
         assert github.graphql_read(query, {}) == {"ok": True}

@@ -1,0 +1,143 @@
+{
+  "derived": {
+    "counts": {
+      "binary": 0,
+      "collapsed": 0,
+      "deleted_file": 0,
+      "generated_file": 0,
+      "new_file": 4,
+      "renamed_file": 0,
+      "too_large": 1
+    },
+    "files": [
+      {
+        "diff_head": "--- /dev/null\n+++ b/ladder/f_0500.txt\n@@ -0,0 +1,500 @@\n+row 00001: unique-conte",
+        "diff_len": 19056,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "ladder/f_0500.txt"
+      },
+      {
+        "diff_head": "--- /dev/null\n+++ b/ladder/f_2000.txt\n@@ -0,0 +1,2000 @@\n+row 00001: unique-cont",
+        "diff_len": 76057,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "ladder/f_2000.txt"
+      },
+      {
+        "diff_head": "--- /dev/null\n+++ b/ladder/f_5000.txt\n@@ -0,0 +1,5000 @@\n+row 00001: unique-cont",
+        "diff_len": 190057,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": false
+        },
+        "new_path": "ladder/f_5000.txt"
+      },
+      {
+        "diff_head": "",
+        "diff_len": 0,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": true
+        },
+        "new_path": "ladder/f_9000.txt"
+      }
+    ]
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diffs_ladder_unidiff",
+    "question": 2
+  },
+  "request": {
+    "auth": "admin",
+    "method": "GET",
+    "params": {
+      "per_page": 100,
+      "unidiff": "true"
+    },
+    "path": "/projects/1/merge_requests/72/diffs"
+  },
+  "response": {
+    "body": [
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "--- /dev/null\n+++ b/ladder/f_0500.txt\n@@ -0,0 +1,500 @@\n+row 00001: unique-content-0000007919\n+row 00002: unique-content-0000015838\n+row 00003: unique-content-0000023757\n+row 00004: unique-content-0000031676\n+row 00005: unique-content-0000039595\n+row 00006: unique-content-0000047514\n+row 00007: unique-content-0000055433\n+row 00008: unique-content-0000063352\n+row 00009: unique-content-0000071271\n+row 00010: unique-content-0000079190\n+row 00011: unique-content-0000087109\n+row 00012: unique-content-0000095028\n+row 00013: unique-content-0000102947\n+row 00014: unique-content-0000110866\n+row 00015: unique-content-0000118785\n+row 00016: unique-content-0000126704\n+row 00017: unique-content-0000134623\n+row 00018: unique-content-0000142542\n+row 00019: unique-content-0000150461\n+row 00020: unique-content-0000158380\n+row 00021: unique-content-0000166299\n+row 00022: unique-content-0000174218\n+row 00023: unique-content-0000182137\n+row 00024: unique-content-0000190056\n+row 00025: unique-content-0000197975\n+row 00026: unique-content-0000205894\n+row 00027: unique-content-0000213813\n+row 00028: unique-content-0000221732\n+row 00029: unique-content-0000229651\n+row 00030: unique-content-0000237570\n+row 00031: unique-content-0000245489\n+row 00032: unique-content-0000253408\n+row 00033: unique-content-0000261327\n+row 00034: unique-content-0000269246\n+row 00035: unique-content-0000277165\n+row 00036: unique-content-0000285084\n+row 00037: unique-content-0000293003\n+row 00038: unique-content-0000300922\n",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "ladder/f_0500.txt",
+        "old_path": "ladder/f_0500.txt",
+        "renamed_file": false,
+        "too_large": false
+      },
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "--- /dev/null\n+++ b/ladder/f_2000.txt\n@@ -0,0 +1,2000 @@\n+row 00001: unique-content-0000007919\n+row 00002: unique-content-0000015838\n+row 00003: unique-content-0000023757\n+row 00004: unique-content-0000031676\n+row 00005: unique-content-0000039595\n+row 00006: unique-content-0000047514\n+row 00007: unique-content-0000055433\n+row 00008: unique-content-0000063352\n+row 00009: unique-content-0000071271\n+row 00010: unique-content-0000079190\n+row 00011: unique-content-0000087109\n+row 00012: unique-content-0000095028\n+row 00013: unique-content-0000102947\n+row 00014: unique-content-0000110866\n+row 00015: unique-content-0000118785\n+row 00016: unique-content-0000126704\n+row 00017: unique-content-0000134623\n+row 00018: unique-content-0000142542\n+row 00019: unique-content-0000150461\n+row 00020: unique-content-0000158380\n+row 00021: unique-content-0000166299\n+row 00022: unique-content-0000174218\n+row 00023: unique-content-0000182137\n+row 00024: unique-content-0000190056\n+row 00025: unique-content-0000197975\n+row 00026: unique-content-0000205894\n+row 00027: unique-content-0000213813\n+row 00028: unique-content-0000221732\n+row 00029: unique-content-0000229651\n+row 00030: unique-content-0000237570\n+row 00031: unique-content-0000245489\n+row 00032: unique-content-0000253408\n+row 00033: unique-content-0000261327\n+row 00034: unique-content-0000269246\n+row 00035: unique-content-0000277165\n+row 00036: unique-content-0000285084\n+row 00037: unique-content-0000293003\n+row 00038: unique-content-0000300922",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "ladder/f_2000.txt",
+        "old_path": "ladder/f_2000.txt",
+        "renamed_file": false,
+        "too_large": false
+      },
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "ladder/f_9000.txt",
+        "old_path": "ladder/f_9000.txt",
+        "renamed_file": false,
+        "too_large": true
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"85f0a671c58838bd90f42df811a9227a\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/72/diffs?id=1&merge_request_iid=72&page=1&per_page=100&unidiff=true>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/72/diffs?id=1&merge_request_iid=72&page=1&per_page=100&unidiff=true>; rel=\"last\"",
+      "vary": "Accept-Encoding, Origin",
+      "x-next-page": "",
+      "x-page": "1",
+      "x-per-page": "100",
+      "x-prev-page": "",
+      "x-total": "4",
+      "x-total-pages": "1"
+    },
+    "status": 200
+  },
+  "trimmed": {
+    "body": 4,
+    "body[0].diff": 19056,
+    "body[1].diff": 76057
+  }
+}

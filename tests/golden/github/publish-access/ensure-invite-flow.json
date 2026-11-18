@@ -1,0 +1,97 @@
+{
+  "case": "ensure-invite-flow",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/user"
+    },
+    {
+      "body": {
+        "permission": "push"
+      },
+      "body_sha256": "4f2173fe715fb1b1eb03f92148407a0e847beff588aea2046af0171bc66f1bd8",
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "content-type": "application/json",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "PUT",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/collaborators/example-bot"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/user/repository_invitations"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "PATCH",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/user/repository_invitations/91"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app"
+    }
+  ],
+  "result": {
+    "detail": "bot added and invitation accepted",
+    "grant": "granted",
+    "settingsUrl": "https://github.com/example/app/settings/access",
+    "state": "ok"
+  },
+  "scenario": "publish-access"
+}

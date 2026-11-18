@@ -6,7 +6,7 @@ A file the lane cannot parse raises rather than returning a clean result.
 import pytest
 
 from argus.diff import FilePatch
-from argus.jarvis import config_lane
+from argus import config_lane
 
 # An empty runtime value erases image build metadata. The identical string
 # `${BUILD_SHA:-}` is the DEFECT under `environment:` and the FIX under

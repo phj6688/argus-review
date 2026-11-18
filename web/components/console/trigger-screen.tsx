@@ -3,21 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EyeMark } from "@/components/ui/icons";
-import { createReview, getRunState, ReviewRefused } from "@/lib/api";
+import { createReview, getIntegrationsClient, getRunState, ReviewRefused } from "@/lib/api";
+import { isGitLabKey, parseTarget } from "@/lib/forge";
+import type { GitLabStatus } from "@/lib/types";
 import { ScreenHeader } from "./screen-header";
 
 const POLL_MS = 2000;
 
-/** owner/repo#pr -> {repo, pr}. Returns null on anything malformed so the
- *  caller surfaces an inline error and never reaches the network. */
-function parseTarget(raw: string): { repo: string; pr: number } | null {
-  const value = raw.trim();
-  const match = /^([^/\s#]+\/[^/\s#]+)#(\d+)$/.exec(value);
-  if (!match) return null;
-  const pr = Number(match[2]);
-  if (!Number.isInteger(pr) || pr < 1) return null;
-  return { repo: match[1], pr };
-}
+type Settings = { status: "loading" | "ready" | "failed"; gitlab: Pick<GitLabStatus, "host" | "baseUrl"> | null };
 
 type Phase = "idle" | "running" | "error";
 
@@ -28,6 +21,11 @@ function runningLine(repo: string, pr: number, ticks: number): string {
 
 export function TriggerScreen() {
   const router = useRouter();
+  const [settings, setSettings] = useState<Settings>({ status: "loading", gitlab: null });
+  const settingsRef = useRef<Promise<Settings> | null>(null);
+  const settingsAbortRef = useRef<AbortController | null>(null);
+  const submittingRef = useRef(false);
+  const [checking, setChecking] = useState(false);
   const [value, setValue] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -58,11 +56,31 @@ export function TriggerScreen() {
     }
   }, []);
 
-  // Seed the readout once on mount. React owns no text node inside the <pre>,
-  // so re-renders never clobber what the poll loop writes via textContent.
+  const loadSettings = useCallback(() => {
+    settingsAbortRef.current?.abort();
+    const controller = new AbortController();
+    settingsAbortRef.current = controller;
+    settingsRef.current = getIntegrationsClient(controller.signal)
+      .then((data): Settings => ({ status: "ready", gitlab: data.gitlab ?? null }))
+      .catch((): Settings => ({ status: "failed", gitlab: null }))
+      .then((result) => {
+        if (!controller.signal.aborted) setSettings(result);
+        return result;
+      });
+    return settingsRef.current;
+  }, []);
+
   useEffect(() => {
-    write("idle · enter a pull request above to start");
-  }, [write]);
+    loadSettings();
+    return () => settingsAbortRef.current?.abort();
+  }, [loadSettings]);
+
+  // React owns no text node inside the readout, so polling can update it directly.
+  useEffect(() => {
+    if (phase !== "idle") return;
+    const mergeRequest = settings.gitlab && isGitLabKey(parseTarget(value, settings.gitlab)?.repo ?? "");
+    write(mergeRequest ? "idle · enter a merge request above to start" : "idle · enter a pull request above to start");
+  }, [phase, settings.gitlab, value, write]);
 
   // Abort any in-flight poll when the screen unmounts or we navigate away, and
   // track mount state so a POST that resolves after unmount never arms a poll.
@@ -77,11 +95,35 @@ export function TriggerScreen() {
   const submit = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
-      if (phase === "running") return;
-
-      const target = parseTarget(value);
+      if (phase === "running" || submittingRef.current) return;
+      const looksGitLab = value.trim().startsWith("gitlab:") || value.trim().startsWith("https://");
+      let loaded = settings;
+      if (looksGitLab && settings.status !== "ready") {
+        submittingRef.current = true;
+        setChecking(true);
+        try {
+          if (settings.status === "failed") {
+            setSettings({ status: "loading", gitlab: null });
+            loaded = await loadSettings();
+          } else {
+            loaded = await settingsRef.current ?? settings;
+          }
+        } finally {
+          submittingRef.current = false;
+          setChecking(false);
+        }
+        if (!mountedRef.current) return;
+      }
+      if (looksGitLab && loaded.status === "failed") {
+        setInputError("Could not read the GitLab settings. Try again.");
+        return;
+      }
+      const gitlab = loaded.gitlab;
+      const target = parseTarget(value, gitlab);
       if (!target) {
-        setInputError("Use the form owner/repo#pr, e.g. acme/api#5");
+        setInputError(gitlab
+          ? `Use owner/repo#pr (GitHub) or gitlab:${gitlab.host}#PROJECT_ID#iid, gitlab:${gitlab.host}/group/project#iid or a merge request URL (GitLab)`
+          : "Use the form owner/repo#pr, e.g. acme/api#5");
         return;
       }
       setInputError(null);
@@ -143,7 +185,7 @@ export function TriggerScreen() {
 
       pollRef.current = setInterval(tick, POLL_MS);
     },
-    [phase, router, stopPolling, value, write],
+    [loadSettings, phase, router, settings, stopPolling, value, write],
   );
 
   const running = phase === "running";
@@ -157,7 +199,7 @@ export function TriggerScreen() {
 
       <form onSubmit={submit} className="panel max-w-[640px] px-[22px] py-6">
         <label htmlFor="pr-target" className="eyebrow mb-2 block">
-          Pull request
+          {settings.gitlab ? "Pull request or merge request" : "Pull request"}
         </label>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
           <div
@@ -174,7 +216,7 @@ export function TriggerScreen() {
                 setValue(event.target.value);
                 if (inputError) setInputError(null);
               }}
-              disabled={running}
+              disabled={running || checking}
               placeholder="owner/repo#pr"
               aria-label="PR to review"
               aria-invalid={inputError ? true : undefined}
@@ -185,7 +227,7 @@ export function TriggerScreen() {
           <button
             type="submit"
             data-testid="run-button"
-            disabled={running}
+            disabled={running || checking}
             className="flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-[9px] px-5 text-[13px] font-semibold uppercase tracking-[0.08em] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             style={{
               background: "var(--accent-12)",
@@ -199,11 +241,17 @@ export function TriggerScreen() {
                 Running
               </>
             ) : (
-              "Run review"
+              checking ? "Checking" : "Run review"
             )}
           </button>
         </div>
 
+        {settings.gitlab && (
+          <p className="mt-2 break-words text-[12.5px] text-faint">
+            GitLab: gitlab:{settings.gitlab.host}#PROJECT_ID#iid, gitlab:{settings.gitlab.host}/group/project#iid
+            {" or "}{settings.gitlab.baseUrl}/group/project/-/merge_requests/iid
+          </p>
+        )}
         {inputError && (
           <p
             id="input-error"

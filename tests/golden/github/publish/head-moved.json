@@ -1,0 +1,46 @@
+{
+  "case": "head-moved",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42"
+    }
+  ],
+  "result": {
+    "already_posted": 0,
+    "bot_login": null,
+    "comments_posted": 0,
+    "gh_review_id": null,
+    "items": [],
+    "payload": {
+      "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: partial\n\nFiles reviewed: 2; omitted: 1\n\nSeverity counts: Critical: 0; Major: 1; Minor: 0; Nit: 0\n\nTier counts: deterministic: 0; consensus: 1; single_critic: 0; disputed: 0\n\nBelow posting threshold: 0\n\nAlready posted: 0\n\n<!-- argus:review=7 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
+      "comments": [
+        {
+          "body": "_Contracts_ | _Major_ | _consensus_\n\n**Validate input before saving**\n\nAn empty input reaches storage\\.\n\n```python\nsave(value)\n```\n\n**Suggested fix:** Reject empty input before saving\\.\n\n<details>\n<summary>Prompt for agents</summary>\n\nIn `src/app.py` around line 10-11: Validate input before saving. Reject empty input before saving\\. Verify the issue against the current code before changing anything.\n</details>\n\n<!-- argus:fp=fp-inline -->",
+          "line": 11,
+          "path": "src/app.py",
+          "side": "RIGHT",
+          "start_line": 10,
+          "start_side": "RIGHT"
+        }
+      ],
+      "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event": "COMMENT"
+    },
+    "posted_at": null,
+    "reason": "PR head moved since the review (aaaaaaa -> bbbbbbb)",
+    "status": "skipped"
+  },
+  "scenario": "publish"
+}

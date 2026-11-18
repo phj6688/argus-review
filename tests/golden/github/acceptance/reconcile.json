@@ -1,0 +1,320 @@
+{
+  "case": "reconcile",
+  "db_rows": {
+    "findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "findings_raw": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "publish_reconciliations": {
+      "columns": [
+        "review_id",
+        "checked_at",
+        "found"
+      ],
+      "rows": [
+        [
+          1,
+          "<ts>",
+          1
+        ]
+      ]
+    },
+    "published_findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "repo",
+        "pr",
+        "head_sha",
+        "fingerprint",
+        "severity",
+        "category",
+        "path",
+        "line",
+        "end_line",
+        "title",
+        "placement",
+        "mode",
+        "gh_review_id",
+        "gh_comment_id",
+        "posted_at",
+        "comment_lookups",
+        "unverified",
+        "gh_thread_id",
+        "anchor_status"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-1",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Missing input check",
+          "inline",
+          "posted",
+          20,
+          101,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ]
+      ]
+    },
+    "publishing_identities": {
+      "columns": [
+        "repo",
+        "bot_login",
+        "first_seen_at",
+        "bot_user_id"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "publisher",
+          "<ts>",
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          3,
+          "model-a",
+          "done",
+          "<ts>",
+          1,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "files": 1,
+                "lane": "llm",
+                "model": "model-a",
+                "status": "ran"
+              }
+            ],
+            "level": "full"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "posted",
+          "<ts>",
+          "recovered an existing review",
+          1,
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/3/reviews"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/3/comments"
+    }
+  ],
+  "result": {
+    "counters": {
+      "bot": {
+        "rechecks": {
+          "fixed": 0,
+          "present": 0,
+          "unsure": 0
+        },
+        "replies": 0,
+        "resolutions": 0
+      },
+      "failures": 0,
+      "rechecks_attempted": 0,
+      "reconciled_found": 1,
+      "reconciled_missing": 0,
+      "writes_attempted": 0
+    },
+    "returned": null
+  },
+  "scenario": "acceptance"
+}

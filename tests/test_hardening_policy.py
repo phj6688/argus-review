@@ -10,11 +10,12 @@ from pathlib import Path
 
 import httpx
 import pytest
+from conftest import stub_github_client
 from fastapi.testclient import TestClient
 
 from argus import github, repo_policy
 from argus.api import db, main, watch_config, watch_store, watcher
-from argus.jarvis import live
+from argus import live
 
 
 @pytest.fixture
@@ -96,7 +97,7 @@ def test_trusted_author_can_be_reconsidered_on_same_head(path):
 @pytest.mark.parametrize("listing", ["_open_prs", "_recently_closed_prs"])
 def test_rest_listing_preserves_association(path, monkeypatch, listing):
     monkeypatch.setenv("GITHUB_TOKEN", "fake")
-    monkeypatch.setattr(httpx, "get", lambda url, **kw: httpx.Response(
+    stub_github_client(monkeypatch, get=lambda url, **kw: httpx.Response(
         200, json=[pull("COLLABORATOR")], request=httpx.Request("GET", url)))
     assert getattr(watcher, listing)("example/repo")[0]["author_association"] == "COLLABORATOR"
 
@@ -147,6 +148,7 @@ def test_hard_denials_are_dynamic_and_default_empty(path, monkeypatch):
 def test_hard_repo_denial_applies_before_http_transport(path, monkeypatch):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "Acme-Corp/Secret-Repo")
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("request sent"))
+    stub_github_client(monkeypatch, get=httpx.get)
     with pytest.raises(github.GitHubDenied):
         github.get("/repos/ACME-CORP/secret-repo/pulls")
     github.guard_url("https://api.github.com/repos/acme-corp/public-repo/pulls")
@@ -177,6 +179,7 @@ def test_contents_name_cannot_hide_a_denied_target(path, monkeypatch, denied, ro
 def test_hard_repo_denial_applies_to_graphql(path, monkeypatch, query, variables):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp/secret-repo")
     monkeypatch.setattr(httpx, "post", lambda *a, **k: pytest.fail("request sent"))
+    stub_github_client(monkeypatch, post=httpx.post)
     with pytest.raises(github.GitHubDenied):
         github.graphql_read(query, variables)
 
@@ -185,7 +188,7 @@ def test_hard_repo_denial_allows_other_repos_in_graphql(path, monkeypatch):
     monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp/secret-repo")
     monkeypatch.setenv("GITHUB_TOKEN", "fake")
     monkeypatch.setattr(github, "_graphql_pause_until", 0)
-    monkeypatch.setattr(httpx, "post", lambda url, **kw: httpx.Response(
+    stub_github_client(monkeypatch, post=lambda url, **kw: httpx.Response(
         200, json={"data": {"repository": {"id": "public"}}}, request=httpx.Request("POST", url)))
     result = github.graphql_read(
         'query($owner:String!,$name:String!) { repository(owner:$owner,name:$name) { id } }',

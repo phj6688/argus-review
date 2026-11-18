@@ -10,7 +10,7 @@ _SECRET_ENV = (
     "ARGUS_API_TOKEN", "ARGUS_HEALTH_TOKEN", "ARGUS_PUBLISH_TOKEN", "GITHUB_TOKEN",
     "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY",
     "LINEAR_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "ARGUS_JUDGE_ANTHROPIC_KEY",
-    "ARGUS_JUDGE_OPENAI_KEY", "ARGUS_AUTOMARK_JUDGE_KEY",
+    "ARGUS_JUDGE_OPENAI_KEY", "ARGUS_AUTOMARK_JUDGE_KEY", "ARGUS_GITLAB_TOKEN",
 )
 _MIN_SECRET_LENGTH = 8
 
@@ -27,7 +27,8 @@ _QUOTED_ASSIGNED = re.compile(
     r"[\"']?\s*[=:]\s*)(?P<quote>[\"'])(?:\\.|(?!(?P=quote)).)+(?P=quote)")
 _KNOWN_PREFIXES = re.compile(
     r"\b(?:sk-[A-Za-z0-9_-]{8,}|gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{16,}"
-    r"|xox[abprs]-[A-Za-z0-9-]{10,})")
+    r"|xox[abprs]-[A-Za-z0-9-]{10,})"
+    r"|(?<![A-Za-z0-9])(?:glpat|gloas|gldt|glrtr|glrt|glcbt|glptt|glft|glimt|glagent|glsoat|glwt|glffct)-[A-Za-z0-9._-]{8,}")
 
 
 def redact(text: str | None) -> str | None:
@@ -38,8 +39,9 @@ def redact(text: str | None) -> str | None:
         value = os.environ.get(name, "").strip()
         if len(value) >= _MIN_SECRET_LENGTH:
             text = text.replace(value, REDACTED)
-    text = _USERINFO.sub(lambda m: f"{m.group('scheme')}{REDACTED}@", text)
-    text = _URL_QUERY.sub(lambda m: f"{m.group('url')}?{REDACTED}", text)
+    if "://" in text:
+        text = _USERINFO.sub(lambda m: f"{m.group('scheme')}{REDACTED}@", text)
+        text = _URL_QUERY.sub(lambda m: f"{m.group('url')}?{REDACTED}", text)
     text = _BEARER.sub(lambda m: f"{m.group(1)} {REDACTED}", text)
     text = _QUOTED_ASSIGNED.sub(lambda m: f"{m.group('key')}{m.group('quote')}{REDACTED}{m.group('quote')}", text)
     text = _ASSIGNED.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)

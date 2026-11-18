@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from argus import diff, github, replies
-from argus.jarvis import live
+from argus import live
 
 UNSAFE = [
     "../../../victim/private/contents/x", "/etc/passwd", "src/../x",

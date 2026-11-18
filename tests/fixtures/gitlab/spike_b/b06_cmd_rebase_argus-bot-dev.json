@@ -1,0 +1,34 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "cmd_rebase_argus-bot-dev",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "body": "/rebase"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/95/notes"
+  },
+  "response": {
+    "body": {
+      "commands_changes": {
+        "rebase": true
+      },
+      "summary": [
+        "Scheduled a rebase of branch spike-b/cmd-rebase-argus-bot-dev-RUN."
+      ]
+    },
+    "headers": {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+      "vary": "Origin"
+    },
+    "status": 202
+  },
+  "trimmed": {}
+}

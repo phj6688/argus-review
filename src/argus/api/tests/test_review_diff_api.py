@@ -148,7 +148,8 @@ def test_compare_drops_unsafe_current_and_previous_paths(client, monkeypatch, ca
         main.diff.log.removeHandler(caplog.handler)
     if include_safe:
         assert response.status_code == 201
-        assert reviewed == [main.FilePatch("src/safe.py", "renamed", "+safe")]
+        assert reviewed == [main.FilePatch("src/safe.py", "renamed", "+safe",
+                                           previous_filename="src/old.py")]
     else:
         assert response.status_code == 422
         assert "zero files" in response.json()["detail"]

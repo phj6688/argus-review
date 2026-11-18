@@ -27,7 +27,8 @@ export interface VerifiedFinding {
 
 /* ---- derived / view shapes returned by the API ---- */
 
-export type ActionState = "acted" | "merged" | "pending";
+/** What happened on GitHub for a finished review. */
+export type ActionState = "posted" | "dry_run" | "not_posted" | "post_failed";
 export type Decision = "approve" | "comment" | "changes_requested" | "insufficient_evidence";
 
 export interface SeverityCounts {
@@ -35,6 +36,16 @@ export interface SeverityCounts {
   major: number;
   minor: number;
   nit: number;
+}
+
+export interface RiskTier {
+  tier: "safe" | "risky";
+  label: string;
+  reasons: string[];
+  changed_lines?: number;
+  max_lines?: number;
+  files?: number;
+  incomplete?: boolean;
 }
 
 export interface ReviewSummary {
@@ -50,8 +61,12 @@ export interface ReviewSummary {
   model_used?: string | null;
   fallback_from?: string | null;
   fallback_reason?: string | null;
+  risk?: RiskTier | null;
   counts: SeverityCounts;
-  action: ActionState;
+  /** Null when the run itself failed, so there was nothing to post. */
+  action: ActionState | null;
+  /** Inline comments the review posted to GitHub. */
+  posted_comments?: number;
   age: string;
 }
 
@@ -100,6 +115,7 @@ export interface ReviewDetail {
   /** Set when the primary model failed and the fallback model answered. */
   fallback_from?: string | null;
   fallback_reason?: string | null;
+  risk?: RiskTier | null;
   /** Failure text of an errored run, with credentials removed. */
   error?: string | null;
   /** Run lifecycle, independent of the verdict: a poller must not have to
@@ -215,10 +231,34 @@ export interface ModelStage {
 export interface RepoWatch {
   name: string;
   watched: boolean;
+  effective_watched?: boolean;
+}
+
+export type PublishAccessState = "ok" | "missing" | "unknown" | "unconfigured";
+
+export interface PublishAccess {
+  state: PublishAccessState;
+  detail: string;
+  settingsUrl: string;
+  grant: "granted" | "failed" | "skipped" | null;
+}
+
+export interface PublishRepo {
+  name: string;
+  access: PublishAccess;
+}
+
+export interface PublishConfig {
+  mode: "off" | "dry-run" | "on";
+  source: "env" | "dashboard";
+  botLogin: string | null;
+  tokenConfigured: boolean;
+  repos: PublishRepo[];
 }
 
 export interface ConfigData {
   repos: RepoWatch[];
+  publish: PublishConfig;
   hiddenCount: number;
   totalRepos: number;
   models: ModelStage[];
@@ -234,7 +274,20 @@ export interface Endpoint {
   description: string;
 }
 
+export interface GitLabStatus {
+  host: string;
+  baseUrl: string;
+  token: "configured" | "missing";
+  identity: { status: "ok"; username: string; bot: boolean }
+    | { status: "failed"; reason: string }
+    | { status: "skipped"; reason: "token_missing" };
+  publish: { mode: "0" | "dry-run" | "1" | "invalid"; projectCount: number };
+  allowCount: number;
+  refusal: string | null;
+}
+
 export interface Integrations {
+  gitlab?: GitLabStatus;
   health: { label: string; status: string; state: "ok" | "warn" | "error" }[];
   warning: string | null;
   github: {
@@ -249,6 +302,8 @@ export interface Integrations {
       mode: "off" | "dry-run" | "on";
       repoCount: number;
       tokenConfigured: boolean;
+      source?: "env" | "dashboard";
+      autoInvite?: boolean;
     };
   };
   api: {

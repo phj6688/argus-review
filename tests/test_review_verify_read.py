@@ -2,7 +2,7 @@
 
 from argus import review
 from argus.diff import FilePatch
-from argus.jarvis import live
+from argus import live
 from argus.schema import Finding, Review, Severity, Verdict
 
 FILES = [FilePatch("src/app.py", "modified", "@@ -1,2 +1,3 @@\n import httpx\n+resp = httpx.get(url)\n print(resp)\n")]

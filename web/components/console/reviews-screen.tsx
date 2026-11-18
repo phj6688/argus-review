@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Reveal, RevealItem } from "@/components/ui/reveal";
 import { Segmented } from "@/components/ui/segmented";
 import { EyeMark, SearchIcon } from "@/components/ui/icons";
+import { projectLabel } from "@/lib/forge";
 import type { LiveReview, ReviewSummary, Severity } from "@/lib/types";
 import { LiveStrip, ReviewRow } from "./review-bits";
 import { ScreenHeader } from "./screen-header";
@@ -24,7 +25,7 @@ export function ReviewsScreen({
     const q = search.trim().toLowerCase();
     return reviews.filter((r) => {
       const sevOk = sev === "all" || r.counts[sev] > 0;
-      const qOk = !q || `${r.repo} #${r.pr} ${r.title}`.toLowerCase().includes(q);
+      const qOk = !q || `${r.repo} #${r.pr} ${r.title} ${projectLabel(r)}`.toLowerCase().includes(q);
       return sevOk && qOk;
     });
   }, [reviews, search, sev]);
@@ -70,35 +71,45 @@ export function ReviewsScreen({
 
       <Reveal>
         <RevealItem className="panel overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-[var(--line)] px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-faint md:gap-[18px] md:px-[18px]">
-            <div className="w-[104px] shrink-0 md:w-[176px]">Repo · PR</div>
-            <div className="flex-1">Title</div>
-            <div className="hidden shrink-0 md:block md:w-[76px]">Model</div>
-            <div className="hidden w-[150px] shrink-0 md:block">Findings</div>
-            <div className="hidden w-[78px] shrink-0 sm:block">Action</div>
-            <div className="w-[34px] shrink-0 text-right">Age</div>
-          </div>
-
-          <LiveStrip live={live} variant="list" />
-
-          {filtered.map((r) => (
-            <ReviewRow key={r.id} review={r} variant="list" />
-          ))}
-
-          {filtered.length === 0 && (
-            <div className="px-5 py-[54px] text-center">
-              <EyeMark
-                size={34}
-                slash
-                color="var(--color-faint)"
-                className="mx-auto mb-[14px] opacity-50"
-              />
-              <div className="mb-[5px] text-[15px] text-text">No reviews match</div>
-              <div className="text-[13px] text-faint">
-                Try a different search or severity filter.
+          <div
+            role="region"
+            aria-label="Reviews table"
+            tabIndex={0}
+            className="overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
+          >
+            <div className="md:min-w-[900px]">
+              <div className="flex items-center gap-3 border-b border-[var(--line)] px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-faint md:gap-[18px] md:px-[18px]">
+                <div className="w-[104px] shrink-0 md:w-[176px]">Repo · PR</div>
+                <div className="flex-1">Title</div>
+                <div className="hidden shrink-0 md:block md:w-[124px]">Model</div>
+                <div className="hidden w-[184px] shrink-0 md:block">Findings</div>
+                <div className="hidden w-[56px] shrink-0 md:block">Risk</div>
+                <div className="hidden w-[92px] shrink-0 sm:block">Action</div>
+                <div className="w-[34px] shrink-0 text-right">Age</div>
               </div>
+
+              <LiveStrip live={live} variant="list" />
+
+              {filtered.map((r) => (
+                <ReviewRow key={r.id} review={r} variant="list" />
+              ))}
+
+              {filtered.length === 0 && (
+                <div className="px-5 py-[54px] text-center">
+                  <EyeMark
+                    size={34}
+                    slash
+                    color="var(--color-faint)"
+                    className="mx-auto mb-[14px] opacity-50"
+                  />
+                  <div className="mb-[5px] text-[15px] text-text">No reviews match</div>
+                  <div className="text-[13px] text-faint">
+                    Try a different search or severity filter.
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </RevealItem>
       </Reveal>
     </div>

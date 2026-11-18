@@ -44,8 +44,9 @@ SECRETS = {
 CLEARED = (
     "ARGUS_PROVIDER", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY", "OPENAI_BASE_URL", "ARGUS_WATCH_ENABLED", "ARGUS_WATCH_OWNERS",
-    "ARGUS_WATCH_INTERVAL", "ARGUS_PUBLISH", "ARGUS_PUBLISH_REPOS", "ARGUS_PUBLISH_TOKEN",
+    "ARGUS_WATCH_INTERVAL", "ARGUS_PUBLISH", "ARGUS_PUBLISH_REPOS", "ARGUS_PUBLISH_TOKEN", "ARGUS_PUBLISH_AUTO_INVITE",
     "GITHUB_TOKEN", "OPENROUTER_API_KEY",
+    "ARGUS_GITLAB_URL", "ARGUS_GITLAB_TOKEN", "ARGUS_GITLAB_ALLOW", "ARGUS_DENY_OWNERS",
 )
 
 
@@ -113,7 +114,9 @@ def test_publishing_modes(client, clean_env):
     clean_env.setenv("ARGUS_PUBLISH_REPOS", "acme/one, acme/two")
     body = client.get("/integrations").json()
     assert _health(body)["Publishing"]["status"] == "dry-run · 2 repos"
-    assert body["github"]["publishing"] == {"mode": "dry-run", "repoCount": 2, "tokenConfigured": False}
+    assert body["github"]["publishing"] == {
+        "mode": "dry-run", "repoCount": 2, "tokenConfigured": False, "source": "env", "autoInvite": False,
+    }
     clean_env.setenv("ARGUS_PUBLISH", "1")
     assert _health(client.get("/integrations").json())["Publishing"]["state"] == "warn"
     clean_env.setenv("ARGUS_PUBLISH_TOKEN", SECRETS["ARGUS_PUBLISH_TOKEN"])
@@ -140,3 +143,78 @@ def test_malformed_base_url_returns_empty_not_500(client, clean_env, monkeypatch
     response = client.get("/integrations")
     assert response.status_code == 200
     assert response.json()["api"]["baseUrl"] == ""
+
+
+def test_gitlab_unset_preserves_exact_response_bytes(client, clean_env):
+    response = client.get("/integrations")
+    assert set(response.json()) == {"health", "warning", "github", "api", "mcp"}
+    assert "gitlab" not in response.json()
+    clean_env.setenv("ARGUS_GITLAB_URL", "")
+    clean_env.setenv("ARGUS_GITLAB_ALLOW", "invalid")
+    assert client.get("/integrations").content == response.content
+
+
+def test_gitlab_valid_policy_has_no_refusal(client, clean_env):
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
+    clean_env.setenv("ARGUS_GITLAB_ALLOW", "gitlab:gitlab.example.test/group")
+    block = client.get("/integrations").json()["gitlab"]
+    assert block == {
+        "host": "gitlab.example.test", "baseUrl": "https://gitlab.example.test", "token": "missing",
+        "identity": {"status": "skipped", "reason": "token_missing"},
+        "publish": {"mode": "0", "projectCount": 0}, "allowCount": 1, "refusal": None,
+        "trustUnknown": 0,
+        "watch": {"enabled": False, "projectCount": 0, "lastPolledAt": None,
+                  "lastError": None, "trustUnknown": 0, "forkSourceDenied": 0},
+        "replyLoop": {"enabled": False, "resolveForbidden": 0},
+    }
+
+
+def test_gitlab_invalid_policy_reports_safe_refusal(client, clean_env):
+    from contextlib import closing
+
+    import httpx
+    from argus.gitlab import client as client_module, status
+
+    token = "gl" + "pat-" + "x" * 20
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
+    clean_env.setenv("ARGUS_GITLAB_TOKEN", token)
+    clean_env.setenv("ARGUS_GITLAB_ALLOW", "https://private.test/" + token)
+    clean_env.setattr(status, "_identity_cache", None)
+    with closing(client_module.GitLabClient(transport=httpx.MockTransport(
+            lambda _: httpx.Response(401)))) as connection:
+        clean_env.setattr(client_module, "client", lambda: connection)
+        response = client.get("/integrations")
+    block = response.json()["gitlab"]
+    assert block["refusal"] == "ARGUS_GITLAB_ALLOW: invalid entry"
+    assert set(block) == {"host", "baseUrl", "token", "identity", "publish", "allowCount", "refusal",
+                          "trustUnknown", "watch", "replyLoop"}
+    assert block["token"] == "configured"
+    assert block["identity"] == {"status": "failed", "reason": "gitlab_auth"}
+    assert token not in response.text
+    assert "https://private.test/" not in response.text
+    assert block["baseUrl"] == "https://gitlab.example.test"
+
+
+def test_gitlab_base_url_preserves_prefix_and_port(client, clean_env):
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test:8443/gitlab/")
+    block = client.get("/integrations").json()["gitlab"]
+    assert block["host"] == "gitlab.example.test:8443"
+    assert block["baseUrl"] == "https://gitlab.example.test:8443/gitlab"
+
+
+def test_gitlab_unknown_trust_health_warning(client, clean_env):
+    from argus.api import watch_store
+
+    clean_env.setenv("ARGUS_GITLAB_URL", "https://gitlab.example.test")
+    clean_env.setenv("ARGUS_WATCH_TRUSTED_ONLY", "1")
+    before = client.get("/integrations").json()["health"]
+    assert "GitLab trust" not in {row["label"] for row in before}
+    watch_store.record_changes(db.db_path(), "gitlab:gitlab.example.test#42", [{
+        "number": 1, "head": {"sha": "a" * 40},
+        "user": {"login": "argus-dev", "type": "User"}, "author_trusted": None,
+    }], [], False)
+    body = client.get("/integrations").json()
+    assert body["gitlab"]["trustUnknown"] == 1
+    assert body["health"] == before + [{
+        "label": "GitLab trust", "status": "1 merge requests skipped, membership unknown", "state": "warn",
+    }]

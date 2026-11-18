@@ -16,7 +16,12 @@ def main():
         result = stats(args.db, args.since)
     except ValueError as error:
         parser.error(str(error))
+    gitlab = result.pop("gitlab", None)
     print(json.dumps(result, indent=2))
+    if gitlab is not None:
+        print()
+        print("GitLab (not comparable with the GitHub figures above)")
+        print(json.dumps(gitlab, indent=2))
 
 
 if __name__ == "__main__":

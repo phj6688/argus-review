@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import github
 from argus.api import db, main, watch_metrics, watch_store, watcher
@@ -42,6 +43,7 @@ def path(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("ARGUS_WATCH_DISCOVERY_TICKS", "1")
     monkeypatch.setenv("ARGUS_OUTCOME_INTERVAL_TICKS", "1000")
     monkeypatch.setattr(httpx, "get", lambda *a, **k: pytest.fail("unexpected request"))
+    stub_github_client(monkeypatch, get=httpx.get)
     monkeypatch.setattr(watcher, "_open_prs", lambda repo: [])
     monkeypatch.setattr(watch_metrics, "daily_report", lambda path: None)
     logger = logging.getLogger("argus.watcher")
@@ -70,7 +72,7 @@ def test_advanced_push_queues_once_and_worker_finishes(path, monkeypatch, caplog
         return httpx.Response(200, json=[merged()], request=request, headers={
             "ETag": "closed-page", "Link": '<https://api.github.com/repos/example/a/pulls?page=2>; rel="next"'})
 
-    monkeypatch.setattr(httpx, "get", get)
+    stub_github_client(monkeypatch, get=get)
     with caplog.at_level(logging.INFO, logger="argus.watcher"):
         assert asyncio.run(watcher.poll_once(path)) == 0
         assert calls == []

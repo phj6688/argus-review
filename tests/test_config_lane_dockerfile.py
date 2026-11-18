@@ -6,7 +6,7 @@ to detect this mismatch.
 """
 
 from argus.diff import FilePatch
-from argus.jarvis import config_lane
+from argus import config_lane
 
 UNLOCKED_PY = """\
 FROM python:3.13-slim

@@ -1,0 +1,903 @@
+{
+  "case": "report",
+  "db_rows": {
+    "finding_outcomes": {
+      "columns": [
+        "finding_id",
+        "kind",
+        "value",
+        "evidence_id",
+        "observed_at",
+        "occurred_at"
+      ],
+      "rows": [
+        [
+          1,
+          "reply",
+          "fixed",
+          "901",
+          "<ts>",
+          "<ts>"
+        ],
+        [
+          2,
+          "reply",
+          "rejected",
+          "902",
+          "<ts>",
+          "<ts>"
+        ],
+        [
+          3,
+          "reply",
+          "deferred",
+          "903",
+          "<ts>",
+          "<ts>"
+        ],
+        [
+          4,
+          "addressed",
+          "true",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "<ts>",
+          null
+        ],
+        [
+          5,
+          "reply",
+          "fixed",
+          "905",
+          "<ts>",
+          "<ts>"
+        ]
+      ]
+    },
+    "findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Lost error result",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-2",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          3,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Unbounded wait",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-3",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          4,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing summary check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-4",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          5,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Untrusted acceptance",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-5",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "findings_raw": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Lost error result",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-2",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          3,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Unbounded wait",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-3",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          4,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing summary check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-4",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          5,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Untrusted acceptance",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-5",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "outcome_prs": {
+      "columns": [
+        "repo",
+        "pr",
+        "state",
+        "merged",
+        "closed_at",
+        "head_sha",
+        "checked_at"
+      ],
+      "rows": [
+        [
+          "example/app",
+          3,
+          "closed",
+          1,
+          "<ts>",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "<ts>"
+        ]
+      ]
+    },
+    "published_findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "repo",
+        "pr",
+        "head_sha",
+        "fingerprint",
+        "severity",
+        "category",
+        "path",
+        "line",
+        "end_line",
+        "title",
+        "placement",
+        "mode",
+        "gh_review_id",
+        "gh_comment_id",
+        "posted_at",
+        "comment_lookups",
+        "unverified",
+        "gh_thread_id",
+        "anchor_status"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-1",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Missing input check",
+          "inline",
+          "posted",
+          20,
+          101,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-2",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Lost error result",
+          "inline",
+          "posted",
+          20,
+          102,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ],
+        [
+          3,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-3",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Unbounded wait",
+          "inline",
+          "posted",
+          20,
+          103,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ],
+        [
+          4,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-4",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Missing summary check",
+          "summary",
+          "posted",
+          20,
+          104,
+          "<ts>",
+          0,
+          1,
+          null,
+          null
+        ],
+        [
+          5,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-5",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Untrusted acceptance",
+          "inline",
+          "posted",
+          20,
+          105,
+          "<ts>",
+          0,
+          0,
+          null,
+          null
+        ]
+      ]
+    },
+    "publishing_identities": {
+      "columns": [
+        "repo",
+        "bot_login",
+        "first_seen_at",
+        "bot_user_id"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "publisher",
+          "<ts>",
+          null
+        ]
+      ]
+    },
+    "reply_texts": {
+      "columns": [
+        "finding_id",
+        "evidence_id",
+        "body",
+        "author_association",
+        "author_login",
+        "answered_head",
+        "author_trusted"
+      ],
+      "rows": [
+        [
+          1,
+          "901",
+          "fixed",
+          "MEMBER",
+          "maintainer",
+          null,
+          null
+        ],
+        [
+          2,
+          "902",
+          "rejected",
+          "MEMBER",
+          "maintainer",
+          null,
+          null
+        ],
+        [
+          3,
+          "903",
+          "deferred",
+          "MEMBER",
+          "maintainer",
+          null,
+          null
+        ],
+        [
+          5,
+          "905",
+          "Fixed",
+          "CONTRIBUTOR",
+          "visitor",
+          null,
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          3,
+          "model-a",
+          "done",
+          "<ts>",
+          5,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "files": 1,
+                "lane": "llm",
+                "model": "model-a",
+                "status": "ran"
+              }
+            ],
+            "level": "full"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "posted",
+          "<ts>",
+          null,
+          5,
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [],
+  "result": {
+    "bot": {
+      "rechecks": {
+        "fixed": 0,
+        "present": 0,
+        "unsure": 0
+      },
+      "replies": 0,
+      "resolutions": 0
+    },
+    "bot_logins": {
+      "example/app": [
+        "publisher"
+      ]
+    },
+    "by_placement": {
+      "inline": {
+        "deferred": 1,
+        "loose_accepted": 1,
+        "loose_rate": 0.25,
+        "loose_wilson_95": [
+          0.04558726080970055,
+          0.6993581574175981
+        ],
+        "posted": 4,
+        "rejected": 1,
+        "strict_accepted": 1,
+        "strict_rate": 0.25,
+        "strict_wilson_95": [
+          0.04558726080970055,
+          0.6993581574175981
+        ],
+        "unconfirmed": 1
+      },
+      "summary": {
+        "deferred": 0,
+        "loose_accepted": 1,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "posted": 1,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": 0.0,
+        "strict_wilson_95": [
+          0.0,
+          0.7934506856227626
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_repo": {
+      "example/app": {
+        "deferred": 1,
+        "loose_accepted": 2,
+        "loose_rate": 0.4,
+        "loose_wilson_95": [
+          0.11762077423264783,
+          0.769275718723987
+        ],
+        "posted": 5,
+        "rejected": 1,
+        "strict_accepted": 1,
+        "strict_rate": 0.2,
+        "strict_wilson_95": [
+          0.03622410863243014,
+          0.6244653702374747
+        ],
+        "unconfirmed": 1
+      }
+    },
+    "by_severity": {
+      "major": {
+        "deferred": 1,
+        "loose_accepted": 2,
+        "loose_rate": 0.4,
+        "loose_wilson_95": [
+          0.11762077423264783,
+          0.769275718723987
+        ],
+        "posted": 5,
+        "rejected": 1,
+        "strict_accepted": 1,
+        "strict_rate": 0.2,
+        "strict_wilson_95": [
+          0.03622410863243014,
+          0.6244653702374747
+        ],
+        "unconfirmed": 1
+      }
+    },
+    "final": {
+      "by_placement": {
+        "inline": {
+          "deferred": 1,
+          "loose_accepted": 1,
+          "loose_rate": 0.25,
+          "loose_wilson_95": [
+            0.04558726080970055,
+            0.6993581574175981
+          ],
+          "posted": 4,
+          "rejected": 1,
+          "strict_accepted": 1,
+          "strict_rate": 0.25,
+          "strict_wilson_95": [
+            0.04558726080970055,
+            0.6993581574175981
+          ],
+          "unconfirmed": 1
+        },
+        "summary": {
+          "deferred": 0,
+          "loose_accepted": 1,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.20654931437723745,
+            1.0
+          ],
+          "posted": 1,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": 0.0,
+          "strict_wilson_95": [
+            0.0,
+            0.7934506856227626
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_repo": {
+        "example/app": {
+          "deferred": 1,
+          "loose_accepted": 2,
+          "loose_rate": 0.4,
+          "loose_wilson_95": [
+            0.11762077423264783,
+            0.769275718723987
+          ],
+          "posted": 5,
+          "rejected": 1,
+          "strict_accepted": 1,
+          "strict_rate": 0.2,
+          "strict_wilson_95": [
+            0.03622410863243014,
+            0.6244653702374747
+          ],
+          "unconfirmed": 1
+        }
+      },
+      "by_severity": {
+        "major": {
+          "deferred": 1,
+          "loose_accepted": 2,
+          "loose_rate": 0.4,
+          "loose_wilson_95": [
+            0.11762077423264783,
+            0.769275718723987
+          ],
+          "posted": 5,
+          "rejected": 1,
+          "strict_accepted": 1,
+          "strict_rate": 0.2,
+          "strict_wilson_95": [
+            0.03622410863243014,
+            0.6244653702374747
+          ],
+          "unconfirmed": 1
+        }
+      },
+      "totals": {
+        "deferred": 1,
+        "loose_accepted": 2,
+        "loose_rate": 0.4,
+        "loose_wilson_95": [
+          0.11762077423264783,
+          0.769275718723987
+        ],
+        "posted": 5,
+        "rejected": 1,
+        "strict_accepted": 1,
+        "strict_rate": 0.2,
+        "strict_wilson_95": [
+          0.03622410863243014,
+          0.6244653702374747
+        ],
+        "unconfirmed": 1
+      },
+      "unverified": {
+        "deferred": 0,
+        "loose_accepted": 1,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.20654931437723745,
+          1.0
+        ],
+        "posted": 1,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": 0.0,
+        "strict_wilson_95": [
+          0.0,
+          0.7934506856227626
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "last_collection_at": null,
+    "note": "Strict acceptance means a first trusted non-bot reply opening with a fixed verb, or a reviewer re-check confirming a fix at a later head. A resolved thread alone does not count. Resolved threads get record-only re-checks until a fix is confirmed. The report labels every row with the current rule, including older rows. Pull requests closed more than 7 days ago get no new re-check. The re-check substitutes for the reference corpus publisher's own Addressed in commit marker. The re-check is stricter: deletions, fixes outside the flagged lines, and fixes that keep an evidence line do not count as strict. It mostly under-counts, but a model that misjudges can still over-count. A helper extracted with renamed arguments can keep the defect in the same file or another file with a patch. A moved short call under 8 characters can escape the move check. A moved call can also escape the move check when its destination reuses unchanged lines for its arguments or closing parenthesis. A cosmetic edit of the first flagged line can pass with empty or signature-only evidence. An in-place edit can keep the defect, for example an added comment or a .strip(). The anchored range includes lines that replace deleted flagged lines. A long replacement block is in place for the move check. The model still sees that block in its window. A defect call or line that also occurs elsewhere in the reviewed file, including in a comment or a string, is not a signature, so its move is left to the model. Loose acceptance also counts addressed regions unless the first reply rejects or defers the finding. Rates divide by all posted findings, including unconfirmed findings, as the reference corpus does. Compare inline findings only. Summary findings have no reply thread. Unverified items are review-body items and are excluded from the inline comparison like other body items. The final group holds closed pull requests only.",
+    "totals": {
+      "deferred": 1,
+      "loose_accepted": 2,
+      "loose_rate": 0.4,
+      "loose_wilson_95": [
+        0.11762077423264783,
+        0.769275718723987
+      ],
+      "posted": 5,
+      "rejected": 1,
+      "strict_accepted": 1,
+      "strict_rate": 0.2,
+      "strict_wilson_95": [
+        0.03622410863243014,
+        0.6244653702374747
+      ],
+      "unconfirmed": 1
+    },
+    "unverified": {
+      "deferred": 0,
+      "loose_accepted": 1,
+      "loose_rate": 1.0,
+      "loose_wilson_95": [
+        0.20654931437723745,
+        1.0
+      ],
+      "posted": 1,
+      "rejected": 0,
+      "strict_accepted": 0,
+      "strict_rate": 0.0,
+      "strict_wilson_95": [
+        0.0,
+        0.7934506856227626
+      ],
+      "unconfirmed": 0
+    }
+  },
+  "scenario": "acceptance"
+}

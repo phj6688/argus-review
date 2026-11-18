@@ -10,7 +10,7 @@ import pytest
 from argus import review as review_mod
 from argus import verdict
 from argus.diff import FilePatch
-from argus.jarvis import judges
+from argus import judges
 from argus.review import run_diff_review
 from argus.schema import Finding, Review, Severity, Verdict
 
@@ -67,7 +67,7 @@ def test_a_gpt_reviewer_gets_the_claude_judge_and_it_is_recorded(
         seen["reviewer"] = reviewer_model
         return {"verdict": "real", "confidence": 0.9}
 
-    from argus.jarvis import automark
+    from argus import automark
     monkeypatch.setattr(automark, "judge_finding", _judge)
 
     result = run_diff_review(_files(), repo=None, model="gpt-6.1-sol")
@@ -82,7 +82,7 @@ def test_a_gpt_reviewer_gets_the_claude_judge_and_it_is_recorded(
 
 def test_a_claude_reviewer_gets_the_gpt_judge(reviewing, both_judges, monkeypatch):
     monkeypatch.setenv(review_mod.JUDGE_LIVE_ENV, "1")
-    from argus.jarvis import automark
+    from argus import automark
     monkeypatch.setattr(automark, "judge_finding",
                         lambda f, s, reviewer_model=None: {"verdict": "real", "confidence": 0.8})
     result = run_diff_review(_files(), repo=None, model="claude-opus-5-5")
@@ -130,3 +130,40 @@ def test_missing_judge_base_url_records_a_skipped_lane(reviewing, both_judges, m
     assert rec["status"] == verdict.LANE_SKIPPED
     assert rec["reason"] == "ARGUS_JUDGE_BASE_URL not set"
     assert all(item.judge is None for item in result.bugs)
+
+
+def _bug(i):
+    from argus.schema import VerifiedFinding
+    return VerifiedFinding(
+        finding=Finding(file="app.py", line=1, severity=Severity.major, confidence=0.9,
+                        title=f"Bug {i}", description="Wrong", proposed_fix="Fix"),
+        verdict=Verdict(is_real=True, confidence=0.9, reasoning="confirmed"))
+
+
+def test_a_judge_lane_where_every_call_failed_is_an_error(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    import httpx
+
+    from argus import automark
+
+    monkeypatch.setenv(review_mod.JUDGE_LIVE_ENV, "1")
+    monkeypatch.setattr(judges, "judge_for", lambda _: SimpleNamespace(model="judge", family="second"))
+    monkeypatch.setattr(judges, "family_of", lambda _: "first")
+    request = httpx.Request("POST", "https://example.invalid")
+    response = httpx.Response(503, text="private body", request=request)
+    error = httpx.HTTPStatusError("private body", request=request, response=response)
+    monkeypatch.setattr(automark, "judge_finding", Mock(side_effect=[error, error]))
+    record = review_mod._judge_lane([_bug(1), _bug(2)], {"app.py": "+x()"}, "reviewer")
+    assert record["status"] == verdict.LANE_ERROR
+    assert record["reason"] == "http_503 x2"
+    assert record["failures"] == 2
+    assert record["checks"] == 0
+    assert record["eligible"] == 2
+    assert record["failure_causes"] == {"http_503": 2}
+    assert (record["model"], record["family"], record["reviewer_family"]) == ("judge", "second", "first")
+    assert "private" not in json.dumps(record)
+    reviewer = {"lane": verdict.LANE_LLM, "status": verdict.LANE_RAN, "files_omitted": 0}
+    assert verdict.coverage_level([reviewer, record]) == verdict.COVERAGE_PARTIAL

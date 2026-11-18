@@ -1,0 +1,129 @@
+{
+  "derived": {
+    "changes_count": "150",
+    "changes_count_type": "str",
+    "count": null,
+    "first_keys": [],
+    "headers": {
+      "x-next-page": null,
+      "x-page": null,
+      "x-per-page": null,
+      "x-prev-page": null,
+      "x-total": null,
+      "x-total-pages": null
+    },
+    "link_rels": []
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "mr_many",
+    "question": 4
+  },
+  "request": {
+    "auth": "argus-bot",
+    "method": "GET",
+    "params": {},
+    "path": "/projects/1/merge_requests/5"
+  },
+  "response": {
+    "body": {
+      "assignee": null,
+      "assignees": [],
+      "author": {
+        "avatar_url": "<AVATAR_URL>",
+        "bot": false,
+        "id": 4,
+        "locked": false,
+        "name": "Argus Developer",
+        "public_email": null,
+        "state": "active",
+        "username": "argus-dev",
+        "web_url": "https://gitlab.example.test/argus-dev"
+      },
+      "blocking_discussions_resolved": true,
+      "changes_count": "150",
+      "closed_at": null,
+      "closed_by": null,
+      "created_at": "2026-11-02T19:37:11.347Z",
+      "description": null,
+      "detailed_merge_status": "mergeable",
+      "diff_refs": {
+        "base_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "head_sha": "caf24e8f6aaa2741906619491c28702317f72599",
+        "start_sha": "2cec1ccca628409c7927dedc5950057cc53ff638"
+      },
+      "discussion_locked": null,
+      "downvotes": 0,
+      "draft": false,
+      "first_contribution": false,
+      "first_deployed_to_production_at": null,
+      "force_remove_source_branch": true,
+      "has_conflicts": false,
+      "head_pipeline": null,
+      "id": 5,
+      "iid": 5,
+      "imported": false,
+      "imported_from": "none",
+      "labels": [],
+      "latest_build_finished_at": null,
+      "latest_build_started_at": null,
+      "merge_after": null,
+      "merge_commit_sha": null,
+      "merge_error": null,
+      "merge_status": "can_be_merged",
+      "merge_user": null,
+      "merge_when_pipeline_succeeds": false,
+      "merged_at": null,
+      "merged_by": null,
+      "milestone": null,
+      "pipeline": null,
+      "prepared_at": "2026-11-02T19:37:16.016Z",
+      "project_id": 1,
+      "reference": "!5",
+      "references": {
+        "full": "argus-test/sub-a/sub-b/demo-app!5",
+        "relative": "!5",
+        "short": "!5"
+      },
+      "reviewers": [],
+      "sha": "caf24e8f6aaa2741906619491c28702317f72599",
+      "should_remove_source_branch": null,
+      "source_branch": "feat/many-files",
+      "source_project_id": 1,
+      "squash": false,
+      "squash_commit_sha": null,
+      "squash_on_merge": false,
+      "state": "opened",
+      "subscribed": false,
+      "target_branch": "main",
+      "target_project_id": 1,
+      "task_completion_status": {
+        "completed_count": 0,
+        "count": 0
+      },
+      "time_stats": {
+        "human_time_estimate": null,
+        "human_total_time_spent": null,
+        "time_estimate": 0,
+        "total_time_spent": 0
+      },
+      "title": "Many files",
+      "updated_at": "2026-11-02T19:37:16.026Z",
+      "upvotes": 0,
+      "user": {
+        "can_merge": false
+      },
+      "user_notes_count": 0,
+      "web_url": "https://gitlab.example.test/argus-test/sub-a/sub-b/demo-app/-/merge_requests/5",
+      "work_in_progress": false
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"95bd969fcda9b441d8b4d65aeb3790ce\"",
+      "vary": "Accept-Encoding, Origin"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

@@ -167,7 +167,7 @@ def test_listing_failure_skips_checks_and_writes_only_for_that_repo(live, monkey
     seed(live, repo="owner/second")
     monkeypatch.setenv("ARGUS_PUBLISH_REPOS", "owner/repo,owner/second")
     with db.connect(live) as conn:
-        conn.execute("INSERT INTO publishing_identities VALUES ('owner/second','publisher',?)", (db._now_iso(),))
+        conn.execute("INSERT INTO publishing_identities (repo, bot_login, first_seen_at) VALUES ('owner/second','publisher',?)", (db._now_iso(),))
     def listing(url, *args):
         if "/owner/repo/" in url:
             raise httpx.ConnectError("listing failed")

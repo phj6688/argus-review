@@ -1,0 +1,2441 @@
+{
+  "/benchmark": {
+    "argusEmpty": false,
+    "gate": {
+      "axisA": {
+        "bugsScored": 0,
+        "floor": 30,
+        "rule": "Paired McNemar on a dual corpus (escaped \u222a CR-caught-pre-merge). Promote when Argus-only catches beat CR-only at p < 0.10, \u2265 3 net.",
+        "status": "not-started",
+        "title": "Comparison"
+      },
+      "axisB": {
+        "metrics": [
+          {
+            "detail": null,
+            "floor": "\u2265 20",
+            "label": "Live PRs",
+            "met": false,
+            "value": "4"
+          },
+          {
+            "detail": "1 errors",
+            "floor": "\u2265 7d",
+            "label": "Crash-free",
+            "met": false,
+            "value": "0d"
+          },
+          {
+            "detail": "no marks UI yet",
+            "floor": "\u2265 50%",
+            "label": "Action-rate",
+            "met": false,
+            "value": "0%"
+          }
+        ],
+        "status": "blocked",
+        "title": "Deployment"
+      },
+      "axisC": {
+        "rule": "MCV = \u03a3 severity\u00b7(CR-caught, Argus-missed) \u00f7 CR price. Below 0.3 makes CodeRabbit cancel-eligible. Decided separately from the Argus verdict.",
+        "status": "awaiting",
+        "title": "Procurement"
+      },
+      "clock": {
+        "ceiling": "2026-11-11",
+        "day": 7,
+        "daysRemaining": 22,
+        "firstReviewAt": "2026-10-14T10:00:00+00:00",
+        "started": true,
+        "totalDays": 28
+      },
+      "dominantRepo": null,
+      "floors": [
+        {
+          "detail": "escaped \u222a CR-caught-pre-merge, not mined yet",
+          "floor": 30,
+          "key": "corpus",
+          "label": "Axis-A corpus bugs",
+          "met": false,
+          "value": 0
+        },
+        {
+          "detail": null,
+          "floor": 20,
+          "key": "livePRs",
+          "label": "Live PRs reviewed",
+          "met": false,
+          "value": 4
+        },
+        {
+          "detail": "triage UI not built yet",
+          "floor": 60,
+          "key": "marks",
+          "label": "Operator \u2713/\u2717 marks",
+          "met": false,
+          "value": 0
+        },
+        {
+          "detail": "1 engine errors",
+          "failing": true,
+          "floor": 7,
+          "key": "crashFree",
+          "label": "Crash-free days",
+          "met": false,
+          "value": 0
+        }
+      ],
+      "proxies": {
+        "bugShare": "50%",
+        "commentsPerPr": "3.0"
+      },
+      "repoSkew": [
+        {
+          "count": 2,
+          "pct": 33,
+          "repo": "re%po"
+        },
+        {
+          "count": 2,
+          "pct": 33,
+          "repo": "re-po"
+        },
+        {
+          "count": 2,
+          "pct": 33,
+          "repo": "re_po"
+        }
+      ],
+      "reviews": {
+        "done": 4,
+        "error": 1,
+        "errorKinds": [
+          {
+            "count": 1,
+            "kind": "TimeoutError"
+          }
+        ],
+        "running": 1
+      },
+      "severity": {
+        "critical": 0,
+        "major": 6,
+        "minor": 0,
+        "nit": 6
+      },
+      "verdict": "INSUFFICIENT-DATA",
+      "verdictWhy": "Axis A (the recall corpus) is not built, so no verdict can ship. The proxies below are diagnostics, they never decide who wins."
+    },
+    "note": "Volume and action metrics come from CodeRabbit's persisted review threads (a precision oracle, what it found, not what was true). Catch-rate and false-positive-rate stay pending until the injected-bug and verified-finding corpora are scored locally.",
+    "perRepo": [],
+    "rows": [
+      {
+        "argus": "3.0",
+        "codeRabbit": "11.3",
+        "metric": "Comments / PR",
+        "note": "lower is calmer",
+        "winner": "argus"
+      },
+      {
+        "argus": "\u2014",
+        "codeRabbit": "19%",
+        "metric": "Action rate (acted-on)",
+        "note": "higher is better",
+        "winner": null
+      },
+      {
+        "argus": "\u2014",
+        "codeRabbit": "81%",
+        "metric": "Merged-past (ignored)",
+        "note": "lower is better",
+        "winner": null
+      },
+      {
+        "argus": "50%",
+        "codeRabbit": "7%",
+        "metric": "Bug-class share",
+        "note": "signal vs nit-noise",
+        "winner": "argus"
+      },
+      {
+        "argus": "\u2014",
+        "codeRabbit": "10%",
+        "metric": "Cites guideline",
+        "note": "grounded in docs",
+        "winner": null
+      },
+      {
+        "argus": "\u2014",
+        "codeRabbit": "\u2014",
+        "metric": "Catch rate (recall)",
+        "note": "injected-bug corpus",
+        "pending": true,
+        "winner": null
+      },
+      {
+        "argus": "\u2014",
+        "codeRabbit": "\u2014",
+        "metric": "False-positive rate",
+        "note": "verified-finding corpus",
+        "pending": true,
+        "winner": null
+      }
+    ]
+  },
+  "/reports/weekly": {
+    "acted": 0,
+    "actedPct": 0,
+    "category": [],
+    "findings": 12,
+    "merged": 0,
+    "period": "weekly",
+    "range": "Oct 14 \u2013 Oct 20, 2026",
+    "reviews": 4,
+    "severity": [
+      {
+        "label": "Critical",
+        "severity": "critical",
+        "value": 0
+      },
+      {
+        "label": "Major",
+        "severity": "major",
+        "value": 4
+      },
+      {
+        "label": "Minor",
+        "severity": "minor",
+        "value": 4
+      },
+      {
+        "label": "Nit",
+        "severity": "nit",
+        "value": 4
+      }
+    ],
+    "title": "Weekly report",
+    "topRepos": [
+      {
+        "repo": "owner/re%po",
+        "value": 2
+      },
+      {
+        "repo": "owner/re-po",
+        "value": 1
+      },
+      {
+        "repo": "owner/re_po",
+        "value": 1
+      }
+    ],
+    "volume": [
+      {
+        "label": "0",
+        "value": 1
+      },
+      {
+        "label": "1",
+        "value": 1
+      },
+      {
+        "label": "2",
+        "value": 0
+      },
+      {
+        "label": "3",
+        "value": 0
+      },
+      {
+        "label": "4",
+        "value": 0
+      },
+      {
+        "label": "5",
+        "value": 1
+      },
+      {
+        "label": "6",
+        "value": 1
+      }
+    ],
+    "volumeLabel": "per day"
+  },
+  "/stats": {
+    "actionRate": {
+      "pct": 0,
+      "prevPct": 0
+    },
+    "avgComments": {
+      "prev": 0,
+      "value": 3.0
+    },
+    "bugVsNit": {
+      "bug": 6,
+      "nit": 6
+    },
+    "labeling": {
+      "cant_locate": 0,
+      "fp": 12,
+      "labeled": 18,
+      "located": 18,
+      "precision": 0.333,
+      "real": 6,
+      "stale": 0,
+      "unsure": 0
+    },
+    "openFindings": {
+      "critical": 0,
+      "major": 6,
+      "minor": 0,
+      "nit": 6,
+      "total": 12
+    },
+    "prsReviewed": {
+      "deltaPct": 0,
+      "reviews": 4,
+      "value": 3
+    },
+    "trends": {
+      "findingsPerDay": {
+        "deltaPct": 0,
+        "series": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          3,
+          3,
+          0,
+          0,
+          0,
+          3,
+          9
+        ],
+        "value": 1.3
+      },
+      "reviewsPerDay": {
+        "deltaPct": 0,
+        "series": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1,
+          0,
+          0,
+          0,
+          1,
+          3
+        ],
+        "value": 0.4
+      }
+    }
+  },
+  "acceptance": {
+    "bot": {
+      "rechecks": {
+        "fixed": 18,
+        "present": 0,
+        "unsure": 0
+      },
+      "replies": 18,
+      "resolutions": 18
+    },
+    "bot_logins": {
+      "id:936773871a": [
+        "publisher"
+      ],
+      "id:9e90e4dde6": [
+        "publisher"
+      ],
+      "id:f64cbac723": [
+        "publisher"
+      ]
+    },
+    "by_placement": {
+      "inline": {
+        "deferred": 0,
+        "loose_accepted": 12,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.7575059933447592,
+          1.0
+        ],
+        "posted": 12,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 1.0,
+        "strict_wilson_95": [
+          0.7575059933447592,
+          1.0
+        ],
+        "unconfirmed": 0
+      },
+      "summary": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": 0.0,
+        "strict_wilson_95": [
+          2.7755575615628914e-17,
+          0.3903342879021653
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_repo": {
+      "id:936773871a": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      },
+      "id:9e90e4dde6": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      },
+      "id:f64cbac723": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_severity": {
+      "major": {
+        "deferred": 0,
+        "loose_accepted": 18,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.8241207763533425,
+          1.0
+        ],
+        "posted": 18,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.43749467295945105,
+          0.837212252491663
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "final": {
+      "by_placement": {
+        "inline": {
+          "deferred": 0,
+          "loose_accepted": 12,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.7575059933447592,
+            1.0
+          ],
+          "posted": 12,
+          "rejected": 0,
+          "strict_accepted": 12,
+          "strict_rate": 1.0,
+          "strict_wilson_95": [
+            0.7575059933447592,
+            1.0
+          ],
+          "unconfirmed": 0
+        },
+        "summary": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": 0.0,
+          "strict_wilson_95": [
+            2.7755575615628914e-17,
+            0.3903342879021653
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_repo": {
+        "id:936773871a": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        },
+        "id:9e90e4dde6": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        },
+        "id:f64cbac723": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_severity": {
+        "major": {
+          "deferred": 0,
+          "loose_accepted": 18,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.8241207763533425,
+            1.0
+          ],
+          "posted": 18,
+          "rejected": 0,
+          "strict_accepted": 12,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.43749467295945105,
+            0.837212252491663
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "totals": {
+        "deferred": 0,
+        "loose_accepted": 18,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.8241207763533425,
+          1.0
+        ],
+        "posted": 18,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.43749467295945105,
+          0.837212252491663
+        ],
+        "unconfirmed": 0
+      },
+      "unverified": {
+        "deferred": 0,
+        "loose_accepted": 0,
+        "loose_rate": null,
+        "loose_wilson_95": [
+          null,
+          null
+        ],
+        "posted": 0,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": null,
+        "strict_wilson_95": [
+          null,
+          null
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "last_collection_at": "2026-10-20T11:00:00+00:00",
+    "note": "Strict acceptance means a first trusted non-bot reply opening with a fixed verb, or a reviewer re-check confirming a fix at a later head. A resolved thread alone does not count. Resolved threads get record-only re-checks until a fix is confirmed. The report labels every row with the current rule, including older rows. Pull requests closed more than 7 days ago get no new re-check. The re-check substitutes for the reference corpus publisher's own Addressed in commit marker. The re-check is stricter: deletions, fixes outside the flagged lines, and fixes that keep an evidence line do not count as strict. It mostly under-counts, but a model that misjudges can still over-count. A helper extracted with renamed arguments can keep the defect in the same file or another file with a patch. A moved short call under 8 characters can escape the move check. A moved call can also escape the move check when its destination reuses unchanged lines for its arguments or closing parenthesis. A cosmetic edit of the first flagged line can pass with empty or signature-only evidence. An in-place edit can keep the defect, for example an added comment or a .strip(). The anchored range includes lines that replace deleted flagged lines. A long replacement block is in place for the move check. The model still sees that block in its window. A defect call or line that also occurs elsewhere in the reviewed file, including in a comment or a string, is not a signature, so its move is left to the model. Loose acceptance also counts addressed regions unless the first reply rejects or defers the finding. Rates divide by all posted findings, including unconfirmed findings, as the reference corpus does. Compare inline findings only. Summary findings have no reply thread. Unverified items are review-body items and are excluded from the inline comparison like other body items. The final group holds closed pull requests only.",
+    "totals": {
+      "deferred": 0,
+      "loose_accepted": 18,
+      "loose_rate": 1.0,
+      "loose_wilson_95": [
+        0.8241207763533425,
+        1.0
+      ],
+      "posted": 18,
+      "rejected": 0,
+      "strict_accepted": 12,
+      "strict_rate": 0.6666666666666666,
+      "strict_wilson_95": [
+        0.43749467295945105,
+        0.837212252491663
+      ],
+      "unconfirmed": 0
+    },
+    "unverified": {
+      "deferred": 0,
+      "loose_accepted": 0,
+      "loose_rate": null,
+      "loose_wilson_95": [
+        null,
+        null
+      ],
+      "posted": 0,
+      "rejected": 0,
+      "strict_accepted": 0,
+      "strict_rate": null,
+      "strict_wilson_95": [
+        null,
+        null
+      ],
+      "unconfirmed": 0
+    }
+  },
+  "acceptance.stats": {
+    "bot": {
+      "rechecks": {
+        "fixed": 18,
+        "present": 0,
+        "unsure": 0
+      },
+      "replies": 18,
+      "resolutions": 18
+    },
+    "bot_logins": {
+      "owner/re%po": [
+        "publisher"
+      ],
+      "owner/re-po": [
+        "publisher"
+      ],
+      "owner/re_po": [
+        "publisher"
+      ]
+    },
+    "by_placement": {
+      "inline": {
+        "deferred": 0,
+        "loose_accepted": 12,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.7575059933447592,
+          1.0
+        ],
+        "posted": 12,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 1.0,
+        "strict_wilson_95": [
+          0.7575059933447592,
+          1.0
+        ],
+        "unconfirmed": 0
+      },
+      "summary": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": 0.0,
+        "strict_wilson_95": [
+          2.7755575615628914e-17,
+          0.3903342879021653
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_repo": {
+      "owner/re%po": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      },
+      "owner/re-po": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      },
+      "owner/re_po": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_severity": {
+      "major": {
+        "deferred": 0,
+        "loose_accepted": 18,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.8241207763533425,
+          1.0
+        ],
+        "posted": 18,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.43749467295945105,
+          0.837212252491663
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "final": {
+      "by_placement": {
+        "inline": {
+          "deferred": 0,
+          "loose_accepted": 12,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.7575059933447592,
+            1.0
+          ],
+          "posted": 12,
+          "rejected": 0,
+          "strict_accepted": 12,
+          "strict_rate": 1.0,
+          "strict_wilson_95": [
+            0.7575059933447592,
+            1.0
+          ],
+          "unconfirmed": 0
+        },
+        "summary": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": 0.0,
+          "strict_wilson_95": [
+            2.7755575615628914e-17,
+            0.3903342879021653
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_repo": {
+        "owner/re%po": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        },
+        "owner/re-po": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        },
+        "owner/re_po": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_severity": {
+        "major": {
+          "deferred": 0,
+          "loose_accepted": 18,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.8241207763533425,
+            1.0
+          ],
+          "posted": 18,
+          "rejected": 0,
+          "strict_accepted": 12,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.43749467295945105,
+            0.837212252491663
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "totals": {
+        "deferred": 0,
+        "loose_accepted": 18,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.8241207763533425,
+          1.0
+        ],
+        "posted": 18,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.43749467295945105,
+          0.837212252491663
+        ],
+        "unconfirmed": 0
+      },
+      "unverified": {
+        "deferred": 0,
+        "loose_accepted": 0,
+        "loose_rate": null,
+        "loose_wilson_95": [
+          null,
+          null
+        ],
+        "posted": 0,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": null,
+        "strict_wilson_95": [
+          null,
+          null
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "last_collection_at": "2026-10-20T11:00:00+00:00",
+    "last_run": null,
+    "note": "Strict acceptance means a first trusted non-bot reply opening with a fixed verb, or a reviewer re-check confirming a fix at a later head. A resolved thread alone does not count. Resolved threads get record-only re-checks until a fix is confirmed. The report labels every row with the current rule, including older rows. Pull requests closed more than 7 days ago get no new re-check. The re-check substitutes for the reference corpus publisher's own Addressed in commit marker. The re-check is stricter: deletions, fixes outside the flagged lines, and fixes that keep an evidence line do not count as strict. It mostly under-counts, but a model that misjudges can still over-count. A helper extracted with renamed arguments can keep the defect in the same file or another file with a patch. A moved short call under 8 characters can escape the move check. A moved call can also escape the move check when its destination reuses unchanged lines for its arguments or closing parenthesis. A cosmetic edit of the first flagged line can pass with empty or signature-only evidence. An in-place edit can keep the defect, for example an added comment or a .strip(). The anchored range includes lines that replace deleted flagged lines. A long replacement block is in place for the move check. The model still sees that block in its window. A defect call or line that also occurs elsewhere in the reviewed file, including in a comment or a string, is not a signature, so its move is left to the model. Loose acceptance also counts addressed regions unless the first reply rejects or defers the finding. Rates divide by all posted findings, including unconfirmed findings, as the reference corpus does. Compare inline findings only. Summary findings have no reply thread. Unverified items are review-body items and are excluded from the inline comparison like other body items. The final group holds closed pull requests only.",
+    "totals": {
+      "deferred": 0,
+      "loose_accepted": 18,
+      "loose_rate": 1.0,
+      "loose_wilson_95": [
+        0.8241207763533425,
+        1.0
+      ],
+      "posted": 18,
+      "rejected": 0,
+      "strict_accepted": 12,
+      "strict_rate": 0.6666666666666666,
+      "strict_wilson_95": [
+        0.43749467295945105,
+        0.837212252491663
+      ],
+      "unconfirmed": 0
+    },
+    "unverified": {
+      "deferred": 0,
+      "loose_accepted": 0,
+      "loose_rate": null,
+      "loose_wilson_95": [
+        null,
+        null
+      ],
+      "posted": 0,
+      "rejected": 0,
+      "strict_accepted": 0,
+      "strict_rate": null,
+      "strict_wilson_95": [
+        null,
+        null
+      ],
+      "unconfirmed": 0
+    }
+  },
+  "corpus.finding_index": [
+    [
+      [
+        "owner/re%po",
+        "app.py",
+        1,
+        "Finding 2-0"
+      ],
+      7
+    ],
+    [
+      [
+        "owner/re%po",
+        "app.py",
+        1,
+        "Finding 5-0"
+      ],
+      16
+    ],
+    [
+      [
+        "owner/re%po",
+        "app.py",
+        2,
+        "Finding 2-1"
+      ],
+      8
+    ],
+    [
+      [
+        "owner/re%po",
+        "app.py",
+        2,
+        "Finding 5-1"
+      ],
+      17
+    ],
+    [
+      [
+        "owner/re%po",
+        "app.py",
+        3,
+        "Finding 2-2"
+      ],
+      9
+    ],
+    [
+      [
+        "owner/re%po",
+        "app.py",
+        3,
+        "Finding 5-2"
+      ],
+      18
+    ],
+    [
+      [
+        "owner/re-po",
+        "app.py",
+        1,
+        "Finding 1-0"
+      ],
+      4
+    ],
+    [
+      [
+        "owner/re-po",
+        "app.py",
+        1,
+        "Finding 4-0"
+      ],
+      13
+    ],
+    [
+      [
+        "owner/re-po",
+        "app.py",
+        2,
+        "Finding 1-1"
+      ],
+      5
+    ],
+    [
+      [
+        "owner/re-po",
+        "app.py",
+        2,
+        "Finding 4-1"
+      ],
+      14
+    ],
+    [
+      [
+        "owner/re-po",
+        "app.py",
+        3,
+        "Finding 1-2"
+      ],
+      6
+    ],
+    [
+      [
+        "owner/re-po",
+        "app.py",
+        3,
+        "Finding 4-2"
+      ],
+      15
+    ],
+    [
+      [
+        "owner/re_po",
+        "app.py",
+        1,
+        "Finding 0-0"
+      ],
+      1
+    ],
+    [
+      [
+        "owner/re_po",
+        "app.py",
+        1,
+        "Finding 3-0"
+      ],
+      10
+    ],
+    [
+      [
+        "owner/re_po",
+        "app.py",
+        2,
+        "Finding 0-1"
+      ],
+      2
+    ],
+    [
+      [
+        "owner/re_po",
+        "app.py",
+        2,
+        "Finding 3-1"
+      ],
+      11
+    ],
+    [
+      [
+        "owner/re_po",
+        "app.py",
+        3,
+        "Finding 0-2"
+      ],
+      3
+    ],
+    [
+      [
+        "owner/re_po",
+        "app.py",
+        3,
+        "Finding 3-2"
+      ],
+      12
+    ]
+  ],
+  "corpus.load_marks": 18,
+  "corpus.marks": [
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 1,
+      "label": "tp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-14T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 1, \"mark\": \"real\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-14T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re_po\", \"file\": \"app.py\", \"line\": 1, \"title\": \"Finding 0-0\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 2,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-14T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 2, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-14T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re_po\", \"file\": \"app.py\", \"line\": 2, \"title\": \"Finding 0-1\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 3,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-14T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 3, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-14T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re_po\", \"file\": \"app.py\", \"line\": 3, \"title\": \"Finding 0-2\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 4,
+      "label": "tp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-15T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 4, \"mark\": \"real\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-15T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re-po\", \"file\": \"app.py\", \"line\": 1, \"title\": \"Finding 1-0\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 5,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-15T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 5, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-15T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re-po\", \"file\": \"app.py\", \"line\": 2, \"title\": \"Finding 1-1\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 6,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-15T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 6, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-15T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re-po\", \"file\": \"app.py\", \"line\": 3, \"title\": \"Finding 1-2\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 7,
+      "label": "tp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-19T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 7, \"mark\": \"real\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-19T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re%po\", \"file\": \"app.py\", \"line\": 1, \"title\": \"Finding 2-0\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 8,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-19T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 8, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-19T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re%po\", \"file\": \"app.py\", \"line\": 2, \"title\": \"Finding 2-1\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 9,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-19T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 9, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-19T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re%po\", \"file\": \"app.py\", \"line\": 3, \"title\": \"Finding 2-2\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 10,
+      "label": "tp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 10, \"mark\": \"real\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re_po\", \"file\": \"app.py\", \"line\": 1, \"title\": \"Finding 3-0\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 11,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 11, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re_po\", \"file\": \"app.py\", \"line\": 2, \"title\": \"Finding 3-1\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 12,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 12, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re_po\", \"file\": \"app.py\", \"line\": 3, \"title\": \"Finding 3-2\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 13,
+      "label": "tp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 13, \"mark\": \"real\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re-po\", \"file\": \"app.py\", \"line\": 1, \"title\": \"Finding 4-0\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 14,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 14, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re-po\", \"file\": \"app.py\", \"line\": 2, \"title\": \"Finding 4-1\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 15,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 15, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re-po\", \"file\": \"app.py\", \"line\": 3, \"title\": \"Finding 4-2\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 16,
+      "label": "tp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 16, \"mark\": \"real\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re%po\", \"file\": \"app.py\", \"line\": 1, \"title\": \"Finding 5-0\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 17,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 17, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re%po\", \"file\": \"app.py\", \"line\": 2, \"title\": \"Finding 5-1\"}",
+      "source": "marks"
+    },
+    {
+      "confidence": "gold",
+      "corpus_version": "v0",
+      "id": 18,
+      "label": "fp",
+      "lane": "semantic",
+      "last_validated_at": "2026-10-20T10:00:00+00:00",
+      "payload_json": "{\"finding_id\": 18, \"mark\": \"fp\", \"marker\": \"reviewer\", \"marked_at\": \"2026-10-20T10:00:00+00:00\", \"note\": \"label\", \"repo\": \"owner/re%po\", \"file\": \"app.py\", \"line\": 3, \"title\": \"Finding 5-2\"}",
+      "source": "marks"
+    }
+  ],
+  "coverage": {
+    "last_24h": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 0,
+      "commit_to_review_seconds": {
+        "available_heads": 3,
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.3333333333333333,
+        "within_15_minutes": 1
+      },
+      "coverage_share": 0.3333333333333333,
+      "done_heads": 1,
+      "eligible_heads": 3,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.5,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 4,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.3333333333333333,
+        "within_15_minutes": 1
+      },
+      "skipped": 0,
+      "start": "2026-10-19T12:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.3333333333333333,
+        "done_heads": 1,
+        "eligible_heads": 3,
+        "share_within_15_minutes": 0.3333333333333333
+      },
+      "superseded": 0
+    },
+    "last_48h": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 0,
+      "commit_to_review_seconds": {
+        "available_heads": 4,
+        "median": 0.0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.5,
+        "within_15_minutes": 2
+      },
+      "coverage_share": 0.5,
+      "done_heads": 2,
+      "eligible_heads": 4,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.4,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 5,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0.0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.5,
+        "within_15_minutes": 2
+      },
+      "skipped": 1,
+      "start": "2026-10-18T12:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.5,
+        "done_heads": 2,
+        "eligible_heads": 4,
+        "share_within_15_minutes": 0.5
+      },
+      "superseded": 0
+    },
+    "window": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 1,
+      "commit_to_review_seconds": {
+        "available_heads": 5,
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.6,
+        "within_15_minutes": 3
+      },
+      "coverage_share": 0.6,
+      "done_heads": 3,
+      "eligible_heads": 5,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.2857142857142857,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 7,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.6,
+        "within_15_minutes": 3
+      },
+      "skipped": 1,
+      "start": "2026-10-01T00:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.6,
+        "done_heads": 3,
+        "eligible_heads": 5,
+        "share_within_15_minutes": 0.6
+      },
+      "superseded": 0
+    }
+  },
+  "known_fps": "{\"repo\": \"owner/re%po\", \"file\": \"app.py\", \"title\": \"Rejected 2\", \"fingerprint\": \"rejected-2\", \"reply_id\": \"2\", \"rejected_at\": \"2026-10-19T10:00:00+00:00\", \"verdict\": \"FALSE_POSITIVE\", \"reason\": \"Author rejected the published finding (reply 2)\"}\n{\"repo\": \"owner/re%po\", \"file\": \"app.py\", \"title\": \"Rejected 5\", \"fingerprint\": \"rejected-5\", \"reply_id\": \"5\", \"rejected_at\": \"2026-10-20T10:00:00+00:00\", \"verdict\": \"FALSE_POSITIVE\", \"reason\": \"Author rejected the published finding (reply 5)\"}\n{\"repo\": \"owner/re-po\", \"file\": \"app.py\", \"title\": \"Rejected 1\", \"fingerprint\": \"rejected-1\", \"reply_id\": \"1\", \"rejected_at\": \"2026-10-15T10:00:00+00:00\", \"verdict\": \"FALSE_POSITIVE\", \"reason\": \"Author rejected the published finding (reply 1)\"}\n{\"repo\": \"owner/re-po\", \"file\": \"app.py\", \"title\": \"Rejected 4\", \"fingerprint\": \"rejected-4\", \"reply_id\": \"4\", \"rejected_at\": \"2026-10-20T10:00:00+00:00\", \"verdict\": \"FALSE_POSITIVE\", \"reason\": \"Author rejected the published finding (reply 4)\"}\n{\"repo\": \"owner/re_po\", \"file\": \"app.py\", \"title\": \"Rejected 0\", \"fingerprint\": \"rejected-0\", \"reply_id\": \"0\", \"rejected_at\": \"2026-10-14T10:00:00+00:00\", \"verdict\": \"FALSE_POSITIVE\", \"reason\": \"Author rejected the published finding (reply 0)\"}\n{\"repo\": \"owner/re_po\", \"file\": \"app.py\", \"title\": \"Rejected 3\", \"fingerprint\": \"rejected-3\", \"reply_id\": \"3\", \"rejected_at\": \"2026-10-20T10:00:00+00:00\", \"verdict\": \"FALSE_POSITIVE\", \"reason\": \"Author rejected the published finding (reply 3)\"}\n",
+  "labelled_findings": {
+    "inline:strict_accepted:1": 12,
+    "summary:loose_accepted:1": 6
+  },
+  "metrics.daily_findings_7d": [
+    3,
+    3,
+    0,
+    0,
+    0,
+    3,
+    9
+  ],
+  "metrics.daily_reviews_7d": [
+    1,
+    1,
+    0,
+    0,
+    0,
+    1,
+    3
+  ],
+  "metrics.distinct_prs": 3,
+  "metrics.done_reviews": 4,
+  "metrics.error_reasons": [
+    {
+      "count": 1,
+      "kind": "TimeoutError"
+    }
+  ],
+  "metrics.first_review_at": "2026-10-14T10:00:00+00:00",
+  "metrics.last_error_at": "2026-10-20T10:00:00+00:00",
+  "metrics.mark_precision_all": {
+    "cant_locate": 0,
+    "fp": 0,
+    "labeled": 18,
+    "located": 0,
+    "precision": null,
+    "real": 0,
+    "stale": 18,
+    "unsure": 0
+  },
+  "metrics.mark_precision_human": {
+    "cant_locate": 0,
+    "fp": 12,
+    "labeled": 18,
+    "located": 18,
+    "precision": 0.333,
+    "real": 6,
+    "stale": 0,
+    "unsure": 0
+  },
+  "metrics.repo_counts": [
+    {
+      "count": 2,
+      "repo": "id:936773871a"
+    },
+    {
+      "count": 2,
+      "repo": "id:9e90e4dde6"
+    },
+    {
+      "count": 2,
+      "repo": "id:f64cbac723"
+    }
+  ],
+  "metrics.rollup_7d": {
+    "findings": 12,
+    "review_timestamps": [
+      "995cfc06a13ab9296ccba3dfd3da0f7ef15452d73fbdd50d8c4b1b8f1019b063",
+      4
+    ],
+    "reviews": 4,
+    "severity_counts": {
+      "critical": 0,
+      "major": 4,
+      "minor": 4,
+      "nit": 4
+    },
+    "top_repos": [
+      {
+        "repo": "id:936773871a",
+        "value": 2
+      },
+      {
+        "repo": "id:9e90e4dde6",
+        "value": 1
+      },
+      {
+        "repo": "id:f64cbac723",
+        "value": 1
+      }
+    ],
+    "window_start": "2026-10-13T12:00:00+00:00"
+  },
+  "metrics.status_counts": {
+    "done": 4,
+    "error": 1,
+    "running": 1
+  },
+  "metrics.verified_bug_split": {
+    "bug": 6,
+    "nit": 6
+  },
+  "metrics.verified_findings": 12,
+  "metrics.verified_severity": {
+    "critical": 0,
+    "major": 6,
+    "minor": 0,
+    "nit": 6
+  },
+  "monthly": {
+    "date": "2026-10-20T12:00:00+00:00",
+    "gate": {
+      "criteria": {
+        "coverage": "fail",
+        "incident_catches": "not evaluable (no weekly report for the month)",
+        "inline_items": "pass",
+        "strict_acceptance": "not evaluable (n = 12)"
+      },
+      "decision": "The gate needs two consecutive passing months. The decision stays with the operator.",
+      "passing": false,
+      "summary": "The retirement gate does not pass for this month.",
+      "thresholds": {
+        "coverage": "at least 95%",
+        "incident_catches": "at least 7 of 17",
+        "inline_items": "at most 3.52 per PR",
+        "strict_acceptance": "at least 32.2% over at least 200 inline findings"
+      }
+    },
+    "month": "2026-10",
+    "rows": {
+      "coverage": {
+        "current": null,
+        "kind": "reviewer-independent",
+        "note": "PRs from the reference PR set with at least one done review in the database copy.",
+        "reference": null
+      },
+      "error_share": {
+        "current": {
+          "hits": 2,
+          "n": 7,
+          "value": 0.2857142857142857,
+          "wilson95": [
+            0.08221892400405678,
+            0.6410655481673808
+          ]
+        },
+        "kind": "reviewer-independent",
+        "reference": null
+      },
+      "fair_head_coverage": {
+        "current": {
+          "hits": 3,
+          "n": 5,
+          "value": 0.6,
+          "wilson95": [
+            0.2307242812760128,
+            0.882379225767352
+          ]
+        },
+        "kind": "reviewer-independent",
+        "note": "Eligible heads with a fair review opportunity in the month.",
+        "reference": null
+      },
+      "incident_catches": {
+        "current": null,
+        "kind": "reviewer-independent",
+        "reference": {
+          "hits": 0,
+          "n": 17,
+          "value": 0.0,
+          "wilson95": [
+            0.0,
+            0.1843181350088518
+          ]
+        }
+      },
+      "inline_items": {
+        "current": {
+          "n": 5,
+          "total": 12,
+          "value": 2.4,
+          "wilson95": null
+        },
+        "kind": "reviewer-independent",
+        "live_reference": null,
+        "note": "Posted inline findings per distinct repository and PR with a posted review in the month.",
+        "per_posted_review": {
+          "n": 6,
+          "total": 12,
+          "value": 2.0,
+          "wilson95": null
+        },
+        "reference": {
+          "basis": "per-case CodeRabbit rate",
+          "n": 86,
+          "source": "217 CodeRabbit inline comments over 86 held-out cases in eval/cr_heldout.jsonl",
+          "value": 2.52,
+          "wilson95": null
+        },
+        "reference_total": {
+          "basis": "per-case CodeRabbit rate",
+          "n": 86,
+          "source": "262 CodeRabbit items over 86 held-out cases in eval/cr_heldout.jsonl",
+          "value": 3.05,
+          "wilson95": null
+        }
+      },
+      "loose_acceptance": {
+        "current": {
+          "hits": 12,
+          "n": 12,
+          "value": 1.0,
+          "wilson95": [
+            0.7575059933447592,
+            1.0
+          ]
+        },
+        "kind": "reviewer-independent",
+        "reference": {
+          "hits": 608,
+          "n": 1505,
+          "value": 0.4039867109634552,
+          "wilson95": [
+            0.3794706830106246,
+            0.4289916320255215
+          ]
+        }
+      },
+      "reference_agreement": {
+        "biased": true,
+        "current": null,
+        "kind": "reference-derived",
+        "note": "Biased toward reference-accepted defects.",
+        "reference": null
+      },
+      "strict_acceptance": {
+        "current": {
+          "hits": 12,
+          "n": 12,
+          "value": 1.0,
+          "wilson95": [
+            0.7575059933447592,
+            1.0
+          ]
+        },
+        "kind": "reviewer-independent",
+        "reference": {
+          "hits": 485,
+          "n": 1505,
+          "value": 0.3222591362126246,
+          "wilson95": [
+            0.29912639695368504,
+            0.34629691980873056
+          ]
+        }
+      },
+      "visible_recall": {
+        "baselines": {
+          "after": null,
+          "v5p1": null
+        },
+        "current": null,
+        "kind": "reference-derived",
+        "note": "Weekly report date: None. No weekly report for the month.",
+        "reference": null
+      }
+    }
+  },
+  "monthly.full": {
+    "date": "2026-10-20T12:00:00+00:00",
+    "gate": {
+      "criteria": {
+        "coverage": "fail",
+        "incident_catches": "not evaluable (no weekly report for the month)",
+        "inline_items": "pass",
+        "strict_acceptance": "not evaluable (n = 12)"
+      },
+      "decision": "The gate needs two consecutive passing months. The decision stays with the operator.",
+      "passing": false,
+      "summary": "The retirement gate does not pass for this month.",
+      "thresholds": {
+        "coverage": "at least 95%",
+        "incident_catches": "at least 7 of 17",
+        "inline_items": "at most 3.52 per PR",
+        "strict_acceptance": "at least 32.2% over at least 200 inline findings"
+      }
+    },
+    "month": "2026-10",
+    "reference_period": {
+      "since": null,
+      "until": null
+    },
+    "rows": {
+      "coverage": {
+        "current": {
+          "hits": 1,
+          "n": 2,
+          "value": 0.5,
+          "wilson95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ]
+        },
+        "kind": "reviewer-independent",
+        "note": "PRs from the reference PR set with at least one done review in the database copy.",
+        "reference": null
+      },
+      "error_share": {
+        "current": {
+          "hits": 2,
+          "n": 7,
+          "value": 0.2857142857142857,
+          "wilson95": [
+            0.08221892400405678,
+            0.6410655481673808
+          ]
+        },
+        "kind": "reviewer-independent",
+        "reference": null
+      },
+      "fair_head_coverage": {
+        "current": {
+          "hits": 3,
+          "n": 5,
+          "value": 0.6,
+          "wilson95": [
+            0.2307242812760128,
+            0.882379225767352
+          ]
+        },
+        "kind": "reviewer-independent",
+        "note": "Eligible heads with a fair review opportunity in the month.",
+        "reference": null
+      },
+      "incident_catches": {
+        "current": null,
+        "kind": "reviewer-independent",
+        "reference": {
+          "hits": 0,
+          "n": 17,
+          "value": 0.0,
+          "wilson95": [
+            0.0,
+            0.1843181350088518
+          ]
+        }
+      },
+      "inline_items": {
+        "current": {
+          "n": 5,
+          "total": 12,
+          "value": 2.4,
+          "wilson95": null
+        },
+        "kind": "reviewer-independent",
+        "live_reference": null,
+        "note": "Posted inline findings per distinct repository and PR with a posted review in the month.",
+        "per_posted_review": {
+          "n": 6,
+          "total": 12,
+          "value": 2.0,
+          "wilson95": null
+        },
+        "reference": {
+          "basis": "per-case CodeRabbit rate",
+          "n": 86,
+          "source": "217 CodeRabbit inline comments over 86 held-out cases in eval/cr_heldout.jsonl",
+          "value": 2.52,
+          "wilson95": null
+        },
+        "reference_total": {
+          "basis": "per-case CodeRabbit rate",
+          "n": 86,
+          "source": "262 CodeRabbit items over 86 held-out cases in eval/cr_heldout.jsonl",
+          "value": 3.05,
+          "wilson95": null
+        }
+      },
+      "loose_acceptance": {
+        "current": {
+          "hits": 12,
+          "n": 12,
+          "value": 1.0,
+          "wilson95": [
+            0.7575059933447592,
+            1.0
+          ]
+        },
+        "kind": "reviewer-independent",
+        "reference": {
+          "hits": 608,
+          "n": 1505,
+          "value": 0.4039867109634552,
+          "wilson95": [
+            0.3794706830106246,
+            0.4289916320255215
+          ]
+        }
+      },
+      "reference_agreement": {
+        "biased": true,
+        "current": null,
+        "kind": "reference-derived",
+        "note": "Biased toward reference-accepted defects.",
+        "reference": null
+      },
+      "strict_acceptance": {
+        "current": {
+          "hits": 12,
+          "n": 12,
+          "value": 1.0,
+          "wilson95": [
+            0.7575059933447592,
+            1.0
+          ]
+        },
+        "kind": "reviewer-independent",
+        "reference": {
+          "hits": 485,
+          "n": 1505,
+          "value": 0.3222591362126246,
+          "wilson95": [
+            0.29912639695368504,
+            0.34629691980873056
+          ]
+        }
+      },
+      "visible_recall": {
+        "baselines": {
+          "after": null,
+          "v5p1": null
+        },
+        "current": null,
+        "kind": "reference-derived",
+        "note": "Weekly report date: None. No weekly report for the month.",
+        "reference": null
+      }
+    },
+    "weekly_date": null
+  },
+  "stats.acceptance": {
+    "bot": {
+      "rechecks": {
+        "fixed": 18,
+        "present": 0,
+        "unsure": 0
+      },
+      "replies": 18,
+      "resolutions": 18
+    },
+    "bot_logins": {
+      "owner/re%po": [
+        "publisher"
+      ],
+      "owner/re-po": [
+        "publisher"
+      ],
+      "owner/re_po": [
+        "publisher"
+      ]
+    },
+    "by_placement": {
+      "inline": {
+        "deferred": 0,
+        "loose_accepted": 12,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.7575059933447592,
+          1.0
+        ],
+        "posted": 12,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 1.0,
+        "strict_wilson_95": [
+          0.7575059933447592,
+          1.0
+        ],
+        "unconfirmed": 0
+      },
+      "summary": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": 0.0,
+        "strict_wilson_95": [
+          2.7755575615628914e-17,
+          0.3903342879021653
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_repo": {
+      "owner/re%po": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      },
+      "owner/re-po": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      },
+      "owner/re_po": {
+        "deferred": 0,
+        "loose_accepted": 6,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.6096657120978346,
+          1.0
+        ],
+        "posted": 6,
+        "rejected": 0,
+        "strict_accepted": 4,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.299993315138392,
+          0.9032285888942195
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "by_severity": {
+      "major": {
+        "deferred": 0,
+        "loose_accepted": 18,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.8241207763533425,
+          1.0
+        ],
+        "posted": 18,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.43749467295945105,
+          0.837212252491663
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "final": {
+      "by_placement": {
+        "inline": {
+          "deferred": 0,
+          "loose_accepted": 12,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.7575059933447592,
+            1.0
+          ],
+          "posted": 12,
+          "rejected": 0,
+          "strict_accepted": 12,
+          "strict_rate": 1.0,
+          "strict_wilson_95": [
+            0.7575059933447592,
+            1.0
+          ],
+          "unconfirmed": 0
+        },
+        "summary": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": 0.0,
+          "strict_wilson_95": [
+            2.7755575615628914e-17,
+            0.3903342879021653
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_repo": {
+        "owner/re%po": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        },
+        "owner/re-po": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        },
+        "owner/re_po": {
+          "deferred": 0,
+          "loose_accepted": 6,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.6096657120978346,
+            1.0
+          ],
+          "posted": 6,
+          "rejected": 0,
+          "strict_accepted": 4,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.299993315138392,
+            0.9032285888942195
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_severity": {
+        "major": {
+          "deferred": 0,
+          "loose_accepted": 18,
+          "loose_rate": 1.0,
+          "loose_wilson_95": [
+            0.8241207763533425,
+            1.0
+          ],
+          "posted": 18,
+          "rejected": 0,
+          "strict_accepted": 12,
+          "strict_rate": 0.6666666666666666,
+          "strict_wilson_95": [
+            0.43749467295945105,
+            0.837212252491663
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "totals": {
+        "deferred": 0,
+        "loose_accepted": 18,
+        "loose_rate": 1.0,
+        "loose_wilson_95": [
+          0.8241207763533425,
+          1.0
+        ],
+        "posted": 18,
+        "rejected": 0,
+        "strict_accepted": 12,
+        "strict_rate": 0.6666666666666666,
+        "strict_wilson_95": [
+          0.43749467295945105,
+          0.837212252491663
+        ],
+        "unconfirmed": 0
+      },
+      "unverified": {
+        "deferred": 0,
+        "loose_accepted": 0,
+        "loose_rate": null,
+        "loose_wilson_95": [
+          null,
+          null
+        ],
+        "posted": 0,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": null,
+        "strict_wilson_95": [
+          null,
+          null
+        ],
+        "unconfirmed": 0
+      }
+    },
+    "last_collection_at": "2026-10-20T11:00:00+00:00",
+    "last_run": null,
+    "note": "Strict acceptance means a first trusted non-bot reply opening with a fixed verb, or a reviewer re-check confirming a fix at a later head. A resolved thread alone does not count. Resolved threads get record-only re-checks until a fix is confirmed. The report labels every row with the current rule, including older rows. Pull requests closed more than 7 days ago get no new re-check. The re-check substitutes for the reference corpus publisher's own Addressed in commit marker. The re-check is stricter: deletions, fixes outside the flagged lines, and fixes that keep an evidence line do not count as strict. It mostly under-counts, but a model that misjudges can still over-count. A helper extracted with renamed arguments can keep the defect in the same file or another file with a patch. A moved short call under 8 characters can escape the move check. A moved call can also escape the move check when its destination reuses unchanged lines for its arguments or closing parenthesis. A cosmetic edit of the first flagged line can pass with empty or signature-only evidence. An in-place edit can keep the defect, for example an added comment or a .strip(). The anchored range includes lines that replace deleted flagged lines. A long replacement block is in place for the move check. The model still sees that block in its window. A defect call or line that also occurs elsewhere in the reviewed file, including in a comment or a string, is not a signature, so its move is left to the model. Loose acceptance also counts addressed regions unless the first reply rejects or defers the finding. Rates divide by all posted findings, including unconfirmed findings, as the reference corpus does. Compare inline findings only. Summary findings have no reply thread. Unverified items are review-body items and are excluded from the inline comparison like other body items. The final group holds closed pull requests only.",
+    "totals": {
+      "deferred": 0,
+      "loose_accepted": 18,
+      "loose_rate": 1.0,
+      "loose_wilson_95": [
+        0.8241207763533425,
+        1.0
+      ],
+      "posted": 18,
+      "rejected": 0,
+      "strict_accepted": 12,
+      "strict_rate": 0.6666666666666666,
+      "strict_wilson_95": [
+        0.43749467295945105,
+        0.837212252491663
+      ],
+      "unconfirmed": 0
+    },
+    "unverified": {
+      "deferred": 0,
+      "loose_accepted": 0,
+      "loose_rate": null,
+      "loose_wilson_95": [
+        null,
+        null
+      ],
+      "posted": 0,
+      "rejected": 0,
+      "strict_accepted": 0,
+      "strict_rate": null,
+      "strict_wilson_95": [
+        null,
+        null
+      ],
+      "unconfirmed": 0
+    }
+  },
+  "stats.coverage": {
+    "24h": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 0,
+      "commit_to_review_seconds": {
+        "available_heads": 3,
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.3333333333333333,
+        "within_15_minutes": 1
+      },
+      "coverage_share": 0.3333333333333333,
+      "done_heads": 1,
+      "eligible_heads": 3,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.5,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 4,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.3333333333333333,
+        "within_15_minutes": 1
+      },
+      "skipped": 0,
+      "start": "2026-10-19T12:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.3333333333333333,
+        "done_heads": 1,
+        "eligible_heads": 3,
+        "share_within_15_minutes": 0.3333333333333333
+      },
+      "superseded": 0
+    },
+    "48h": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 0,
+      "commit_to_review_seconds": {
+        "available_heads": 4,
+        "median": 0.0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.5,
+        "within_15_minutes": 2
+      },
+      "coverage_share": 0.5,
+      "done_heads": 2,
+      "eligible_heads": 4,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.4,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 5,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0.0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.5,
+        "within_15_minutes": 2
+      },
+      "skipped": 1,
+      "start": "2026-10-18T12:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.5,
+        "done_heads": 2,
+        "eligible_heads": 4,
+        "share_within_15_minutes": 0.5
+      },
+      "superseded": 0
+    },
+    "daily_reports": [
+      {
+        "day": "2026-10-19",
+        "eligible_heads": 2
+      }
+    ],
+    "open_done_heads": 1,
+    "open_eligible_heads": 2
+  },
+  "watch.stats": {
+    "24h": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 0,
+      "commit_to_review_seconds": {
+        "available_heads": 3,
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.3333333333333333,
+        "within_15_minutes": 1
+      },
+      "coverage_share": 0.3333333333333333,
+      "done_heads": 1,
+      "eligible_heads": 3,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.5,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 4,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.3333333333333333,
+        "within_15_minutes": 1
+      },
+      "skipped": 0,
+      "start": "2026-10-19T12:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.3333333333333333,
+        "done_heads": 1,
+        "eligible_heads": 3,
+        "share_within_15_minutes": 0.3333333333333333
+      },
+      "superseded": 0
+    },
+    "48h": {
+      "as_of": "2026-10-20T12:00:00+00:00",
+      "baseline_heads": 0,
+      "commit_to_review_seconds": {
+        "available_heads": 4,
+        "median": 0.0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.5,
+        "within_15_minutes": 2
+      },
+      "coverage_share": 0.5,
+      "done_heads": 2,
+      "eligible_heads": 4,
+      "end": "2026-10-20T12:00:00+00:00",
+      "error_share": 0.4,
+      "errored_attempts": 2,
+      "errors_by_class": {
+        "orphan": 1,
+        "timeout": 1
+      },
+      "excluded_ended_within_15_minutes": 0,
+      "fast_merged": {
+        "done": 0,
+        "done_within_15_minutes_of_merge": 0,
+        "seen": 0
+      },
+      "finished_attempts": 5,
+      "pending_heads": 0,
+      "push_to_review_seconds": {
+        "median": 0.0,
+        "p90": 0.0,
+        "share_within_15_minutes": 0.5,
+        "within_15_minutes": 2
+      },
+      "skipped": 1,
+      "start": "2026-10-18T12:00:00+00:00",
+      "strict": {
+        "coverage_share": 0.5,
+        "done_heads": 2,
+        "eligible_heads": 4,
+        "share_within_15_minutes": 0.5
+      },
+      "superseded": 0
+    },
+    "daily_reports": [
+      {
+        "day": "2026-10-19",
+        "eligible_heads": 2
+      }
+    ],
+    "open_done_heads": 1,
+    "open_eligible_heads": 2
+  }
+}

@@ -1,0 +1,1488 @@
+{
+  "case": "repo-policy-table",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [],
+  "result": [
+    {
+      "input": "example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/APP",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/APP",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/a",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "a/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "0/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "123/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/0",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/..hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/...",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app.",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app-",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app_",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/APP.NAME",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "ex--ample/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "/",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "a/b/c",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app/",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "/example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example//app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "//",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": " example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app ",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example /app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/ app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "\texample/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app\n",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/\tapp",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "./app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "../app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/.",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/..",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "-example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "_example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": ".example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app~",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app+",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app*",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app:tag",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app#1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app?query",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app%2fpart",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app\\part",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/app\u0000",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "éxample/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/café",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "例/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/应用",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/🧪",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "example/​app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "gitlab:h#1",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "bitbucket:x#1",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "a:b/c",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "github:example/app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "denied-org",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "denied-org/app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/App",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/App",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "DENIED-ORG/APP",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: DENIED-ORG/APP",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/app.name",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/app.name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org-other/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/denied-org",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": " denied-org/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "denied-org/",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "denied-org/a/b",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "extra-owner",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repo must be owner/name with a valid owner and repository name",
+        "raised": "ValueError"
+      }
+    },
+    {
+      "input": "extra-owner/app",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: extra-owner/app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Extra-Owner/App",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Extra-Owner/App",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "extra-owner/other",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: extra-owner/other",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "example/private",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: example/private",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Example/Private",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Example/Private",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "example/private-more",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/internal",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: acme-org/internal",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Acme-Org/Internal",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Acme-Org/Internal",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "acme-org/internal-more",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example/internal",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Example/private",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Example/private",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Example/internal",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "acme-org/private",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/private",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "Acme-Org/internal",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Acme-Org/internal",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "example-2/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/private",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example-2/internal",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/private",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "example0/internal",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/App",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/app_name",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/app-1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/app_2",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/release.v1",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/.hidden",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/-app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/_app",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "EXAMPLE/private",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: EXAMPLE/private",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "EXAMPLE/internal",
+      "is_denied": false,
+      "is_denied_with_extra": false,
+      "validate": "ok"
+    },
+    {
+      "input": "denied-org/App",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/App",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/app-name",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/app-name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/app_name",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/app_name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/app-1",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/app-1",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/app_2",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/app_2",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/release.v1",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/release.v1",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/.hidden",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/.hidden",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/-app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/-app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/_app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/_app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/private",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/private",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "denied-org/internal",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: denied-org/internal",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/app.name",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/app.name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/app-name",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/app-name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/app_name",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/app_name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/app-1",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/app-1",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/app_2",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/app_2",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/release.v1",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/release.v1",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/.hidden",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/.hidden",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/-app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/-app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/_app",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/_app",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/private",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/private",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "Denied-Org/internal",
+      "is_denied": true,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: Denied-Org/internal",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "extra-owner/App",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: extra-owner/App",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "extra-owner/app.name",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: extra-owner/app.name",
+        "raised": "RepoDenied"
+      }
+    },
+    {
+      "input": "extra-owner/app-name",
+      "is_denied": false,
+      "is_denied_with_extra": true,
+      "validate": {
+        "message": "repository denied: extra-owner/app-name",
+        "raised": "RepoDenied"
+      }
+    }
+  ],
+  "scenario": "policy"
+}

@@ -1,10 +1,10 @@
 """E5-j: knob_history is retired (ENG-511 STOP). A freshly-initialised corpus DB
 must not create it, while the tables that hold data still exist."""
-from argus.jarvis import corpus
+from argus import corpus
 
 
 def test_fresh_db_has_no_knob_history(tmp_path):
-    db = tmp_path / "jarvis.db"
+    db = tmp_path / "corpus.db"
     corpus.init_corpus_db(str(db))
     con = corpus.connect(str(db))
     tables = {r[0] for r in con.execute(

@@ -1,0 +1,586 @@
+{
+  "case": "pr-over-cap",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "2",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "3",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "4",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "5",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "6",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "7",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "8",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "9",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "10",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "11",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "12",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "13",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "14",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "15",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "16",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "17",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "18",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "19",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "20",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "21",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "22",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "23",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "24",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "25",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "26",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "27",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "28",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "29",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "30",
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/files"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "per_page": "100"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/7/commits"
+    }
+  ],
+  "result": {
+    "all_findings": [],
+    "author": "example-dev",
+    "branch": "notes",
+    "bugs": [],
+    "coverage": [
+      {
+        "checks": 0,
+        "eligible": 6,
+        "lane": "probe",
+        "note": "no changed file matches any probe glob",
+        "status": "ran"
+      },
+      {
+        "files_analyzed": 0,
+        "files_changed": 3000,
+        "files_eligible": 0,
+        "lane": "ruff",
+        "reason": "no changed file is Python, so no rule applies",
+        "status": "skipped"
+      },
+      {
+        "files_analyzed": 0,
+        "files_changed": 3000,
+        "files_eligible": 0,
+        "lane": "config",
+        "reason": "no changed YAML or Dockerfile to read",
+        "status": "skipped"
+      },
+      {
+        "context_tokens_estimated": 0,
+        "files_full": 0,
+        "files_hunks_only": 0,
+        "files_omitted": 3000,
+        "files_read_failed": 0,
+        "files_reviewed": 0,
+        "files_unseen": true,
+        "files_windowed": 0,
+        "files_without_patch": 3000,
+        "lane": "llm",
+        "reason": "no reviewable patch text: nothing for the reviewer to read",
+        "status": "skipped"
+      },
+      {
+        "lane": "judge",
+        "reason": "ARGUS_JUDGE_LIVE is not 1: the judge is a metered model",
+        "status": "skipped"
+      }
+    ],
+    "dropped": 0,
+    "files_changed": 3000,
+    "head_committed_at": "<ts>",
+    "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "lines_added": 0,
+    "lines_removed": 0,
+    "nits": [],
+    "raw_count": 0,
+    "risk_tier": {
+      "changed_lines": 0,
+      "files": 3000,
+      "incomplete": true,
+      "matches": [],
+      "matches_total": 0,
+      "max_lines": 300,
+      "reasons": [
+        "file list incomplete, an unseen path might match"
+      ],
+      "tier": "risky"
+    }
+  },
+  "scenario": "review"
+}

@@ -1,0 +1,36 @@
+{
+  "derived": {},
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "cmd_label_argus-bot-dev",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "body": "/label ~bugfix-x"
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/97/notes"
+  },
+  "response": {
+    "body": {
+      "commands_changes": {
+        "add_label_ids": [
+          52
+        ]
+      },
+      "summary": [
+        "Added ~\"bugfix-x\" label."
+      ]
+    },
+    "headers": {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+      "vary": "Origin"
+    },
+    "status": 202
+  },
+  "trimmed": {}
+}

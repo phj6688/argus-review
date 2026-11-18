@@ -1,11 +1,131 @@
 import base64
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 import httpx
 import pytest
+from conftest import stub_github_client
 
 from argus import github
 from argus.diff import fetch_pr_files
 from argus.review import fetch_house_rules
+
+
+@pytest.fixture
+def client_state(monkeypatch):
+    github.close_client()
+    monkeypatch.setattr(github, "_http", None)
+    monkeypatch.setattr(github, "_quota", {})
+    monkeypatch.setattr(github, "_pause_until", 0)
+    monkeypatch.setattr(github, "_graphql_pause_until", 0)
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+    try:
+        yield
+    finally:
+        github.close_client()
+
+
+def test_get_reuses_client(client_state, monkeypatch):
+    real_client = httpx.Client
+    clients = []
+
+    def create_client(**kwargs):
+        client = real_client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"ok": True})),
+            **kwargs,
+        )
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(httpx, "Client", create_client)
+    assert github._http is None
+    assert github.get("/user").json() == {"ok": True}
+    first = github._client()
+    assert github.get("/user").json() == {"ok": True}
+    assert first is github._client() is github._client()
+    assert clients == [first]
+    assert first.timeout == github._TIMEOUT
+    assert first.follow_redirects is False
+    assert "Authorization" not in first.headers
+
+
+def test_close_client_closes_and_recreates(client_state):
+    first = github._client()
+    github.close_client()
+    assert first.is_closed
+    assert github._http is None
+    github.close_client()
+    assert github._http is None
+    second = github._client()
+    assert second is not first
+    assert not second.is_closed
+
+
+def test_client_recreates_closed_instance(client_state):
+    first = github._client()
+    first.close()
+    second = github._client()
+    assert second is not first
+    assert not second.is_closed
+
+
+@pytest.mark.parametrize("method", ["get", "graphql_read"])
+def test_client_auth_and_redirect_policy_are_per_request(client_state, monkeypatch, method):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(302, headers={"Location": "https://example.org/private"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    monkeypatch.setattr(github, "_http", client)
+    for token in ("first-token", "second-token"):
+        monkeypatch.setenv("GITHUB_TOKEN", token)
+        if method == "get":
+            with pytest.raises(github.GitHubDenied):
+                github.get("/user", params={"page": 2}, headers={"If-None-Match": "etag"})
+        else:
+            with pytest.raises(httpx.HTTPStatusError):
+                github.graphql_read("query { viewer { login } }", {})
+    assert len(requests) == 2
+    assert [request.headers["Authorization"] for request in requests] == [
+        "Bearer first-token", "Bearer second-token",
+    ]
+    assert all(request.url.host == "api.github.com" for request in requests)
+    assert all(request.headers["X-GitHub-Api-Version"] == github.API_VERSION for request in requests)
+    assert all(request.extensions["timeout"] == github._TIMEOUT.as_dict() for request in requests)
+    if method == "get":
+        assert all(request.url.params["page"] == "2" for request in requests)
+        assert all(request.headers["If-None-Match"] == "etag" for request in requests)
+    assert "Authorization" not in client.headers
+
+
+def test_concurrent_gets_share_one_client(client_state, monkeypatch):
+    real_client = httpx.Client
+    clients = []
+    start = Barrier(8)
+    requests_started = Barrier(8)
+
+    def handler(request):
+        requests_started.wait(timeout=5)
+        return httpx.Response(200, json={"page": request.url.params["page"]})
+
+    def create_client(**kwargs):
+        client = real_client(transport=httpx.MockTransport(handler), **kwargs)
+        clients.append(client)
+        return client
+
+    def get_page(page):
+        start.wait(timeout=5)
+        response = github.get("/user", params={"page": page})
+        return github._client(), response.json()
+
+    monkeypatch.setattr(httpx, "Client", create_client)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(get_page, range(8)))
+    assert clients == [github._client()]
+    assert all(client is clients[0] for client, _ in results)
+    assert [body for _, body in results] == [{"page": str(page)} for page in range(8)]
 
 
 @pytest.mark.parametrize("file", [
@@ -51,7 +171,7 @@ def _resp(status: int, json=None) -> httpx.Response:
 
 
 def _stub(monkeypatch, response: httpx.Response) -> None:
-    monkeypatch.setattr(github.httpx, "get", lambda *a, **k: response)
+    stub_github_client(monkeypatch, get=lambda *a, **k: response)
 
 
 def test_get_without_token_raises(monkeypatch):
@@ -61,13 +181,7 @@ def test_get_without_token_raises(monkeypatch):
 
 
 def _redirecting_httpx_get(moved_from: str, moved_to: str, payload):
-    """A drop-in for httpx.get that drives a real client over a MockTransport.
-
-    The transport answers `moved_from` with a 301 to `moved_to` and serves the
-    payload there, so httpx's own redirect machinery decides the outcome: the
-    call resolves only if production passes follow_redirects=True. Returns
-    (replacement_get, calls) where calls records the followed-through paths.
-    """
+    """Drive real redirect handling using production's per-request options."""
     calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -79,13 +193,8 @@ def _redirecting_httpx_get(moved_from: str, moved_to: str, payload):
     transport = httpx.MockTransport(handler)
 
     def replacement_get(url, **kwargs):
-        # Honour exactly the redirect policy production passes through; if it
-        # omits follow_redirects the client defaults to False and the 301 raises.
-        with httpx.Client(
-            transport=transport,
-            follow_redirects=kwargs.get("follow_redirects", False),
-        ) as client:
-            return client.get(url, params=kwargs.get("params"), headers=kwargs.get("headers"))
+        with httpx.Client(transport=transport, follow_redirects=True) as client:
+            return client.get(url, **kwargs)
 
     return replacement_get, calls
 
@@ -101,7 +210,7 @@ def test_get_follows_301_for_renamed_repo(monkeypatch):
         "https://api.github.com/repos/example/service-renamed/pulls",
         payload,
     )
-    monkeypatch.setattr(github.httpx, "get", replacement)
+    stub_github_client(monkeypatch, get=replacement)
 
     response = github.get("/repos/example/service/pulls", {"state": "open"})
 
@@ -109,6 +218,22 @@ def test_get_follows_301_for_renamed_repo(monkeypatch):
     assert response.json() == payload
     # Proof the redirect was actually traversed to the renamed location.
     assert "/repos/example/service-renamed/pulls" in calls
+
+
+def test_get_refuses_denied_redirect_before_following(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setenv("ARGUS_DENY_OWNERS", "acme-corp")
+    replacement, calls = _redirecting_httpx_get(
+        "/repos/example/service/pulls",
+        "https://api.github.com/repos/acme-corp/secret-repo/pulls",
+        [],
+    )
+    stub_github_client(monkeypatch, get=replacement)
+
+    with pytest.raises(github.GitHubDenied):
+        github.get("/repos/example/service/pulls")
+
+    assert calls == ["/repos/example/service/pulls"]
 
 
 def test_fetch_pr_files_parses_payload(monkeypatch):
@@ -137,7 +262,7 @@ def test_fetch_pr_files_paginates(monkeypatch):
     page1 = [{"filename": f"f{i}.py", "status": "modified", "patch": "+x"} for i in range(100)]
     page2 = [{"filename": "last.py", "status": "added", "patch": "+y"}]
     pages = iter([_resp(200, page1), _resp(200, page2)])
-    monkeypatch.setattr(github.httpx, "get", lambda *a, **k: next(pages))
+    stub_github_client(monkeypatch, get=lambda *a, **k: next(pages))
     files = fetch_pr_files("example/argus", 12)
     assert len(files) == 101
     assert files[-1].filename == "last.py"
@@ -191,7 +316,7 @@ def test_list_owned_repos_paginates_and_skips_archived(monkeypatch):
     first = _resp(200, page1)
     first.headers["Link"] = '<https://api.github.com/user/repos?page=2>; rel="next"'
     pages = iter([first, _resp(200, page2)])
-    monkeypatch.setattr(github.httpx, "get", lambda *a, **k: next(pages))
+    stub_github_client(monkeypatch, get=lambda *a, **k: next(pages))
 
     repos = github.list_owned_repos()
 
@@ -208,7 +333,7 @@ def test_list_owned_repos_requests_owner_affiliation(monkeypatch):
         captured.update(k.get("params") or {})
         return _resp(200, [])
 
-    monkeypatch.setattr(github.httpx, "get", capturing_get)
+    stub_github_client(monkeypatch, get=capturing_get)
     github.list_owned_repos()
 
     assert captured["affiliation"] == "owner"

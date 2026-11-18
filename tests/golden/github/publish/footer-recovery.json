@@ -1,0 +1,113 @@
+{
+  "case": "footer-recovery",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/user"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/comments"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/reviews"
+    }
+  ],
+  "result": {
+    "already_posted": 1,
+    "bot_login": "example-bot",
+    "comments_posted": 1,
+    "gh_review_id": 301,
+    "items": [
+      {
+        "category": "contracts",
+        "confidence": 0.9,
+        "description": "An empty input reaches storage.",
+        "end_line": 11,
+        "evidence": "save(value)",
+        "evidence_tier": "consensus",
+        "file": "src/app.py",
+        "fingerprint": "fp-inline",
+        "gh_comment_id": 801,
+        "line": 10,
+        "placement": "inline",
+        "proposed_fix": "Reject empty input before saving.",
+        "severity": "major",
+        "title": "Validate input before saving"
+      }
+    ],
+    "payload": {
+      "body": "Stored review.\n\n<!-- argus:review=7 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
+      "comments": [
+        {
+          "body": "Stored finding.\n<!-- argus:fp=fp-inline -->",
+          "id": 801,
+          "line": null,
+          "original_line": 11,
+          "original_start_line": 10,
+          "path": "src/app.py",
+          "pull_request_review_id": 301,
+          "side": "RIGHT",
+          "user": {
+            "login": "example-bot"
+          }
+        }
+      ],
+      "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event": "COMMENT"
+    },
+    "posted_at": "<ts>",
+    "reason": "recovered an existing review",
+    "status": "posted"
+  },
+  "scenario": "publish"
+}

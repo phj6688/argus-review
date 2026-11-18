@@ -152,7 +152,7 @@ def test_a_changed_file_with_no_patch_counts_as_unread(monkeypatch):
 
 def test_probe_lane_failure_is_recorded_not_silently_dropped(monkeypatch):
     """A crashed lane must not read as a lane that ran and found nothing."""
-    from argus.jarvis import live
+    from argus import live
 
     def explode(*args, **kwargs):
         raise RuntimeError("probe scan blew up")
@@ -166,7 +166,7 @@ def test_probe_lane_failure_is_recorded_not_silently_dropped(monkeypatch):
 
 
 def _run_offline(monkeypatch, files, pr_review):
-    from argus.jarvis import live
+    from argus import live
 
     monkeypatch.setattr(live, "_pr_meta", lambda *args: {"title": "", "body": "", "commits": []})
     monkeypatch.setattr(review_mod, "fetch_pr_files", lambda *args: files)

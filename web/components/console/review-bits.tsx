@@ -1,12 +1,28 @@
 import Link from "next/link";
-import type { LiveReview, ReviewSummary, Severity } from "@/lib/types";
+import { isGitLabKey, projectLabel } from "@/lib/forge";
+import type { LiveReview, ReviewSummary, RiskTier } from "@/lib/types";
 import { cn, SEV_ABBREV, SEV_TALLY_TIP, SEVERITIES, modelChipStyle, sevVar } from "@/lib/utils";
 
 const ACTION = {
-  acted: { label: "acted", color: "var(--color-accent)", tip: "You addressed this finding before the PR merged." },
-  merged: { label: "merged past", color: "var(--color-faint)", tip: "Argus flagged it, but the PR merged without it being addressed." },
-  pending: { label: "pending", color: "var(--color-dim)", tip: "PR is still open — not yet resolved or merged." },
+  posted: { label: "posted", color: "var(--color-accent)", tip: "Argus posted this review to the pull request on GitHub." },
+  dry_run: { label: "dry run", color: "var(--color-dim)", tip: "Posting was rehearsed, nothing was sent to GitHub." },
+  not_posted: { label: "review only", color: "var(--color-faint)", tip: "Argus reviewed this PR but did not post to GitHub: publishing is off for this repo, or there was nothing new." },
+  post_failed: { label: "post failed", color: "var(--color-critical)", tip: "The review finished but posting it to GitHub failed." },
 } as const;
+
+function actionTip(tip: string, gitlab: boolean): string {
+  return gitlab ? tip.replace("pull request on GitHub", "merge request on GitLab")
+    .replace("this PR", "this merge request").replaceAll("GitHub", "GitLab") : tip;
+}
+
+export function ForgeChip() {
+  return (
+    <span data-tip="GitLab merge request"
+      className="shrink-0 rounded-[6px] border border-[var(--line-14)] bg-[var(--bone-04)] px-[6px] py-[3px] text-[10px] text-dim">
+      MR
+    </span>
+  );
+}
 
 export function ModelChip({
   model,
@@ -22,6 +38,26 @@ export function ModelChip({
       style={modelChipStyle(model)}
     >
       {model}
+    </span>
+  );
+}
+
+export function RiskChip({ risk }: { risk?: RiskTier | null }) {
+  if (!risk) return null;
+  const risky = risk.tier === "risky";
+  return (
+    <span
+      data-testid="risk-tier"
+      data-tier={risk.tier}
+      data-tip={risk.reasons.length ? `${risk.label} Reasons: ${risk.reasons.join("; ")}` : risk.label}
+      className="inline-block whitespace-nowrap rounded-[6px] border px-[9px] py-[3px] text-[11px]"
+      style={{
+        color: risky ? "var(--color-accent)" : "var(--color-dim)",
+        borderColor: risky ? "var(--accent-35)" : "var(--line-14)",
+        background: risky ? "var(--accent-08)" : "var(--bone-04)",
+      }}
+    >
+      {risk.tier}
     </span>
   );
 }
@@ -49,11 +85,20 @@ function RowModel({ review }: { review: ReviewSummary }) {
   return <ModelChip model={review.model} />;
 }
 
-export function ActionLabel({ action }: { action: ReviewSummary["action"] }) {
-  const a = ACTION[action];
+export function ActionLabel({ review }: { review: ReviewSummary }) {
+  if (!review.action) {
+    return (
+      <span data-tip="The review failed, so there was nothing to post." className="text-xs text-faint">
+        —
+      </span>
+    );
+  }
+  const a = ACTION[review.action];
+  const count = review.action === "posted" && review.posted_comments ? ` · ${review.posted_comments}` : "";
   return (
-    <span data-tip={a.tip} className="text-xs" style={{ color: a.color }}>
+    <span data-tip={actionTip(a.tip, isGitLabKey(review.repo))} className="text-xs" style={{ color: a.color }}>
       {a.label}
+      {count}
     </span>
   );
 }
@@ -102,14 +147,15 @@ export function ReviewRow({
       )}
     >
       <div className="flex w-[104px] shrink-0 items-center gap-2 overflow-hidden md:w-[176px]">
-        <span className="truncate font-mono text-xs text-dim">{review.repo}</span>
+        <span className="truncate font-mono text-xs text-dim">{projectLabel(review)}</span>
         <span className="shrink-0 font-mono text-xs text-faint">#{review.pr}</span>
+        {isGitLabKey(review.repo) && <ForgeChip />}
       </div>
       <div className="min-w-0 flex-1 truncate text-sm text-text">{review.title}</div>
-      <div className="shrink-0 md:w-[76px]">
+      <div className={cn("shrink-0", list ? "md:w-[124px]" : "md:w-[76px]")}>
         <RowModel review={review} />
       </div>
-      <div className="hidden w-[150px] shrink-0 gap-2 md:flex">
+      <div className={cn("hidden shrink-0 gap-2 md:flex", list ? "w-[184px]" : "w-[150px]")}>
         {review.status === "error" ? (
           <span
             data-testid="row-failed"
@@ -124,8 +170,11 @@ export function ReviewRow({
       </div>
       {list ? (
         <>
-          <div className="hidden w-[78px] shrink-0 sm:block">
-            <ActionLabel action={review.action} />
+          <div className="hidden w-[56px] shrink-0 md:block">
+            <RiskChip risk={review.risk} />
+          </div>
+          <div className="hidden w-[92px] shrink-0 whitespace-nowrap sm:block">
+            <ActionLabel review={review} />
           </div>
           <div className="w-[34px] shrink-0 text-right text-xs text-faint">{review.age}</div>
         </>
@@ -149,8 +198,9 @@ export function LiveStrip({ live, variant }: { live: LiveReview | null; variant:
       style={{ background: "var(--accent-04)" }}
     >
       <span className="pulse h-2 w-2 shrink-0 rounded-full bg-accent" />
-      <span className="font-mono text-xs text-dim">{live.repo}</span>
+      <span className="font-mono text-xs text-dim">{projectLabel(live)}</span>
       <span className="font-mono text-xs text-faint">#{live.pr}</span>
+      {isGitLabKey(live.repo) && <ForgeChip />}
       <span className="min-w-0 flex-1 truncate text-[13px] text-text max-sm:hidden">{live.title}</span>
       <span className="ml-auto whitespace-nowrap text-xs text-accent sm:ml-0">
         {list ? `reviewing · ${live.stage}` : "reviewing now…"}

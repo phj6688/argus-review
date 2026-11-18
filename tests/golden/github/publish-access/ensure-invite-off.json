@@ -1,0 +1,27 @@
+{
+  "case": "ensure-invite-off",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app"
+    }
+  ],
+  "result": {
+    "detail": "bot has no write access, auto-invite is off (ARGUS_PUBLISH_AUTO_INVITE), add the bot by hand",
+    "grant": "skipped",
+    "settingsUrl": "https://github.com/example/app/settings/access",
+    "state": "missing"
+  },
+  "scenario": "publish-access"
+}

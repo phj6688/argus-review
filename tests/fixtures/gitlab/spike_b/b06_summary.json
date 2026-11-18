@@ -1,0 +1,1233 @@
+{
+  "derived": {
+    "channels": {
+      "diff": {
+        "executed_variants": [
+          "plain",
+          "details",
+          "marker_first_line"
+        ],
+        "neutralized_variants": [
+          "backslash",
+          "fenced",
+          "zwsp",
+          "nbsp",
+          "tab"
+        ]
+      },
+      "draft": {
+        "executed_variants": [
+          "plain",
+          "details",
+          "marker_first_line"
+        ],
+        "neutralized_variants": [
+          "backslash",
+          "fenced",
+          "zwsp",
+          "nbsp",
+          "tab"
+        ]
+      },
+      "notes": {
+        "executed_variants": [
+          "plain",
+          "details",
+          "crlf",
+          "marker_first_line"
+        ],
+        "neutralized_variants": [
+          "backslash",
+          "fenced",
+          "fenced_tilde",
+          "fenced_four",
+          "fenced_suggestion",
+          "details_tight",
+          "zwsp",
+          "nbsp",
+          "tab",
+          "zwj",
+          "word_joiner",
+          "bom",
+          "space1",
+          "indent4",
+          "blockquote",
+          "list_item",
+          "after_text",
+          "after_html_comment",
+          "inline_code",
+          "html_entity",
+          "fullwidth"
+        ]
+      },
+      "reply": {
+        "executed_variants": [
+          "plain",
+          "details",
+          "marker_first_line"
+        ],
+        "neutralized_variants": [
+          "backslash",
+          "fenced",
+          "zwsp",
+          "nbsp",
+          "tab"
+        ]
+      },
+      "reporter": {
+        "executed_variants": [],
+        "neutralized_variants": [
+          "plain"
+        ]
+      }
+    },
+    "command_effects": [
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "697ad81d13fe8492a9c499580048d065a512a136",
+          "state": "closed",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-close-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:25.916Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "697ad81d13fe8492a9c499580048d065a512a136",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-close-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:25.400Z"
+        },
+        "changed_fields": [
+          "state",
+          "updated_at"
+        ],
+        "command": "close",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "7f42c578b33c69efd25aa6480e27d8bac868881f",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-close-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:29.222Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "7f42c578b33c69efd25aa6480e27d8bac868881f",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-close-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:28.423Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "close",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "54aa21d52153727f19d035cf2633b5367bb3915b",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-merge-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:31.881Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "54aa21d52153727f19d035cf2633b5367bb3915b",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-merge-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:31.417Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "merge",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "aa61d1ddf4a1598f3ba26c09afa3ed78249405c2",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-merge-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:35.084Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "aa61d1ddf4a1598f3ba26c09afa3ed78249405c2",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-merge-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:34.368Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "merge",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": true,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "74557a6ffd826444888ef9f35b347cc7036d70cf",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Draft: Spike B cmd-draft-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:37.770Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "74557a6ffd826444888ef9f35b347cc7036d70cf",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-draft-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:37.291Z"
+        },
+        "changed_fields": [
+          "title",
+          "draft",
+          "updated_at"
+        ],
+        "command": "draft",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "8b52b4838575b4c475a8b1b3e6ba111b62f57e0d",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-draft-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:41.210Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "8b52b4838575b4c475a8b1b3e6ba111b62f57e0d",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-draft-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:40.238Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "draft",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [
+            {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            }
+          ],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "f19ca5e624545f0c47b81187167e430c57c007c0",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-assign-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:44.258Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "f19ca5e624545f0c47b81187167e430c57c007c0",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-assign-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:43.699Z"
+        },
+        "changed_fields": [
+          "assignees",
+          "updated_at"
+        ],
+        "command": "assign",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "7322d8d204eb484c6167ee7984d74eb16886d880",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-assign-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:47.168Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "7322d8d204eb484c6167ee7984d74eb16886d880",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-assign-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:46.727Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "assign",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [
+            {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            }
+          ],
+          "sha": "d104de8c92c5ca3d88c12712c4e0eed5c0d343e6",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-reviewer-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:50.384Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "d104de8c92c5ca3d88c12712c4e0eed5c0d343e6",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-reviewer-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:50.157Z"
+        },
+        "changed_fields": [
+          "reviewers",
+          "updated_at"
+        ],
+        "command": "reviewer",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "3b3b1055853318cf813e6d4e674eadceca770cc6",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-reviewer-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:54.073Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "3b3b1055853318cf813e6d4e674eadceca770cc6",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-reviewer-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:52.970Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "reviewer",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "c5463457ed51d49d0dc8d319e697936fae595620",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Renamed by command",
+          "updated_at": "2026-11-02T22:18:56.920Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "c5463457ed51d49d0dc8d319e697936fae595620",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-title-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:18:56.368Z"
+        },
+        "changed_fields": [
+          "title",
+          "updated_at"
+        ],
+        "command": "title",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "03238e8779a2b96de2152d04db93a137771c76c7",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-title-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:59.910Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "03238e8779a2b96de2152d04db93a137771c76c7",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-title-argus-bot RUN",
+          "updated_at": "2026-11-02T22:18:59.443Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "title",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "51c7d00e0c8447f5523c3daecfb6e52891c9b3c2",
+          "state": "opened",
+          "target_branch": "main",
+          "title": "Spike B cmd-target-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:03.390Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "51c7d00e0c8447f5523c3daecfb6e52891c9b3c2",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-target-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:02.430Z"
+        },
+        "changed_fields": [
+          "target_branch",
+          "updated_at"
+        ],
+        "command": "target",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "3e6765f91d9adca1ac8572bd29a912d5d37c831f",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-target-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:06.324Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "3e6765f91d9adca1ac8572bd29a912d5d37c831f",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-target-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:05.862Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "target",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [
+            {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 3,
+              "locked": false,
+              "name": "Argus Bot Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-bot-dev",
+              "web_url": "https://gitlab.example.test/argus-bot-dev"
+            }
+          ],
+          "sha": "390c5c7fc856310bd4490ca57ce3558a8f15f8e7",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-approve-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:09.288Z"
+        },
+        "approvals_after": {
+          "approved": true,
+          "approved_by": [
+            {
+              "approved_at": "2026-11-02T22:19:09.333Z",
+              "user": {
+                "avatar_url": "<AVATAR_URL>",
+                "id": 3,
+                "locked": false,
+                "name": "Argus Bot Developer",
+                "public_email": null,
+                "state": "active",
+                "username": "argus-bot-dev",
+                "web_url": "https://gitlab.example.test/argus-bot-dev"
+              }
+            }
+          ],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "390c5c7fc856310bd4490ca57ce3558a8f15f8e7",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-approve-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:08.813Z"
+        },
+        "changed_fields": [
+          "reviewers",
+          "updated_at"
+        ],
+        "command": "approve",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "6ae92eeaab5be466b1213faed00497e430b65405",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-approve-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:12.224Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "6ae92eeaab5be466b1213faed00497e430b65405",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-approve-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:11.771Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "approve",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "595ff802ef0fa70b2397e36e097a266f47088fe6",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-rebase-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:15.339Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "595ff802ef0fa70b2397e36e097a266f47088fe6",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-rebase-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:14.747Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "rebase",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "6e83f292c6960225b95db95be2ae8327583aad95",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-rebase-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:18.144Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "6e83f292c6960225b95db95be2ae8327583aad95",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-rebase-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:17.670Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "rebase",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [
+            "bugfix-x"
+          ],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "a9c42719f9d04208fb79c149966ec22322cef817",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-label-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:21.218Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "a9c42719f9d04208fb79c149966ec22322cef817",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-label-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:20.643Z"
+        },
+        "changed_fields": [
+          "labels",
+          "updated_at"
+        ],
+        "command": "label",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "e533d4dadf2579c9e0bb9f4b8506b32b39649722",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-label-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:24.163Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "e533d4dadf2579c9e0bb9f4b8506b32b39649722",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-label-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:23.695Z"
+        },
+        "changed_fields": [
+          "updated_at"
+        ],
+        "command": "label",
+        "status": 202,
+        "who": "argus-bot"
+      },
+      {
+        "after": {
+          "assignees": [],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "3e9c889a33c5b6f5950866b997d4172d9375e640",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-unassign-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:27.543Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [
+            {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            }
+          ],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "3e9c889a33c5b6f5950866b997d4172d9375e640",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-unassign-argus-bot-dev RUN",
+          "updated_at": "2026-11-02T22:19:27.375Z"
+        },
+        "changed_fields": [
+          "assignees",
+          "updated_at"
+        ],
+        "command": "unassign",
+        "status": 202,
+        "who": "argus-bot-dev"
+      },
+      {
+        "after": {
+          "assignees": [
+            {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            }
+          ],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "1fb7c26bdab937b8fcf707006a4f84523f6c188f",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-unassign-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:30.446Z"
+        },
+        "approvals_after": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "approvals_before": {
+          "approved": false,
+          "approved_by": [],
+          "user_can_approve": true,
+          "user_has_approved": false
+        },
+        "before": {
+          "assignees": [
+            {
+              "avatar_url": "<AVATAR_URL>",
+              "id": 4,
+              "locked": false,
+              "name": "Argus Developer",
+              "public_email": null,
+              "state": "active",
+              "username": "argus-dev",
+              "web_url": "https://gitlab.example.test/argus-dev"
+            }
+          ],
+          "draft": false,
+          "labels": [],
+          "rebase_in_progress": false,
+          "reviewers": [],
+          "sha": "1fb7c26bdab937b8fcf707006a4f84523f6c188f",
+          "state": "opened",
+          "target_branch": "spike-b/base-RUN",
+          "title": "Spike B cmd-unassign-argus-bot RUN",
+          "updated_at": "2026-11-02T22:19:30.446Z"
+        },
+        "changed_fields": [],
+        "command": "unassign",
+        "status": 202,
+        "who": "argus-bot"
+      }
+    ],
+    "control_executed": true,
+    "executed_variants": [
+      "plain",
+      "details",
+      "crlf",
+      "marker_first_line"
+    ],
+    "neutralized_variants": [
+      "backslash",
+      "fenced",
+      "fenced_tilde",
+      "fenced_four",
+      "fenced_suggestion",
+      "details_tight",
+      "zwsp",
+      "nbsp",
+      "tab",
+      "zwj",
+      "word_joiner",
+      "bom",
+      "space1",
+      "indent4",
+      "blockquote",
+      "list_item",
+      "after_text",
+      "after_html_comment",
+      "inline_code",
+      "html_entity",
+      "fullwidth"
+    ],
+    "stored_body_changed": {
+      "diff:backslash": false,
+      "diff:details": true,
+      "diff:fenced": false,
+      "diff:marker_first_line": true,
+      "diff:nbsp": false,
+      "diff:plain": true,
+      "diff:tab": false,
+      "diff:zwsp": false,
+      "draft:backslash": false,
+      "draft:details": true,
+      "draft:fenced": false,
+      "draft:marker_first_line": true,
+      "draft:nbsp": false,
+      "draft:plain": true,
+      "draft:tab": false,
+      "draft:zwsp": false,
+      "notes:after_html_comment": false,
+      "notes:after_text": false,
+      "notes:backslash": false,
+      "notes:blockquote": false,
+      "notes:bom": false,
+      "notes:crlf": true,
+      "notes:details": true,
+      "notes:details_tight": false,
+      "notes:fenced": false,
+      "notes:fenced_four": false,
+      "notes:fenced_suggestion": false,
+      "notes:fenced_tilde": false,
+      "notes:fullwidth": false,
+      "notes:html_entity": false,
+      "notes:indent4": false,
+      "notes:inline_code": false,
+      "notes:list_item": false,
+      "notes:marker_first_line": true,
+      "notes:nbsp": false,
+      "notes:plain": true,
+      "notes:space1": false,
+      "notes:tab": false,
+      "notes:word_joiner": false,
+      "notes:zwj": false,
+      "notes:zwsp": false,
+      "reply:backslash": false,
+      "reply:details": true,
+      "reply:fenced": false,
+      "reply:marker_first_line": true,
+      "reply:nbsp": false,
+      "reply:plain": true,
+      "reply:tab": false,
+      "reply:zwsp": false,
+      "reporter:plain": true
+    }
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "summary",
+    "question": 6
+  },
+  "trimmed": {}
+}

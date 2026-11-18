@@ -1,0 +1,79 @@
+{
+  "derived": {
+    "created_at_order": "newest_first",
+    "diff_refs_equal_newest": {
+      "base_sha": true,
+      "head_sha": true,
+      "start_sha": true
+    },
+    "head_matches_mr_sha_indexes": [
+      0,
+      1,
+      2
+    ],
+    "id_order": "newest_first"
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "versions",
+    "question": 3
+  },
+  "request": {
+    "auth": "argus-dev",
+    "method": "GET",
+    "params": {},
+    "path": "/projects/1/merge_requests/4/versions"
+  },
+  "response": {
+    "body": [
+      {
+        "base_commit_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "created_at": "2026-11-02T19:37:16.392Z",
+        "head_commit_sha": "de60cc647b765e14e527761be04c701908d3cee1",
+        "id": 13,
+        "merge_request_id": 4,
+        "patch_id_sha": "e649e8027ff00080d5d023f6430fbfd06a8c3cf0",
+        "real_size": "1",
+        "start_commit_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "state": "collected"
+      },
+      {
+        "base_commit_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "created_at": "2026-11-02T19:37:09.989Z",
+        "head_commit_sha": "de60cc647b765e14e527761be04c701908d3cee1",
+        "id": 8,
+        "merge_request_id": 4,
+        "patch_id_sha": "e649e8027ff00080d5d023f6430fbfd06a8c3cf0",
+        "real_size": "1",
+        "start_commit_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "state": "collected"
+      },
+      {
+        "base_commit_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "created_at": "2026-11-02T19:37:07.982Z",
+        "head_commit_sha": "de60cc647b765e14e527761be04c701908d3cee1",
+        "id": 5,
+        "merge_request_id": 4,
+        "patch_id_sha": "e649e8027ff00080d5d023f6430fbfd06a8c3cf0",
+        "real_size": "1",
+        "start_commit_sha": "2cec1ccca628409c7927dedc5950057cc53ff638",
+        "state": "collected"
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"59ae4ff153ae0a00689c23a4736839c2\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/4/versions?id=1&merge_request_iid=4&page=1&per_page=20>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/4/versions?id=1&merge_request_iid=4&page=1&per_page=20>; rel=\"last\"",
+      "vary": "Accept-Encoding, Origin",
+      "x-next-page": "",
+      "x-page": "1",
+      "x-per-page": "20",
+      "x-prev-page": "",
+      "x-total": "3",
+      "x-total-pages": "1"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

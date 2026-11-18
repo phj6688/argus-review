@@ -12,7 +12,7 @@ import subprocess
 import pytest
 
 from argus.diff import FilePatch
-from argus.jarvis import ruff_lane
+from argus import ruff_lane
 
 BAD = '''import os
 

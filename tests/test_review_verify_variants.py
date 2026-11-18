@@ -19,7 +19,7 @@ import yaml
 from argus import review
 from argus.diff import FilePatch
 from argus.evalkit.replay import serialize_finding
-from argus.jarvis import live
+from argus import live
 from argus.schema import CounterEvidence, Finding, Review, VerifiedFinding
 
 FIXTURES = Path(__file__).with_name("fixtures")
@@ -193,7 +193,7 @@ def test_unknown_variant_fails_when_review_loads(value):
 
 
 @pytest.mark.parametrize("module", ["argus.api.main", "argus.api.watcher", "argus.api.db",
-                                    "argus.cli", "argus.jarvis.cli", "argus.evalkit.cron",
+                                    "argus.cli", "argus.cli_findings", "argus.evalkit.cron",
                                     "argus.evalkit.replay", "argus.evalkit.weekly"])
 def test_service_entry_points_fail_on_an_unknown_variant(module):
     env = {**os.environ, VARIANT_ENV: "bogus"}

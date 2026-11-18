@@ -1,0 +1,78 @@
+{
+  "derived": {
+    "accepted": true,
+    "has_position": true,
+    "line_range": null,
+    "new_line": 1,
+    "old_line": null,
+    "position": {
+      "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+      "head_sha": "a9d477a3b16d241f917f729a4f3ac62e22e08c27",
+      "line_range": null,
+      "new_line": 1,
+      "new_path": "spike/qa.txt",
+      "old_line": null,
+      "old_path": "spike/qa.txt",
+      "position_type": "text",
+      "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+    },
+    "resolvable": null,
+    "resolved": null,
+    "resolved_by": null,
+    "type": null
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "draft_backslash",
+    "question": 6
+  },
+  "request": {
+    "auth": "argus-bot-dev",
+    "json": {
+      "note": "Finding text.\n\n\\/label ~qa-draft-backslash",
+      "position": {
+        "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+        "head_sha": "a9d477a3b16d241f917f729a4f3ac62e22e08c27",
+        "new_line": 1,
+        "new_path": "spike/qa.txt",
+        "old_path": "spike/qa.txt",
+        "position_type": "text",
+        "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+      }
+    },
+    "method": "POST",
+    "params": {},
+    "path": "/projects/1/merge_requests/78/draft_notes"
+  },
+  "response": {
+    "body": {
+      "author_id": 3,
+      "commit_id": null,
+      "discussion_id": null,
+      "id": 2,
+      "line_code": "0a6edb4f5deee2c44bee2a164d5c7703a1a2d5c2_0_1",
+      "merge_request_id": 83,
+      "note": "Finding text.\n\n\\/label ~qa-draft-backslash",
+      "position": {
+        "base_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0",
+        "head_sha": "a9d477a3b16d241f917f729a4f3ac62e22e08c27",
+        "line_range": null,
+        "new_line": 1,
+        "new_path": "spike/qa.txt",
+        "old_line": null,
+        "old_path": "spike/qa.txt",
+        "position_type": "text",
+        "start_sha": "81584505de538ff7e1e95d6004b3a4a79ed3f6a0"
+      },
+      "resolve_discussion": false
+    },
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"419ac4141513551aa49853ac0af068d4\"",
+      "vary": "Origin"
+    },
+    "status": 201
+  },
+  "trimmed": {}
+}

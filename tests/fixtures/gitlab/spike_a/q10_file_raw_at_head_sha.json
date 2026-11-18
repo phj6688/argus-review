@@ -1,0 +1,29 @@
+{
+  "derived": {
+    "decoded_contains_fork": true,
+    "status": 200
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "file_raw_at_head_sha",
+    "question": 10
+  },
+  "request": {
+    "auth": "argus-bot",
+    "method": "GET",
+    "params": {
+      "ref": "fd88c82de6b41d59cf18ee85515997c527bd7191"
+    },
+    "path": "/projects/1/repository/files/src%2Fapp%2Fmain.py/raw"
+  },
+  "response": {
+    "body": "def run():\n    return 'fork'\n",
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate, no-store, no-cache",
+      "content-type": "text/plain; charset=utf-8",
+      "vary": "Origin"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

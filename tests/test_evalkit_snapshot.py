@@ -170,7 +170,7 @@ def test_changed_lines_counts_empty_context():
 def test_mirror_loader_decodes_a_file_with_a_nul_byte_like_the_live_reader(tmp_path, mirror_case,
                                                                          monkeypatch):
     import base64
-    from argus.jarvis import live
+    from argus import live
     case, mirrors = mirror_case
     def contents(path, params=None):
         body = {"encoding": "base64", "content": base64.b64encode(b"\x00new").decode()}

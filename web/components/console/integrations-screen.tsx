@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Reveal, RevealItem } from "@/components/ui/reveal";
-import { ApiBrackets, GitHubMark, McpGear, WarnTriangle } from "@/components/ui/icons";
+import { ApiBrackets, GitHubMark, GitLabMark, McpGear, WarnTriangle } from "@/components/ui/icons";
 import type { Integrations } from "@/lib/types";
 import { ScreenHeader } from "./screen-header";
 
@@ -60,16 +60,25 @@ export function IntegrationsScreen({ data }: { data: Integrations }) {
   };
   const copyLabel = (field: string) => (copied === field ? "Copied" : "Copy");
   const { watcher, publishing } = data.github;
+  const gl = data.gitlab;
+  const identity = gl?.identity;
+  const identityText = identity?.status === "ok" ? `${identity.username}${identity.bot ? " (bot)" : ""}`
+    : identity?.status === "failed" ? identity.reason : "token missing";
+  const gitlabHealth: Integrations["health"] = gl ? [{
+    label: "GitLab",
+    status: [identityText, gl.refusal].filter(Boolean).join(" · "),
+    state: identity?.status === "failed" ? "error" : gl.refusal || identity?.status === "skipped" ? "warn" : "ok",
+  }] : [];
 
   return (
     <div>
       <ScreenHeader
         title="Integrations"
-        subtitle="How Argus reaches GitHub and your model provider, and how clients reach Argus."
+        subtitle={gl ? "How Argus reaches GitHub, GitLab and your model provider, and how clients reach Argus." : "How Argus reaches GitHub and your model provider, and how clients reach Argus."}
       />
 
       <div className="mb-4 flex flex-wrap gap-3">
-        {data.health.map((h) => (
+        {[...data.health, ...gitlabHealth].map((h) => (
           <div
             key={h.label}
             className="flex items-center gap-[9px] rounded-[11px] border border-[var(--line)] bg-surface px-[15px] py-[10px]"
@@ -150,6 +159,22 @@ export function IntegrationsScreen({ data }: { data: Integrations }) {
             </Row>
           </div>
         </RevealItem>
+
+        {gl && (
+          <RevealItem className="panel min-w-0 px-[22px] py-5">
+            <CardHeading icon={<GitLabMark size={20} />} title="GitLab" meta={`token ${gl.token}`} />
+            <Label>Connection</Label>
+            <Row label="Host"><span className="break-all font-mono">{gl.host}</span></Row>
+            <Row label="Base URL"><span className="break-all font-mono">{gl.baseUrl}</span></Row>
+            <Row label="Identity">
+              <span style={{ color: identity?.status === "failed" ? "var(--color-critical)" : undefined }}>{identityText}</span>
+            </Row>
+            <Row label="Publish mode">{gl.publish.mode === "0" ? "off" : gl.publish.mode === "1" ? "on" : gl.publish.mode}</Row>
+            <Row label="Publish projects">{gl.publish.projectCount}</Row>
+            <Row label="Allow entries">{gl.allowCount}</Row>
+            <Row label="Policy"><span className="break-words" style={{ color: gl.refusal ? "var(--color-warn)" : undefined }}>{gl.refusal ?? "none"}</span></Row>
+          </RevealItem>
+        )}
 
         <RevealItem className="panel px-[22px] py-5">
           <CardHeading

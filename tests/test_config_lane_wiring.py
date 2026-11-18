@@ -49,14 +49,14 @@ def quiet_llm(monkeypatch):
 
 @pytest.fixture()
 def whole_files(monkeypatch):
-    from argus.jarvis import live
+    from argus import live
     monkeypatch.setattr(live, "_fetch_file_at",
                         lambda repo, path, sha: VULNERABLE)
 
 
 @pytest.fixture()
 def no_probes(monkeypatch):
-    from argus.jarvis import live
+    from argus import live
     monkeypatch.setattr(live, "probe_scan_for_files",
                         lambda repo, sha, files: _EmptyScan())
 
@@ -124,7 +124,7 @@ def test_one_unparseable_file_does_not_discard_what_the_others_found(
     critical findings already collected from the compose file beside it: a
     partial failure destroying valid evidence, which is the defect class this
     whole lane was built from."""
-    from argus.jarvis import live
+    from argus import live
     bodies = {"compose.yml": VULNERABLE,
               "chart/templates/deploy.yaml": "a:\n  b:\n \t- broken: ["}
     monkeypatch.setattr(live, "_fetch_file_at",
@@ -156,7 +156,7 @@ def test_an_unparseable_file_is_an_error_lane_not_a_clean_one(
         quiet_llm, no_probes, monkeypatch):
     """The law this project learned the hard way: absence of evidence is not a
     pass. A file the lane could not parse must degrade coverage, not vanish."""
-    from argus.jarvis import live
+    from argus import live
     monkeypatch.setattr(live, "_fetch_file_at",
                         lambda repo, path, sha: "a:\n  b:\n \t- broken: [")
     result = run_diff_review(_files("compose.yml"), repo="o/r", head_sha="abc123")

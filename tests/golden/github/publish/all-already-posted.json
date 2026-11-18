@@ -1,0 +1,82 @@
+{
+  "case": "all-already-posted",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/user"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/comments"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "page": "1",
+        "per_page": "100"
+      },
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app/pulls/42/reviews"
+    }
+  ],
+  "result": {
+    "already_posted": 1,
+    "bot_login": null,
+    "comments_posted": 0,
+    "gh_review_id": null,
+    "items": [],
+    "payload": {
+      "body": "**Argus review** for aaaaaaa\n\nVerdict: changes_requested\n\nCoverage: partial\n\nFiles reviewed: 2; omitted: 1\n\nSeverity counts: Critical: 0; Major: 1; Minor: 0; Nit: 0\n\nTier counts: deterministic: 0; consensus: 1; single_critic: 0; disputed: 0\n\nBelow posting threshold: 0\n\nAlready posted: 1\n\n<!-- argus:review=7 head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\n<!-- argus:manifest fp= ufp= -->",
+      "comments": [],
+      "commit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event": "COMMENT"
+    },
+    "posted_at": null,
+    "reason": "nothing new",
+    "status": "skipped"
+  },
+  "scenario": "publish"
+}

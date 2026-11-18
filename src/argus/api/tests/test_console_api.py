@@ -398,7 +398,7 @@ def test_config_shape_and_bugcap_from_constant(client):
     body = client.get("/config").json()
     assert set(body) == {
         "repos", "hiddenCount", "totalRepos", "models", "modelOptions",
-        "bugCap", "minConfidence", "deny", "hard_denied_owners", "watch_mode",
+        "bugCap", "minConfidence", "deny", "hard_denied_owners", "watch_mode", "publish",
     }
     assert body["bugCap"] == DEFAULT_BUG_CAP
     assert isinstance(body["minConfidence"], float)
@@ -422,7 +422,7 @@ def test_integrations_shape_all_keys(client):
         assert h["state"] in ("ok", "warn", "error")
     assert set(body["github"]) == {"token", "watcher", "publishing"}
     assert set(body["github"]["watcher"]) == {"enabled", "owners", "intervalSeconds", "watchedRepos"}
-    assert set(body["github"]["publishing"]) == {"mode", "repoCount", "tokenConfigured"}
+    assert set(body["github"]["publishing"]) == {"mode", "repoCount", "tokenConfigured", "source", "autoInvite"}
     assert set(body["api"]) == {"baseUrl", "auth", "endpoints"}
     for e in body["api"]["endpoints"]:
         assert set(e) == {"method", "path", "description"}

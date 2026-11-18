@@ -3,14 +3,31 @@
 The console's overview, report, and benchmark screens need rollups the engine
 never persists pre-aggregated. Kept out of db.py (writes) and main.py (HTTP)
 so each layer stays single-purpose. Parameterized queries only.
+
+GitHub baseline: done_review_count, distinct_pr_count, mark_precision,
+verified_severity_counts, verified_bug_split, verified_finding_count,
+review_status_counts, error_reason_counts, first_review_at, last_error_at,
+review_repo_counts, daily_buckets, window_rollup.
+Forge-wide operations: reviews_window, top_error_class, review_health.
+Internal helpers: _iso, _parse.
 """
 
 from datetime import datetime, timedelta, timezone
+
+from argus.forge.keys import github_key_sql, gitlab_key_sql
 
 from . import db
 
 SEVERITIES = ("critical", "major", "minor", "nit")
 _DONE = db.STATUS_DONE
+
+
+def _forge_key_sql(forge: str, column: str) -> str:
+    if forge == "github":
+        return github_key_sql(column)
+    if forge == "gitlab":
+        return gitlab_key_sql(column)
+    raise ValueError(f"Unsupported forge: {forge}")
 
 
 def _iso(dt: datetime) -> str:
@@ -21,7 +38,8 @@ def done_review_count(path: str | None = None) -> int:
     conn = db.connect(path)
     try:
         return conn.execute(
-            "SELECT COUNT(*) AS n FROM reviews WHERE status = ?", (_DONE,)
+            f"SELECT COUNT(*) AS n FROM reviews WHERE {github_key_sql('repo')} AND status = ?",  # nosec B608 - validated identifier
+            (_DONE,),
         ).fetchone()["n"]
     finally:
         conn.close()
@@ -37,14 +55,15 @@ def distinct_pr_count(path: str | None = None) -> int:
     conn = db.connect(path)
     try:
         return conn.execute(
-            "SELECT COUNT(*) AS n FROM (SELECT DISTINCT repo, pr FROM reviews WHERE status = ?)",
+            "SELECT COUNT(*) AS n FROM (SELECT DISTINCT repo, pr FROM reviews "
+            f"WHERE {github_key_sql('repo')} AND status = ?)",  # nosec B608 - validated identifier
             (_DONE,),
         ).fetchone()["n"]
     finally:
         conn.close()
 
 
-def mark_precision(path: str | None = None, *, include_auto: bool = False) -> dict:
+def mark_precision(path: str | None = None, *, include_auto: bool = False, forge: str = "github") -> dict:
     """Operator-label rollup over findings: the only ground-truth precision number.
 
     Uses the latest mark per finding (newest id wins). 'located' findings are the
@@ -62,6 +81,7 @@ def mark_precision(path: str | None = None, *, include_auto: bool = False) -> di
     # Machine markers are namespaced (automark:*, agent:*); a bare marker is a
     # human identity (e.g. 'reviewer'). The colon is the namespace convention, so
     # any future machine lane is excluded without another filter change.
+    repo_filter = _forge_key_sql(forge, "r.repo")
     auto_filter = "" if include_auto else (
         "WHERE marker IS NULL OR marker NOT LIKE '%:%' ")
     conn = db.connect(path)
@@ -71,6 +91,9 @@ def mark_precision(path: str | None = None, *, include_auto: bool = False) -> di
             f"  SELECT finding_id, MAX(id) AS max_id FROM marks {auto_filter}"  # nosec B608 - constant filter
             "  GROUP BY finding_id"
             ") latest ON latest.max_id = m.id"
+            " WHERE m.finding_id IN (SELECT f.id FROM findings f "
+            "JOIN reviews r ON r.id = f.review_id "
+            f"WHERE {repo_filter})"  # nosec B608 - validated identifier
         ).fetchall()
     finally:
         conn.close()
@@ -84,13 +107,14 @@ def mark_precision(path: str | None = None, *, include_auto: bool = False) -> di
     return {"labeled": labeled, "located": located, "precision": precision, **tally}
 
 
-def verified_severity_counts(path: str | None = None) -> dict[str, int]:
+def verified_severity_counts(path: str | None = None, *, forge: str = "github") -> dict[str, int]:
     """Confirmed findings (verdict_is_real=1) grouped by severity, zero-filled."""
+    repo_filter = _forge_key_sql(forge, "r.repo")
     conn = db.connect(path)
     try:
         rows = conn.execute(
-            "SELECT severity, COUNT(*) AS n FROM findings "
-            "WHERE verdict_is_real = 1 GROUP BY severity"
+            "SELECT f.severity, COUNT(*) AS n FROM findings f JOIN reviews r ON r.id = f.review_id "
+            f"WHERE {repo_filter} AND f.verdict_is_real = 1 GROUP BY f.severity"  # nosec B608 - validated identifier
         ).fetchall()
     finally:
         conn.close()
@@ -101,26 +125,30 @@ def verified_severity_counts(path: str | None = None) -> dict[str, int]:
     return counts
 
 
-def verified_bug_split(path: str | None = None) -> dict[str, int]:
+def verified_bug_split(path: str | None = None, *, forge: str = "github") -> dict[str, int]:
     """is_bug split among confirmed findings -> {"bug": n, "nit": n}."""
+    repo_filter = _forge_key_sql(forge, "r.repo")
     conn = db.connect(path)
     try:
         row = conn.execute(
             "SELECT "
             "SUM(CASE WHEN is_bug = 1 THEN 1 ELSE 0 END) AS bug, "
             "SUM(CASE WHEN is_bug = 0 THEN 1 ELSE 0 END) AS nit "
-            "FROM findings WHERE verdict_is_real = 1"
+            "FROM findings f JOIN reviews r ON r.id = f.review_id "
+            f"WHERE {repo_filter} AND verdict_is_real = 1"  # nosec B608 - validated identifier
         ).fetchone()
     finally:
         conn.close()
     return {"bug": row["bug"] or 0, "nit": row["nit"] or 0}
 
 
-def verified_finding_count(path: str | None = None) -> int:
+def verified_finding_count(path: str | None = None, *, forge: str = "github") -> int:
+    repo_filter = _forge_key_sql(forge, "r.repo")
     conn = db.connect(path)
     try:
         return conn.execute(
-            "SELECT COUNT(*) AS n FROM findings WHERE verdict_is_real = 1"
+            "SELECT COUNT(*) AS n FROM findings f JOIN reviews r ON r.id = f.review_id "
+            f"WHERE {repo_filter} AND verdict_is_real = 1"  # nosec B608 - validated identifier
         ).fetchone()["n"]
     finally:
         conn.close()
@@ -134,7 +162,7 @@ def review_status_counts(path: str | None = None) -> dict[str, int]:
     conn = db.connect(path)
     try:
         rows = conn.execute(
-            "SELECT status, COUNT(*) AS n FROM reviews GROUP BY status"
+            f"SELECT status, COUNT(*) AS n FROM reviews WHERE {github_key_sql('repo')} GROUP BY status"  # nosec B608 - validated identifier
         ).fetchall()
     finally:
         conn.close()
@@ -151,6 +179,7 @@ def review_status_counts(path: str | None = None) -> dict[str, int]:
 
 def reviews_window(hours: int, path: str | None = None) -> dict[str, int]:
     """done/error review counts over the last `hours` (for /stats.ops + health)."""
+    # Watchdog and health must see failures from every forge.
     since = _iso(datetime.now(timezone.utc) - timedelta(hours=hours))
     conn = db.connect(path)
     try:
@@ -169,6 +198,7 @@ def reviews_window(hours: int, path: str | None = None) -> dict[str, int]:
 
 def top_error_class(hours: int, path: str | None = None) -> str | None:
     """Most common error_class among errored reviews in the window, or None."""
+    # The operations block must diagnose failures from every forge.
     since = _iso(datetime.now(timezone.utc) - timedelta(hours=hours))
     conn = db.connect(path)
     try:
@@ -185,6 +215,7 @@ def top_error_class(hours: int, path: str | None = None) -> str | None:
 def review_health(hours: int = 6, path: str | None = None) -> str:
     """"degraded" when the recent review error-rate is high, else "ok". Same
     threshold the watchdog pages on: >=5 errors and >=50% of the window."""
+    # Health must degrade for failures from every forge.
     window = reviews_window(hours, path)
     total = window["done"] + window["error"]
     if window["error"] >= 5 and total > 0 and (window["error"] * 100 // total) >= 50:
@@ -201,7 +232,8 @@ def first_review_at(path: str | None = None) -> str | None:
     conn = db.connect(path)
     try:
         row = conn.execute(
-            "SELECT created_at FROM reviews ORDER BY created_at ASC, id ASC LIMIT 1"
+            f"SELECT created_at FROM reviews WHERE {github_key_sql('repo')} "  # nosec B608 - validated identifier
+            "ORDER BY created_at ASC, id ASC LIMIT 1"
         ).fetchone()
     finally:
         conn.close()
@@ -217,7 +249,8 @@ def last_error_at(path: str | None = None) -> str | None:
     conn = db.connect(path)
     try:
         rows = conn.execute(
-            "SELECT created_at FROM reviews WHERE status = ?", (db.STATUS_ERROR,)
+            f"SELECT created_at FROM reviews WHERE {github_key_sql('repo')} AND status = ?",  # nosec B608 - validated identifier
+            (db.STATUS_ERROR,),
         ).fetchall()
     finally:
         conn.close()
@@ -237,7 +270,8 @@ def error_reason_counts(path: str | None = None) -> list[dict]:
     conn = db.connect(path)
     try:
         rows = conn.execute(
-            "SELECT error FROM reviews WHERE status = ?", (db.STATUS_ERROR,)
+            f"SELECT error FROM reviews WHERE {github_key_sql('repo')} AND status = ?",  # nosec B608 - validated identifier
+            (db.STATUS_ERROR,),
         ).fetchall()
     finally:
         conn.close()
@@ -262,7 +296,8 @@ def review_repo_counts(path: str | None = None) -> list[dict]:
     conn = db.connect(path)
     try:
         rows = conn.execute(
-            "SELECT repo, COUNT(*) AS n FROM reviews GROUP BY repo ORDER BY n DESC, repo"
+            f"SELECT repo, COUNT(*) AS n FROM reviews WHERE {github_key_sql('repo')} "  # nosec B608 - validated identifier
+            "GROUP BY repo ORDER BY n DESC, repo"
         ).fetchall()
     finally:
         conn.close()
@@ -278,11 +313,12 @@ def daily_buckets(column_table: str, days: int, path: str | None = None) -> list
     now = datetime.now(timezone.utc)
     start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
     if column_table == "reviews":
-        sql = "SELECT created_at FROM reviews WHERE created_at >= ?"
+        sql = f"SELECT created_at FROM reviews WHERE {github_key_sql('repo')} AND created_at >= ?"  # nosec B608 - validated identifier
     else:
         sql = (
             "SELECT r.created_at FROM findings f "
-            "JOIN reviews r ON r.id = f.review_id WHERE r.created_at >= ?"
+            "JOIN reviews r ON r.id = f.review_id "
+            f"WHERE {github_key_sql('r.repo')} AND r.created_at >= ?"  # nosec B608 - validated identifier
         )
     conn = db.connect(path)
     try:
@@ -309,7 +345,7 @@ def window_rollup(period_days: int, path: str | None = None) -> dict:
     try:
         review_rows = conn.execute(
             "SELECT id, repo, created_at FROM reviews "
-            "WHERE status = ? AND created_at >= ?",
+            f"WHERE {github_key_sql('repo')} AND status = ? AND created_at >= ?",  # nosec B608 - validated identifier
             (_DONE, start),
         ).fetchall()
         ids = [r["id"] for r in review_rows]

@@ -6,6 +6,8 @@ import math
 from datetime import timedelta
 from statistics import median
 
+from argus.forge.keys import github_key_sql
+
 from . import db, watch_store
 
 log = logging.getLogger("argus.watcher")
@@ -56,9 +58,10 @@ def coverage(conn, start, end, *, as_of=None):
                AND r.status='done' AND julianday(COALESCE(r.completed_at,r.created_at))<=julianday(?)) has_done,
         (SELECT group_concat(r.completed_at, ',') FROM reviews r WHERE r.repo=h.repo AND r.pr=h.pr
          AND r.head_sha=h.head_sha AND r.status='done' AND julianday(r.completed_at)<=julianday(?)) done_at
-        FROM pr_heads h WHERE
-        (julianday(eligible_at)>=julianday(?) AND julianday(eligible_at)<julianday(?)) OR
-        (julianday(first_seen_at)>=julianday(?) AND julianday(first_seen_at)<julianday(?))""",
+        """
+            f"FROM pr_heads h WHERE {github_key_sql('h.repo')} AND ("  # nosec B608 - validated identifier
+            """(julianday(eligible_at)>=julianday(?) AND julianday(eligible_at)<julianday(?)) OR
+        (julianday(first_seen_at)>=julianday(?) AND julianday(first_seen_at)<julianday(?)))""",  # nosec B608 - validated identifier
             (as_of.isoformat(), as_of.isoformat(), start.isoformat(), end.isoformat(),
              start.isoformat(), end.isoformat()),
         )
@@ -111,9 +114,12 @@ def coverage(conn, start, end, *, as_of=None):
             commits.append(_seconds_between(db._parse_created_at(row["head_committed_at"]), completed))
     listed = [r for r in rows if start <= db._parse_created_at(r["first_seen_at"]) < end]
     attempts = conn.execute(
-        """SELECT error_class, COUNT(*) n FROM watch_attempts
-        WHERE julianday(finished_at)>=julianday(?) AND julianday(finished_at)<julianday(?)
-        GROUP BY error_class""",
+        """SELECT a.error_class, COUNT(*) n FROM watch_attempts a
+        LEFT JOIN pr_heads h ON h.id = a.head_id
+        """
+        f"WHERE (h.id IS NULL OR {github_key_sql('h.repo')}) "  # nosec B608 - validated identifier
+        """AND julianday(a.finished_at)>=julianday(?) AND julianday(a.finished_at)<julianday(?)
+        GROUP BY a.error_class""",  # nosec B608 - validated identifier
         (start.isoformat(), end.isoformat()),
     ).fetchall()
     errors = {r["error_class"]: r["n"] for r in attempts if r["error_class"]}
@@ -167,7 +173,10 @@ def stats(path, now=None):
         }
         opened = conn.execute("""SELECT COUNT(*) total, COALESCE(SUM(EXISTS(
             SELECT 1 FROM reviews r WHERE r.repo=h.repo AND r.pr=h.pr AND r.head_sha=h.head_sha
-            AND r.status='done')),0) done FROM pr_heads h WHERE is_open=1 AND skip_reason IS NULL""").fetchone()
+            AND r.status='done')),0) done FROM pr_heads h WHERE is_open=1 AND skip_reason IS NULL
+            """
+            f"AND {github_key_sql('h.repo')}"  # nosec B608 - validated identifier
+        ).fetchone()
         result["open_eligible_heads"] = opened["total"]
         result["open_done_heads"] = opened["done"]
         result["daily_reports"] = [

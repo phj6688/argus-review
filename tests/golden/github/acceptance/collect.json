@@ -1,0 +1,775 @@
+{
+  "case": "collect",
+  "db_rows": {
+    "finding_outcomes": {
+      "columns": [
+        "finding_id",
+        "kind",
+        "value",
+        "evidence_id",
+        "observed_at",
+        "occurred_at"
+      ],
+      "rows": [
+        [
+          1,
+          "reply",
+          "fixed",
+          "901",
+          "<ts>",
+          "<ts>"
+        ],
+        [
+          2,
+          "reply",
+          "rejected",
+          "902",
+          "<ts>",
+          "<ts>"
+        ],
+        [
+          1,
+          "resolved",
+          "true",
+          "101",
+          "<ts>",
+          null
+        ],
+        [
+          2,
+          "resolved",
+          "false",
+          "102",
+          "<ts>",
+          null
+        ],
+        [
+          1,
+          "addressed",
+          "true",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "<ts>",
+          null
+        ],
+        [
+          2,
+          "addressed",
+          "false",
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "<ts>",
+          null
+        ]
+      ]
+    },
+    "findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "worker.py",
+          2,
+          "major",
+          0.9,
+          "Lost error result",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-2",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "findings_raw": {
+      "columns": [
+        "id",
+        "review_id",
+        "file",
+        "line",
+        "severity",
+        "confidence",
+        "title",
+        "description",
+        "proposed_fix",
+        "rule_id",
+        "is_bug",
+        "verdict_is_real",
+        "verdict_confidence",
+        "fingerprint",
+        "lane",
+        "end_line",
+        "category",
+        "evidence",
+        "judge_verdict",
+        "judge_confidence",
+        "judge_model"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "app.py",
+          2,
+          "major",
+          0.9,
+          "Missing input check",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-1",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ],
+        [
+          2,
+          1,
+          "worker.py",
+          2,
+          "major",
+          0.9,
+          "Lost error result",
+          "Empty input reaches the parser.",
+          "Reject empty input before parsing.",
+          null,
+          1,
+          1,
+          0.95,
+          "fp-2",
+          "llm",
+          2,
+          "input_handling",
+          "    return parse(value)",
+          null,
+          null,
+          null
+        ]
+      ]
+    },
+    "known_fps_live": {
+      "columns": [
+        "repo",
+        "file",
+        "title",
+        "fingerprint",
+        "reply_id",
+        "rejected_at"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "worker.py",
+          "lost error result",
+          "fp-2",
+          "902",
+          "<ts>"
+        ]
+      ]
+    },
+    "outcome_cursors": {
+      "columns": [
+        "repo",
+        "since",
+        "last_collected_at"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "<ts>",
+          "<ts>"
+        ]
+      ]
+    },
+    "outcome_prs": {
+      "columns": [
+        "repo",
+        "pr",
+        "state",
+        "merged",
+        "closed_at",
+        "head_sha",
+        "checked_at"
+      ],
+      "rows": [
+        [
+          "example/app",
+          3,
+          "open",
+          0,
+          null,
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "<ts>"
+        ]
+      ]
+    },
+    "published_findings": {
+      "columns": [
+        "id",
+        "review_id",
+        "repo",
+        "pr",
+        "head_sha",
+        "fingerprint",
+        "severity",
+        "category",
+        "path",
+        "line",
+        "end_line",
+        "title",
+        "placement",
+        "mode",
+        "gh_review_id",
+        "gh_comment_id",
+        "posted_at",
+        "comment_lookups",
+        "unverified",
+        "gh_thread_id",
+        "anchor_status"
+      ],
+      "rows": [
+        [
+          1,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-1",
+          "major",
+          "input_handling",
+          "app.py",
+          2,
+          2,
+          "Missing input check",
+          "inline",
+          "posted",
+          20,
+          101,
+          "<ts>",
+          0,
+          0,
+          "thread-101",
+          null
+        ],
+        [
+          2,
+          1,
+          "example/app",
+          3,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fp-2",
+          "major",
+          "input_handling",
+          "worker.py",
+          2,
+          2,
+          "Lost error result",
+          "inline",
+          "posted",
+          20,
+          102,
+          "<ts>",
+          0,
+          0,
+          "thread-102",
+          null
+        ]
+      ]
+    },
+    "publishing_identities": {
+      "columns": [
+        "repo",
+        "bot_login",
+        "first_seen_at",
+        "bot_user_id"
+      ],
+      "rows": [
+        [
+          "example/app",
+          "publisher",
+          "<ts>",
+          null
+        ]
+      ]
+    },
+    "reply_texts": {
+      "columns": [
+        "finding_id",
+        "evidence_id",
+        "body",
+        "author_association",
+        "author_login",
+        "answered_head",
+        "author_trusted"
+      ],
+      "rows": [
+        [
+          1,
+          "901",
+          "Fixed by validating input first.",
+          "MEMBER",
+          "maintainer",
+          null,
+          null
+        ],
+        [
+          2,
+          "902",
+          "Rejected because the caller already handles this case.",
+          "OWNER",
+          "maintainer",
+          null,
+          null
+        ]
+      ]
+    },
+    "reviews": {
+      "columns": [
+        "id",
+        "repo",
+        "pr",
+        "model",
+        "status",
+        "created_at",
+        "raw_count",
+        "dropped",
+        "head_sha",
+        "error",
+        "completed_at",
+        "error_class",
+        "source_kind",
+        "base_sha",
+        "diff_hash",
+        "baseline_json",
+        "model_used",
+        "fallback_from",
+        "fallback_reason",
+        "coverage_json",
+        "risk_tier",
+        "risk_json",
+        "branch",
+        "author",
+        "files_changed",
+        "lines_added",
+        "lines_removed",
+        "publish_status",
+        "published_at",
+        "publish_error",
+        "published_comments",
+        "publish_payload"
+      ],
+      "rows": [
+        [
+          1,
+          "example/app",
+          3,
+          "model-a",
+          "done",
+          "<ts>",
+          2,
+          0,
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          null,
+          "<ts>",
+          null,
+          "pr",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "lanes": [
+              {
+                "files": 1,
+                "lane": "llm",
+                "model": "model-a",
+                "status": "ran"
+              }
+            ],
+            "level": "full"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          "posted",
+          "<ts>",
+          null,
+          2,
+          null
+        ]
+      ]
+    }
+  },
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {
+        "direction": "asc",
+        "per_page": "100",
+        "since": "2025-12-16T00:00:00+00:00",
+        "sort": "updated"
+      },
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/comments"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/pulls/3"
+    },
+    {
+      "body": {
+        "query": "query($owner: String!, $name: String!, $pr: Int!) {\n  repository(owner: $owner, name: $name) {\n    pullRequest(number: $pr) {\n      reviewThreads(first:100) {\n        nodes { id isResolved comments(first:1) { nodes { databaseId } } }\n      }\n    }\n  }\n}",
+        "variables": {
+          "name": "app",
+          "owner": "example",
+          "pr": 3
+        }
+      },
+      "body_sha256": "ade83160259e0de64e1c24e642e79d74a9924d162bdbcdffc2aeeb54c1031c7e",
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "content-type": "application/json",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "POST",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/graphql"
+    },
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <reviewer-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "github.get",
+      "url": "https://api.github.com/repos/example/app/compare/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "result": {
+    "returned": null,
+    "stats": {
+      "bot": {
+        "rechecks": {
+          "fixed": 0,
+          "present": 0,
+          "unsure": 0
+        },
+        "replies": 0,
+        "resolutions": 0
+      },
+      "bot_logins": {
+        "example/app": [
+          "publisher"
+        ]
+      },
+      "by_placement": {
+        "inline": {
+          "deferred": 0,
+          "loose_accepted": 1,
+          "loose_rate": 0.5,
+          "loose_wilson_95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ],
+          "posted": 2,
+          "rejected": 1,
+          "strict_accepted": 1,
+          "strict_rate": 0.5,
+          "strict_wilson_95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ],
+          "unconfirmed": 0
+        },
+        "summary": {
+          "deferred": 0,
+          "loose_accepted": 0,
+          "loose_rate": null,
+          "loose_wilson_95": [
+            null,
+            null
+          ],
+          "posted": 0,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": null,
+          "strict_wilson_95": [
+            null,
+            null
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_repo": {
+        "example/app": {
+          "deferred": 0,
+          "loose_accepted": 1,
+          "loose_rate": 0.5,
+          "loose_wilson_95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ],
+          "posted": 2,
+          "rejected": 1,
+          "strict_accepted": 1,
+          "strict_rate": 0.5,
+          "strict_wilson_95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "by_severity": {
+        "major": {
+          "deferred": 0,
+          "loose_accepted": 1,
+          "loose_rate": 0.5,
+          "loose_wilson_95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ],
+          "posted": 2,
+          "rejected": 1,
+          "strict_accepted": 1,
+          "strict_rate": 0.5,
+          "strict_wilson_95": [
+            0.09453120573423074,
+            0.9054687942657693
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "final": {
+        "by_placement": {
+          "inline": {
+            "deferred": 0,
+            "loose_accepted": 0,
+            "loose_rate": null,
+            "loose_wilson_95": [
+              null,
+              null
+            ],
+            "posted": 0,
+            "rejected": 0,
+            "strict_accepted": 0,
+            "strict_rate": null,
+            "strict_wilson_95": [
+              null,
+              null
+            ],
+            "unconfirmed": 0
+          },
+          "summary": {
+            "deferred": 0,
+            "loose_accepted": 0,
+            "loose_rate": null,
+            "loose_wilson_95": [
+              null,
+              null
+            ],
+            "posted": 0,
+            "rejected": 0,
+            "strict_accepted": 0,
+            "strict_rate": null,
+            "strict_wilson_95": [
+              null,
+              null
+            ],
+            "unconfirmed": 0
+          }
+        },
+        "by_repo": {},
+        "by_severity": {},
+        "totals": {
+          "deferred": 0,
+          "loose_accepted": 0,
+          "loose_rate": null,
+          "loose_wilson_95": [
+            null,
+            null
+          ],
+          "posted": 0,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": null,
+          "strict_wilson_95": [
+            null,
+            null
+          ],
+          "unconfirmed": 0
+        },
+        "unverified": {
+          "deferred": 0,
+          "loose_accepted": 0,
+          "loose_rate": null,
+          "loose_wilson_95": [
+            null,
+            null
+          ],
+          "posted": 0,
+          "rejected": 0,
+          "strict_accepted": 0,
+          "strict_rate": null,
+          "strict_wilson_95": [
+            null,
+            null
+          ],
+          "unconfirmed": 0
+        }
+      },
+      "last_collection_at": "<ts>",
+      "last_run": {
+        "bot": {
+          "rechecks": {
+            "fixed": 0,
+            "present": 0,
+            "unsure": 0
+          },
+          "replies": 0,
+          "resolutions": 0
+        },
+        "compares_not_ancestor": 0,
+        "failures": 0,
+        "finished_at": "<ts>",
+        "graphql_paused": false,
+        "prs_checked": 1,
+        "prs_skipped_final": 0,
+        "rechecks_attempted": 0,
+        "reconciled_found": 0,
+        "reconciled_missing": 0,
+        "repos": 1,
+        "started_at": "<ts>",
+        "stopped_by_rate_limit": false,
+        "writes_attempted": 0
+      },
+      "note": "Strict acceptance means a first trusted non-bot reply opening with a fixed verb, or a reviewer re-check confirming a fix at a later head. A resolved thread alone does not count. Resolved threads get record-only re-checks until a fix is confirmed. The report labels every row with the current rule, including older rows. Pull requests closed more than 7 days ago get no new re-check. The re-check substitutes for the reference corpus publisher's own Addressed in commit marker. The re-check is stricter: deletions, fixes outside the flagged lines, and fixes that keep an evidence line do not count as strict. It mostly under-counts, but a model that misjudges can still over-count. A helper extracted with renamed arguments can keep the defect in the same file or another file with a patch. A moved short call under 8 characters can escape the move check. A moved call can also escape the move check when its destination reuses unchanged lines for its arguments or closing parenthesis. A cosmetic edit of the first flagged line can pass with empty or signature-only evidence. An in-place edit can keep the defect, for example an added comment or a .strip(). The anchored range includes lines that replace deleted flagged lines. A long replacement block is in place for the move check. The model still sees that block in its window. A defect call or line that also occurs elsewhere in the reviewed file, including in a comment or a string, is not a signature, so its move is left to the model. Loose acceptance also counts addressed regions unless the first reply rejects or defers the finding. Rates divide by all posted findings, including unconfirmed findings, as the reference corpus does. Compare inline findings only. Summary findings have no reply thread. Unverified items are review-body items and are excluded from the inline comparison like other body items. The final group holds closed pull requests only.",
+      "totals": {
+        "deferred": 0,
+        "loose_accepted": 1,
+        "loose_rate": 0.5,
+        "loose_wilson_95": [
+          0.09453120573423074,
+          0.9054687942657693
+        ],
+        "posted": 2,
+        "rejected": 1,
+        "strict_accepted": 1,
+        "strict_rate": 0.5,
+        "strict_wilson_95": [
+          0.09453120573423074,
+          0.9054687942657693
+        ],
+        "unconfirmed": 0
+      },
+      "unverified": {
+        "deferred": 0,
+        "loose_accepted": 0,
+        "loose_rate": null,
+        "loose_wilson_95": [
+          null,
+          null
+        ],
+        "posted": 0,
+        "rejected": 0,
+        "strict_accepted": 0,
+        "strict_rate": null,
+        "strict_wilson_95": [
+          null,
+          null
+        ],
+        "unconfirmed": 0
+      }
+    }
+  },
+  "scenario": "acceptance"
+}

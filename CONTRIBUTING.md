@@ -45,4 +45,4 @@ Report a security problem through the process in [SECURITY.md](SECURITY.md), not
 
 Rules give a finding something to cite. The built-in set is in `src/argus/rules.py`, and `data/rules/index.json` extends it. An entry has an `id`, a one-line `summary` and a `source`. Keep ids lowercase with hyphens. Add a rule only if a reviewer can check it against a diff. Users can also add their own file through `ARGUS_RULES_PATH` without a code change.
 
-For a deterministic check, see the lanes in `src/argus/jarvis/`: `ruff_lane.py`, `config_lane.py` and `probes.py`. A new check needs a test that shows it fires on a bad example and stays quiet on a good one.
+For a deterministic check, see the lanes in `src/argus/`: `ruff_lane.py`, `config_lane.py` and `probes.py`. A new check needs a test that shows it fires on a bad example and stays quiet on a good one.

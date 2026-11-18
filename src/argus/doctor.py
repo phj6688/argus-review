@@ -1,4 +1,7 @@
-"""Check provider configuration before making one small model call."""
+"""Check provider configuration before making one small model call.
+
+doctor.py stays GitHub-only.
+"""
 
 import os
 

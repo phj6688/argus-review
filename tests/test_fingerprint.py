@@ -59,3 +59,31 @@ def test_path_normalization():
     a = fingerprint.compute("./src/app.py", "r", "t", "c")
     b = fingerprint.compute("src/app.py", "r", "t", "c")
     assert a == b
+
+
+def test_location_key_shape_and_path_spellings():
+    key = fingerprint.location_key("src/app.py", "contracts", "  value =  accept(x)  ")
+    assert key.startswith("argusloc:") and len(key) == len("argusloc:") + 32
+    # The same path spellings compute() already treats as one file.
+    assert fingerprint.location_key("./src/app.py", "contracts", "value = accept(x)") == key
+    assert fingerprint.location_key("src\\app.py", "contracts", "value = accept(x)") == key
+
+
+def test_location_key_ignores_title_but_not_category_path_or_content():
+    key = fingerprint.location_key("src/app.py", "contracts", "value = accept(x)")
+    assert fingerprint.location_key("src/app.py", "security", "value = accept(x)") != key
+    assert fingerprint.location_key("src/other.py", "contracts", "value = accept(x)") != key
+    assert fingerprint.location_key("src/app.py", "contracts", "value = accept(y)") != key
+
+
+def test_location_key_needs_category_and_enough_line_content():
+    assert fingerprint.location_key("f.py", "contracts", "}") is None
+    assert fingerprint.location_key("f.py", "contracts", "  else:  ") is None
+    assert fingerprint.location_key("f.py", "contracts", "x  =  1  ") is None
+    assert fingerprint.location_key("f.py", "contracts", "return x") is not None
+    # The minimum is inclusive: exactly 8 characters after collapsing forms a key.
+    assert fingerprint.location_key("app/engine.py", "data_integrity", "        return {") == \
+        fingerprint.location_key("./app/engine.py", "data_integrity", "return   {")
+    assert fingerprint.location_key("app/engine.py", "data_integrity", "        return {") is not None
+    assert fingerprint.location_key("f.py", "", "value = accept(x)") is None
+    assert fingerprint.location_key("f.py", None, "value = accept(x)") is None

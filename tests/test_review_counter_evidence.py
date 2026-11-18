@@ -11,7 +11,7 @@ import pytest
 from argus import review
 from argus.diff import FilePatch
 from argus.evalkit.replay import serialize_finding
-from argus.jarvis import live
+from argus import live
 from argus.schema import CounterEvidence, CounterEvidenceVerdict, Finding, Verdict
 
 HANDLER = "src/app/handler.py"

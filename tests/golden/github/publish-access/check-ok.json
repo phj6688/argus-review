@@ -1,0 +1,35 @@
+{
+  "case": "check-ok",
+  "db_rows": {},
+  "llm_calls": [],
+  "requests": [
+    {
+      "body": null,
+      "body_sha256": null,
+      "headers": {
+        "accept": "application/vnd.github+json",
+        "authorization": "Bearer <publish-token>",
+        "x-github-api-version": "2022-11-28"
+      },
+      "method": "GET",
+      "query": {},
+      "transport": "httpx",
+      "url": "https://api.github.com/repos/example/app"
+    }
+  ],
+  "result": {
+    "cached": {
+      "detail": "bot can push",
+      "grant": null,
+      "settingsUrl": "https://github.com/example/app/settings/access",
+      "state": "ok"
+    },
+    "fresh": {
+      "detail": "bot can push",
+      "grant": null,
+      "settingsUrl": "https://github.com/example/app/settings/access",
+      "state": "ok"
+    }
+  },
+  "scenario": "publish-access"
+}

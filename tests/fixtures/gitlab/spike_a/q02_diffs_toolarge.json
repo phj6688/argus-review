@@ -1,0 +1,73 @@
+{
+  "derived": {
+    "counts": {
+      "binary": 0,
+      "collapsed": 0,
+      "deleted_file": 0,
+      "generated_file": 0,
+      "new_file": 1,
+      "renamed_file": 0,
+      "too_large": 1
+    },
+    "files": [
+      {
+        "diff_head": "",
+        "diff_len": 0,
+        "flags": {
+          "collapsed": false,
+          "deleted_file": false,
+          "generated_file": false,
+          "new_file": true,
+          "renamed_file": false,
+          "too_large": true
+        },
+        "new_path": "big/huge_dump.txt"
+      }
+    ]
+  },
+  "manifest": {
+    "ce_version_file": "tests/fixtures/gitlab/ce_version.json",
+    "name": "diffs_toolarge",
+    "question": 2
+  },
+  "request": {
+    "auth": "admin",
+    "method": "GET",
+    "params": {
+      "per_page": 100
+    },
+    "path": "/projects/1/merge_requests/6/diffs"
+  },
+  "response": {
+    "body": [
+      {
+        "a_mode": "0",
+        "b_mode": "100644",
+        "collapsed": false,
+        "deleted_file": false,
+        "diff": "",
+        "generated_file": false,
+        "new_file": true,
+        "new_path": "big/huge_dump.txt",
+        "old_path": "big/huge_dump.txt",
+        "renamed_file": false,
+        "too_large": true
+      }
+    ],
+    "headers": {
+      "cache-control": "max-age=0, private, must-revalidate",
+      "content-type": "application/json",
+      "etag": "W/\"d231e02daa7e501d2ffca561bd36694b\"",
+      "link": "<https://gitlab.example.test/api/v4/projects/1/merge_requests/6/diffs?id=1&merge_request_iid=6&page=1&per_page=100&unidiff=false>; rel=\"first\", <https://gitlab.example.test/api/v4/projects/1/merge_requests/6/diffs?id=1&merge_request_iid=6&page=1&per_page=100&unidiff=false>; rel=\"last\"",
+      "vary": "Origin",
+      "x-next-page": "",
+      "x-page": "1",
+      "x-per-page": "100",
+      "x-prev-page": "",
+      "x-total": "1",
+      "x-total-pages": "1"
+    },
+    "status": 200
+  },
+  "trimmed": {}
+}

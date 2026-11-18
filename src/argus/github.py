@@ -14,11 +14,14 @@ from urllib.parse import quote, unquote, urlsplit
 
 import httpx
 
+from .forge.errors import ForgeAuthError, ForgeDenied, ForgeRateLimited
 from .repo_policy import env_int, hard_deny_owners, is_denied
 
 GITHUB_API = "https://api.github.com"
 API_VERSION = "2022-11-28"
 _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+_http: httpx.Client | None = None
+_http_lock = threading.Lock()
 log = logging.getLogger("argus.github")
 _lock = threading.RLock()
 _quota: dict = {}
@@ -31,18 +34,39 @@ _pause_until = 0.0
 _graphql_pause_until = 0.0
 
 
-class GitHubAuthError(RuntimeError):
-    pass
+def _client() -> httpx.Client:
+    global _http
+    with _http_lock:
+        if _http is None or _http.is_closed:
+            _http = httpx.Client(timeout=_TIMEOUT, follow_redirects=False)
+        return _http
 
 
-class GitHubDenied(RuntimeError):
-    pass
+def close_client() -> None:
+    global _http
+    with _http_lock:
+        if _http is not None:
+            _http.close()
+            _http = None
 
 
-class GitHubRateLimited(RuntimeError):
+class GitHubAuthError(RuntimeError, ForgeAuthError):
+    forge = "github"
+
+
+class GitHubDenied(RuntimeError, ForgeDenied):
+    forge = "github"
+
+
+class GitHubRateLimited(RuntimeError, ForgeRateLimited):
+    forge = "github"
+
     def __init__(self, reset_at: float):
         self.reset_at = reset_at
-        super().__init__(f"GitHub rate limited until {reset_at}")
+        RuntimeError.__init__(self, f"GitHub rate limited until {reset_at}")
+
+    def __reduce__(self):
+        return type(self), (self.reset_at,)
 
 
 class GraphQLRateLimited(GitHubRateLimited):
@@ -238,7 +262,7 @@ def get(path: str, params: dict | None = None, *, headers: dict | None = None) -
             if url.path != "/rate_limit" and reset > time.time():
                 raise GitHubRateLimited(reset)
             try:
-                response = httpx.get(
+                response = _client().get(
                     str(url), params=params, headers=auth, timeout=_TIMEOUT, follow_redirects=False
                 )
                 observe_response(response)
@@ -439,7 +463,7 @@ def graphql_read(query: str, variables: dict) -> dict:
         reset = _graphql_pause_until
     if reset > time.time():
         raise GraphQLRateLimited(reset)
-    response = httpx.post(
+    response = _client().post(
         str(url), json={"query": query, "variables": variables},
         headers={"Authorization": f"Bearer {_token()}", "Accept": "application/vnd.github+json",
                  "X-GitHub-Api-Version": API_VERSION},

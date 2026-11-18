@@ -4,6 +4,7 @@ import httpx
 
 from .client import CliError, ToolCallMismatch
 from .github import GitHubAuthError, GitHubDenied, GitHubRateLimited
+from .gitlab.client import GitLabAuthError, GitLabDenied, GitLabHTTPError, GitLabRateLimited
 
 
 class HeadMoved(Exception):
@@ -19,6 +20,14 @@ def classify_error(exc: Exception) -> str:
         return "github_auth"
     if isinstance(exc, GitHubDenied):
         return "github_denied"
+    if isinstance(exc, GitLabRateLimited):
+        return "gitlab_rate_limited"
+    if isinstance(exc, GitLabAuthError):
+        return "gitlab_auth"
+    if isinstance(exc, GitLabDenied):
+        return "gitlab_denied"
+    if isinstance(exc, GitLabHTTPError):
+        return "gitlab_http"
     if (
         isinstance(exc, (TimeoutError, httpx.TimeoutException))
         or "timeout" in type(exc).__name__.lower()

@@ -4,6 +4,19 @@ Use offline evaluation to measure a change to the prompt, the context or the ver
 
 This is for people who tune Argus. You do not need it to run reviews.
 
+## Context packing report
+
+Measure how many changed files reach the reviewer as full files, windows, or patch hunks. The report also counts files left out and file reads, and records token estimates and render time. It makes no model call.
+
+Use a JSONL case file with one object per line: `id`, `git_dir`, `base`, and `head`. The repository can be a local checkout or a bare mirror. Both revisions must be full 40-character commit hashes. The script reads the three-dot diff and file contents at the head revision. It writes counts only, never file contents or patches.
+
+```bash
+python scripts/context_packing_report.py run --cases cases.jsonl --out results.jsonl
+python scripts/context_packing_report.py compare before.jsonl after.jsonl
+```
+
+Run the first command on each version, saving separate result files. Use `--budget N` to change the token budget. Comparison totals cover successful cases present in both files. Identical means the same number of full, windowed, hunks-only, and left-out files. Errors and unmatched cases are counted separately.
+
 ## Case files
 
 A case file is JSONL, one object per line. Each case pins a repository and two commits. Labels use line numbers in the head revision.

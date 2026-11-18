@@ -8,6 +8,7 @@ spilling the remainder into a named-only overflow list.
 import logging
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -24,6 +25,7 @@ LANGUAGE_BY_EXTENSION = {
 REMOVED_STATUS = "removed"
 HUNK_HEADER_PREFIX = "@@"
 ADDED_FILE_HEADER = "+++"
+GITHUB_PR_FILES_CAP = 3000
 log = logging.getLogger("argus.diff")
 
 
@@ -93,10 +95,17 @@ class FilePatch:
     # Line counts GitHub reports per file. Unset for patches parsed from raw text.
     additions: int | None = None
     deletions: int | None = None
+    previous_filename: str | None = None
 
     @property
     def language(self) -> str:
         return LANGUAGE_BY_EXTENSION.get(Path(self.filename).suffix.lower(), "other")
+
+
+class FileList(list):
+    def __init__(self, files: Iterable[FilePatch] = (), *, unseen: bool = False) -> None:
+        super().__init__(files)
+        self.unseen = unseen
 
 
 @dataclass
@@ -135,10 +144,11 @@ def change_stats(files: list[FilePatch]) -> tuple[int, int, int]:
     return len(files), added, removed
 
 
-def fetch_pr_files(repo: str, pr: int) -> list[FilePatch]:
+def fetch_pr_files(repo: str, pr: int) -> FileList:
     # Page through all changed files (100/page) so large PRs are reviewed whole,
     # never silently truncated; downstream compression trims to the token budget.
-    files: list[FilePatch] = []
+    files = FileList()
+    listed = 0
     page = 1
     while True:
         response = github.get(
@@ -146,15 +156,20 @@ def fetch_pr_files(repo: str, pr: int) -> list[FilePatch]:
         )
         response.raise_for_status()
         batch = response.json()
-        files.extend(
-            FilePatch(filename=f["filename"], status=f["status"], patch=f.get("patch"),
-                      additions=_count_or_none(f.get("additions")),
-                      deletions=_count_or_none(f.get("deletions")))
-            for f in batch
-            if _safe_path(f["filename"])
-            and (not f.get("previous_filename") or _safe_path(f["previous_filename"]))
-        )
-        if len(batch) < 100:
+        listed += len(batch)
+        for item in batch:
+            previous = item.get("previous_filename")
+            if not _safe_path(item["filename"]) or (previous and not _safe_path(previous)):
+                files.unseen = True
+                continue
+            files.append(FilePatch(
+                filename=item["filename"], status=item["status"], patch=item.get("patch"),
+                additions=_count_or_none(item.get("additions")),
+                deletions=_count_or_none(item.get("deletions")), previous_filename=previous,
+            ))
+        if listed >= GITHUB_PR_FILES_CAP:
+            files.unseen = True
+        if len(batch) < 100 or listed >= GITHUB_PR_FILES_CAP:
             return files
         page += 1
 
@@ -220,31 +235,38 @@ def compress_diff(
     return result
 
 
-def parse_unified_diff(text: str) -> list[FilePatch]:
+def parse_unified_diff(text: str) -> FileList:
     """Split `git diff` output into FilePatch items, the same shape the GitHub
     files API yields, so one review pipeline serves PR and pre-PR sources alike.
 
     Only hunk lines are kept as the patch body (GitHub's `patch` field has no
     ---/+++ headers either). Binary files carry patch=None; renames keep the
-    post-image name.
+    post-image and previous names.
     """
-    files: list[FilePatch] = []
+    files = FileList()
     name: str | None = None
+    previous_name: str | None = None
     status = "modified"
     hunks: list[str] = []
     in_hunks = False
     unsafe = False
     path_header = False
+    file_section = False
 
     def flush() -> None:
-        if name is not None and not unsafe:
+        if unsafe or (file_section and name is None):
+            files.unseen = True
+        elif name is not None:
             files.append(FilePatch(filename=name, status=status,
-                                   patch="\n".join(hunks) if hunks else None))
+                                   patch="\n".join(hunks) if hunks else None,
+                                   previous_filename=previous_name if status == "renamed" else None))
 
     for line in split_lines(text):
         if line.startswith("diff --git"):
             flush()
+            file_section = True
             name, status, hunks, in_hunks = None, "modified", [], False
+            previous_name = None
             unsafe = False
             path_header = False
         elif not in_hunks and line.startswith("new file mode"):
@@ -257,9 +279,11 @@ def parse_unified_diff(text: str) -> list[FilePatch]:
             if path.startswith('"') and path.endswith('"'):
                 path = path[1:-1]
             unsafe = not _safe_path(path) or unsafe
+            status = "renamed"
             if line.startswith("rename to "):
-                status = "renamed"
                 name = path
+            else:
+                previous_name = path
         elif not in_hunks and line.startswith("+++ "):
             path_header = True
             path = _header_path(line[4:])
@@ -276,6 +300,7 @@ def parse_unified_diff(text: str) -> list[FilePatch]:
             if path != "/dev/null":
                 path = path[2:] if path.startswith("a/") else path
                 unsafe = not _safe_path(path) or unsafe
+                previous_name = path
                 if status == "removed" and name is None:
                     name = path
         elif line.startswith(HUNK_HEADER_PREFIX):
