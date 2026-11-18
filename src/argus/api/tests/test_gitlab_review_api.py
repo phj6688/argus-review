@@ -45,7 +45,9 @@ def test_path_validation_defers_lookup_to_create_review(gitlab_event, monkeypatc
     task = background.tasks[0]
     assert task.args[2:4] == (event.key, 7)
     task.args[4]()
-    task.kwargs["fallback_runner"]()
+    ((fallback_model, fallback_runner),) = task.kwargs["fallbacks"]
+    assert fallback_model == "fallback-model"
+    fallback_runner()
     assert runs == [(event.key, 7), (event.key, 7)]
 
 

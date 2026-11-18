@@ -152,12 +152,12 @@ Set `ARGUS_PROVIDER` to pick a provider. With it empty, Argus chooses by the cre
 
 | Provider | Select with | Variables | Default model | Notes |
 | --- | --- | --- | --- | --- |
-| `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_API_KEY` | `openai/gpt-6.1-sol` | One key, many vendors. Model ids have a slash. |
+| `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_API_KEY` | `openai/gpt-6.2-sol` | One key, many vendors. Model ids have a slash. |
 | `anthropic` | `ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY` | `claude-sonnet-5-5` | Direct Anthropic API. |
-| `openai` | `OPENAI_API_KEY` or `OPENAI_BASE_URL` | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `ARGUS_OPENAI_TOKEN_PARAM` | `gpt-6.1-sol` | OpenAI, vLLM, Ollama, LM Studio. |
-| `gateway` | `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` | the same two | `gpt-6.1-sol` | Your own Anthropic-compatible gateway. |
+| `openai` | `OPENAI_API_KEY` or `OPENAI_BASE_URL` | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `ARGUS_OPENAI_TOKEN_PARAM` | `gpt-6.2-sol` | OpenAI, vLLM, Ollama, LM Studio. |
+| `gateway` | `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` | the same two | `gpt-6.2-sol` | Your own Anthropic-compatible gateway. |
 | `claude-cli` | `ARGUS_PROVIDER=claude-cli` | `CLAUDE_CODE_OAUTH_TOKEN`, `ARGUS_CLAUDE_CONFIG_DIR`, `ARGUS_CLAUDE_BIN` | `claude-sonnet-5-5` | Claude Pro or Max login. Host only. |
-| `codex-cli` | `ARGUS_PROVIDER=codex-cli` | `ARGUS_CODEX_HOME`, `ARGUS_CODEX_BIN` | `gpt-6.1-sol` | ChatGPT login. Host only. |
+| `codex-cli` | `ARGUS_PROVIDER=codex-cli` | `ARGUS_CODEX_HOME`, `ARGUS_CODEX_BIN` | `gpt-6.2-sol` | ChatGPT login. Host only. |
 
 Set `ARGUS_MODEL` to override the default. A model id with a slash always goes to OpenRouter, unless `ARGUS_PROVIDER=openai` is set. A model must support tool calls. Argus asks for its output through one forced tool call.
 
@@ -167,7 +167,7 @@ Run `argus doctor` after every change. It checks the credentials, calls the mode
 
 ```bash
 OPENROUTER_API_KEY=sk-or-...
-ARGUS_MODEL=openai/gpt-6.1-sol
+ARGUS_MODEL=openai/gpt-6.2-sol
 ```
 
 An alternative reviewer model that works the same way is `ARGUS_MODEL=anthropic/claude-sonnet-5-5`. Any OpenRouter model id with tool support works: see <https://openrouter.ai/models>.
@@ -186,7 +186,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ```bash
 OPENAI_API_KEY=sk-...
 # OPENAI_BASE_URL=https://api.openai.com/v1
-ARGUS_MODEL=gpt-6.1-sol
+ARGUS_MODEL=gpt-6.2-sol
 ```
 
 For a local server, set `OPENAI_BASE_URL` to its `/v1` address. Inside Docker, `localhost` is the container, so use `http://host.docker.internal:11434/v1` for Ollama on the host. Add `extra_hosts: ["host.docker.internal:host-gateway"]` to the service in a `docker-compose.override.yml` on Linux. Set `ARGUS_MODEL` to the name the server uses. Some older servers reject `max_completion_tokens`. For those, set `ARGUS_OPENAI_TOKEN_PARAM=max_tokens`. Small local models often fail at forced tool calls. Test with `argus doctor` first.
@@ -249,16 +249,18 @@ Use subscription mode for personal use on your own repositories. Use an API key 
 
 ### Fallback, model list and judges
 
-- `ARGUS_FALLBACK_MODEL` runs a second attempt when a review fails on the primary model. The switch is recorded on the review: `model_used` names the model that answered, and `fallback_from` and `fallback_reason` say why it changed. The API (`GET /reviews` and `GET /reviews/{id}`), the verdict document and the console review page show them. It covers `POST /reviews`, the watcher and `argus review`. A GitHub failure, such as a bad token or a rate limit, never triggers it. Choose a model from a different provider, or both fail together.
+- `ARGUS_FALLBACK_MODEL` lists the models to try, in order, when a review fails on the primary model. It is comma-separated, and one id works as before. The switch is recorded on the review: `model_used` names the model that answered, and `fallback_from` and `fallback_reason` say why it changed. The API (`GET /reviews` and `GET /reviews/{id}`), the verdict document and the console review page show them. It covers `POST /reviews`, the watcher and `argus review`. A GitHub failure, such as a bad token or a rate limit, never triggers it. Choose a model from a different provider, or both fail together.
+- When the gateway answers HTTP 400 or 404 with a body that says it does not serve the model id (for example `unknown provider for model ...` or `model_not_found`), Argus logs one warning and skips that model for `ARGUS_MODEL_UNAVAILABLE_TTL` seconds (default 1800, 0 turns it off). Reviews in that time start on the next model in the chain, and `fallback_reason` says the model was skipped. A bad payload is never read as a missing model.
+- Claude reviewer models think inside the output budget. Argus sends `ARGUS_CLAUDE_EFFORT` (default `medium`) as the effort, adds 8000 tokens of room for thinking, and asks once more with twice the budget (at most 24000) when a reply stops at the limit.
 - `ARGUS_MODEL_OPTIONS` is a comma-separated list of models that the console config screen offers. `PUT /config` rejects any model that is not in the list, the default, or the stored model. Once you save the config screen, the stored model wins over `ARGUS_MODEL`.
-- Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. If every judge call fails, the coverage record marks the judge lane `error` and the coverage level is at most `partial`. Judges use a chat completions URL. An OpenRouter example:
+- Judges are an optional second opinion. When `ARGUS_JUDGE_LIVE=1`, Argus asks a model from the other family (Claude or GPT) to judge each surviving bug-class finding. The finding then carries an evidence tier: `deterministic`, `consensus`, `single_critic` or `disputed`. A disputed finding is kept and never blocks a change on its own. If every judge call fails, the coverage record marks the judge lane `error` and the coverage level is at most `partial`. Judges use a chat completions URL. Each judge model variable takes one id or a comma-separated list of the same family; when the route does not serve an id, the next one answers. An OpenRouter example:
 
   ```bash
   ARGUS_JUDGE_LIVE=1
   ARGUS_JUDGE_BASE_URL=https://openrouter.ai/api/v1/chat/completions
   ARGUS_JUDGE_ANTHROPIC_MODEL=anthropic/claude-sonnet-5-5
   ARGUS_JUDGE_ANTHROPIC_KEY=sk-or-...
-  ARGUS_JUDGE_OPENAI_MODEL=openai/gpt-6.1-sol
+  ARGUS_JUDGE_OPENAI_MODEL=openai/gpt-6.2-sol
   ARGUS_JUDGE_OPENAI_KEY=sk-or-...
   ```
 
@@ -362,7 +364,9 @@ With Claude Code, the equivalent is `claude mcp add argus -e ARGUS_API_TOKEN=<to
 | `ARGUS_API_TOKEN` | none | Shared secret, 32 characters or more. |
 | `ARGUS_PROVIDER` | auto | Model provider. |
 | `ARGUS_MODEL` | provider default | Reviewer model. |
-| `ARGUS_FALLBACK_MODEL` | none | Second attempt on failure. |
+| `ARGUS_FALLBACK_MODEL` | none | Models to try in order on failure, comma-separated. |
+| `ARGUS_MODEL_UNAVAILABLE_TTL` | `1800` | Seconds to skip a model id the gateway does not serve. |
+| `ARGUS_CLAUDE_EFFORT` | `medium` | Effort for Claude reviewer models. |
 | `ARGUS_RISK_TRIPWIRES` | [Default patterns](docs/risk-tier.md) | Comma-separated path patterns replacing the defaults. Blank uses the defaults. |
 | `ARGUS_RISK_MAX_LINES` | `300` | Positive added plus deleted line limit for the risk tier. Exactly 300 is within the default limit. |
 | `ARGUS_MODEL_OPTIONS` | none | Models the console offers. |

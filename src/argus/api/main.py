@@ -14,7 +14,7 @@ import logging
 import os
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -26,14 +26,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from .. import (
-    acceptance, diff, doctor, github, providers, publish, publish_access, risk_tier, rules, verdict,
+    acceptance, availability, diff, doctor, github, providers, publish, publish_access, risk_tier, rules, verdict,
 )
 from ..client import DEFAULT_MODEL, ping
 from ..errors import HeadMoved
 from ..diff import FileList, FilePatch, parse_unified_diff
 from ..review import (
-    DEFAULT_BUG_CAP, ENV_FALLBACK_MODEL, ReviewResult, fallback_eligible, fallback_for, run_diff_review,
-    run_review,
+    DEFAULT_BUG_CAP, ReviewResult, fallback_chain, fallback_eligible, fallback_for, fallback_models,
+    run_diff_review, run_review,
 )
 from ..forge import forge_for
 from ..forge.keys import is_gitlab_key, parse_entry
@@ -262,8 +262,9 @@ class MarkRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-# Kept as a module attribute: the watcher and tests reach the shared rule through here.
+# Kept as module attributes: the watcher and tests reach the shared rule through here.
 _fallback_for = fallback_for
+_fallback_chain = fallback_chain
 
 
 def run_one_review(
@@ -276,51 +277,67 @@ def run_one_review(
     fallback_runner: Callable[[], ReviewResult] | None = None,
     primary_model: str | None = None,
     fallback_model: str | None = None,
+    fallbacks: Sequence[tuple[str, Callable[[], ReviewResult]]] | None = None,
 ) -> Exception | None:
     """Execute one review and persist the outcome; mark the row error on failure.
 
     runner is a zero-arg callable so the background path closes over run_review
-    while tests inject a stub. If a fallback_runner is supplied (operator opted
-    into ARGUS_FALLBACK_MODEL) and the primary fails, the review runs once more on
-    the fallback model and the switch is recorded on the row (never silent).
+    while tests inject a stub. fallbacks (or the single fallback_runner) are the
+    operator's ARGUS_FALLBACK_MODEL chain: when a model fails, the next one runs,
+    and the switch is recorded on the row (never silent). A model recently marked
+    unavailable is skipped without a call, unless every model is marked, because
+    then a call is the only way to learn that one came back.
     """
-    try:
-        result = runner()
-    except HeadMoved as exc:
-        log.info("review %s: PR head moved during the review; this review is superseded",
-                 review_id)
-        reason = f"{type(exc).__name__}: {exc}"
-        db.set_error(path, review_id, reason, "HeadMoved")
-        return exc
-    except Exception as exc:  # noqa: BLE001 - any engine/transport failure -> error status
-        reason = f"{type(exc).__name__}: {exc}"
-        if fallback_runner is not None and fallback_eligible(exc):
-            log.warning("review %s: primary model %s failed (%s); trying fallback %s",
-                        review_id, primary_model, reason, fallback_model)
-            try:
-                result = fallback_runner()
-            except HeadMoved as fb_exc:
-                log.info("review %s: PR head moved during the review; this review is superseded",
-                         review_id)
-                db.set_error(path, review_id, f"{type(fb_exc).__name__}: {fb_exc}", "HeadMoved")
-                return fb_exc
-            except Exception as fb_exc:  # noqa: BLE001 - fallback also failed -> error
+    chain = list(fallbacks) if fallbacks is not None else (
+        [(fallback_model, fallback_runner)] if fallback_runner is not None else [])
+    candidates = [(primary_model, runner), *chain]
+    marked = {index for index, (model, _) in enumerate(candidates)
+              if availability.is_marked_unavailable(model)}
+    if len(marked) == len(candidates):
+        marked = set()
+    history: list[str] = []
+    primary_reason = None
+    for index, (model, run) in enumerate(candidates):
+        role = "primary" if index == 0 else "fallback"
+        if index in marked:
+            log.warning("review %s: skipping %s model %s, marked unavailable",
+                        review_id, role, model)
+            history.append(f"{role} {model} skipped: marked unavailable")
+            continue
+        try:
+            result = run()
+        except HeadMoved as exc:
+            log.info("review %s: PR head moved during the review; this review is superseded",
+                     review_id)
+            db.set_error(path, review_id, f"{type(exc).__name__}: {exc}", "HeadMoved")
+            return exc
+        except Exception as exc:  # noqa: BLE001 - any engine/transport failure -> next model or error
+            reason = f"{type(exc).__name__}: {exc}"
+            later = [m for i, (m, _) in enumerate(candidates) if i > index and i not in marked]
+            if later and fallback_eligible(exc):
+                log.warning("review %s: %s model %s failed (%s); trying fallback %s",
+                            review_id, role, model, reason, later[0])
+                if index == 0:
+                    primary_reason = reason
+                history.append(f"{role} {model} failed: {reason}")
+                continue
+            if index == 0:
+                log.exception("review %s failed for %s#%s", review_id, repo, pr)
+                db.set_error(path, review_id, reason, type(exc).__name__)
+            else:
                 log.exception("review %s failed on the fallback model too", review_id)
-                db.set_error(
-                    path, review_id,
-                    f"{type(fb_exc).__name__}: {fb_exc} "
-                    f"(fallback {fallback_model}; primary {primary_model} failed: {reason})",
-                    type(fb_exc).__name__)
-                return fb_exc
-            db.set_fallback(path, review_id, fallback_model, primary_model, reason)
-            db.save_result(path, review_id, result)
-            _publish_completed_review(path, review_id, repo, pr)
-            return
-        log.exception("review %s failed for %s#%s", review_id, repo, pr)
-        db.set_error(path, review_id, reason, type(exc).__name__)
-        return exc
-    db.save_result(path, review_id, result)
-    _publish_completed_review(path, review_id, repo, pr)
+                db.set_error(path, review_id,
+                             f"{reason} (fallback {model}; {'; '.join(history)})",
+                             type(exc).__name__)
+            return exc
+        if index > 0:
+            note = (primary_reason if len(history) == 1 and primary_reason is not None
+                    else "; ".join(history))
+            db.set_fallback(path, review_id, model, primary_model, note)
+        db.save_result(path, review_id, result)
+        _publish_completed_review(path, review_id, repo, pr)
+        return None
+    return None
 
 
 def _publish_completed_review(path: str | None, review_id: int, repo: str, pr: int) -> None:
@@ -420,9 +437,8 @@ def require_provider(model: str, *, allow_fallback: bool = False) -> None:
     problem = doctor.configuration_problem(model)
     if not problem:
         return
-    fallback = os.environ.get(ENV_FALLBACK_MODEL, "").strip()
-    if (allow_fallback and fallback and fallback != model
-            and doctor.configuration_problem(fallback) is None):
+    if allow_fallback and any(doctor.configuration_problem(fallback) is None
+                              for fallback in fallback_models(model)):
         return
     raise HTTPException(status_code=503, detail=problem)
 
@@ -453,13 +469,13 @@ def create_review(request: ReviewRequest, background: BackgroundTasks) -> Review
         log.info("PR head lookup failed for %s#%s (%s)",
                  repo, request.pr, type(error).__name__)
     review_id = db.create_review(path, repo, request.pr, model, head_sha=head_sha)
-    fb_runner, fb_model = _fallback_for(
+    fallbacks = _fallback_chain(
         model, lambda m: lambda: run_review(
             repo, request.pr, m, bug_cap, expected_head_sha=head_sha))
     background.add_task(
         run_one_review, path, review_id, repo, request.pr,
         lambda: run_review(repo, request.pr, model, bug_cap, expected_head_sha=head_sha),
-        fallback_runner=fb_runner, primary_model=model, fallback_model=fb_model,
+        primary_model=model, fallbacks=fallbacks,
     )
     return ReviewCreated(id=review_id, status=db.STATUS_RUNNING)
 

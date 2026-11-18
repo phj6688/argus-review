@@ -16,7 +16,8 @@ import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from . import providers
+from . import availability, providers
+from .availability import ModelUnavailable  # noqa: F401 - re-exported for callers
 from .providers import BackendNotConfigured
 from .repo_policy import env_int
 from dataclasses import dataclass
@@ -51,6 +52,20 @@ DEFAULT_TIMEOUT_SECONDS = 300.0
 DEFAULT_MAX_RETRIES = 4
 ENV_TIMEOUT = "ARGUS_LLM_TIMEOUT"
 ENV_MAX_RETRIES = "ARGUS_LLM_MAX_RETRIES"
+
+# The current Claude ids think adaptively by default, and thinking tokens count
+# against max_tokens. At the default effort (high on sonnet) an 8k review budget
+# was spent on thinking before the tool call, so the Claude fallback never
+# answered. Medium effort plus a fixed thinking allowance leaves room for both.
+ENV_CLAUDE_EFFORT = "ARGUS_CLAUDE_EFFORT"
+DEFAULT_CLAUDE_EFFORT = "medium"
+CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
+CLAUDE_THINKING_ALLOWANCE = 8000
+# A reply cut at max_tokens gets one retry with twice the budget, up to this cap.
+# 24k output tokens is about three times the 8k a review was sized for, so the
+# request timeout is scaled the same way (see _timeout_for).
+RETRY_MAX_TOKENS_CAP = 24000
+TIMEOUT_TOKENS_BASIS = 8000
 
 
 LLM_MAX_CONCURRENCY = env_int("ARGUS_LLM_MAX_CONCURRENCY", 3)
@@ -88,7 +103,16 @@ def llm_slot():
 
 
 class ToolCallMismatch(ValueError):
-    """The reply did not hold exactly one call to the requested tool."""
+    """The reply did not hold exactly one call to the requested tool.
+
+    truncated is True when the reply stopped at max_tokens, so a retry needs a
+    larger budget, not the same request again.
+    """
+
+    def __init__(self, message: str, *, truncated: bool = False, max_tokens: int | None = None):
+        super().__init__(message)
+        self.truncated = truncated
+        self.max_tokens = max_tokens
 
 
 class CliError(RuntimeError):
@@ -182,16 +206,50 @@ def complete_tool(model: str, system: str, user: str, tool: ToolSpec) -> dict:
 
     API lanes use auto tool choice because some models reject forced calls.
     The prompt names the tool and each request asks for at most one call.
-    A missing or split result gets one more try before the error path takes over.
+    A missing or split result gets one more try before the error path takes over;
+    a reply cut at max_tokens gets that try with a larger budget. An error that
+    says the model id is not served becomes ModelUnavailable, and the id is
+    remembered so the next review can skip it.
     """
     try:
-        return _complete_tool_once(model, system, user, tool)
-    except ToolCallMismatch as error:
-        log.warning("%s; asking once more", error)
-    return _complete_tool_once(model, system, user, tool)
+        try:
+            return _complete_tool_once(model, system, user, tool)
+        except ToolCallMismatch as error:
+            budget = _retry_budget(error)
+            log.warning("%s; asking once more%s", error,
+                        f" with max_tokens={budget}" if budget else "")
+        if budget is None:
+            return _complete_tool_once(model, system, user, tool)
+        return _complete_tool_once(model, system, user, tool, max_tokens=budget)
+    except Exception as error:
+        translated = availability.translate(model, error)
+        if translated is error:
+            raise
+        availability.mark_unavailable(model, error)
+        raise translated from error
 
 
-def _complete_tool_once(model: str, system: str, user: str, tool: ToolSpec) -> dict:
+def _retry_budget(error: ToolCallMismatch) -> int | None:
+    if not error.truncated or not error.max_tokens or error.max_tokens >= RETRY_MAX_TOKENS_CAP:
+        return None
+    return min(error.max_tokens * 2, RETRY_MAX_TOKENS_CAP)
+
+
+def claude_effort() -> str:
+    value = os.environ.get(ENV_CLAUDE_EFFORT, "").strip().lower()
+    return value if value in CLAUDE_EFFORTS else DEFAULT_CLAUDE_EFFORT
+
+
+def _timeout_for(max_tokens: int) -> float | None:
+    """A longer timeout for a budget above the one the default timeout was sized for."""
+    base = _env_number(ENV_TIMEOUT, DEFAULT_TIMEOUT_SECONDS, float)
+    if max_tokens <= TIMEOUT_TOKENS_BASIS:
+        return None
+    return base * max_tokens / TIMEOUT_TOKENS_BASIS
+
+
+def _complete_tool_once(model: str, system: str, user: str, tool: ToolSpec,
+                        max_tokens: int | None = None) -> dict:
     provider = providers.resolve(model)
     if provider == providers.OPENROUTER:
         return _complete_tool_openrouter(model, system, user, tool)
@@ -200,25 +258,35 @@ def _complete_tool_once(model: str, system: str, user: str, tool: ToolSpec) -> d
     if provider in (providers.CLAUDE_CLI, providers.CODEX_CLI):
         from . import cli_providers
         return cli_providers.get(provider).complete_tool(model, system, user, tool)
-    return _complete_tool_anthropic(model, system, user, tool, provider=provider)
+    return _complete_tool_anthropic(model, system, user, tool, provider=provider,
+                                    max_tokens=max_tokens)
 
 
 def _complete_tool_anthropic(
     model: str, system: str, user: str, tool: ToolSpec, provider: str | None = None,
+    max_tokens: int | None = None,
 ) -> dict:
     definition = {"name": tool.name, "description": f"Report the structured result for {tool.name}.",
                   "input_schema": tool.input_schema, "strict": True}
     client = build_client(provider)
     scope = _prompt_cache.get()
     content = _ask(user, tool)
+    claude = model.startswith("claude")
+    budget = max_tokens or (tool.max_tokens + CLAUDE_THINKING_ALLOWANCE if claude
+                            else tool.max_tokens)
     kwargs = {
         "model": model,
-        "max_tokens": tool.max_tokens,
+        "max_tokens": budget,
         "system": system,
         "messages": [{"role": "user", "content": content}],
         "tools": [definition],
         "tool_choice": {"type": "auto", "disable_parallel_tool_use": True},
     }
+    if claude:
+        kwargs["output_config"] = {"effort": claude_effort()}
+    timeout = _timeout_for(budget)
+    if timeout is not None:
+        kwargs["timeout"] = timeout
     if scope is not None:
         key, prefix = scope
         if not model.startswith("claude"):
@@ -230,18 +298,24 @@ def _complete_tool_anthropic(
                 {"type": "text", "text": content[len(prefix):]},
             ]
 
-    def request():
-        return client.messages.create(**kwargs)
-    try:
-        with llm_slot():
-            response = request()
-    except BadRequestError as error:
-        if "strict" not in str(error).lower():
-            raise
-        log.warning("%s rejected strict tools; retrying without strict", model)
-        kwargs["tools"] = [{key: value for key, value in definition.items() if key != "strict"}]
-        with llm_slot():
-            response = request()
+    # Each optional field is dropped at most once, in whatever order the model
+    # rejects them, so a model that refuses both still gets a request it accepts.
+    while True:
+        try:
+            with llm_slot():
+                response = client.messages.create(**kwargs)
+            break
+        except BadRequestError as error:
+            text = str(error).lower()
+            if "output_config" in kwargs and ("effort" in text or "output_config" in text):
+                log.warning("%s rejected the effort setting; retrying without it", model)
+                kwargs.pop("output_config")
+            elif "strict" in text and "strict" in kwargs["tools"][0]:
+                log.warning("%s rejected strict tools; retrying without strict", model)
+                kwargs["tools"] = [{key: value for key, value in definition.items()
+                                    if key != "strict"}]
+            else:
+                raise
     usage = getattr(response, "usage", None)
     log.info(
         "llm usage model=%s input=%s cache_read=%s cache_write=%s output=%s cache_key=%s",
@@ -255,13 +329,22 @@ def _complete_tool_anthropic(
     # call to retry, not a crash of the whole review.
     blocks = response.content or []
     calls = [b for b in blocks if b.type == "tool_use"]
+    stop_reason = getattr(response, "stop_reason", None)
+    stop = f"stop_reason: {stop_reason}"
+    truncated = stop_reason == "max_tokens"
     if len(calls) == 1 and calls[0].name == tool.name:
+        # A complete call stops with tool_use. One cut at max_tokens holds partial
+        # input, which failed later as "must contain a findings list".
+        if truncated and claude:
+            raise ToolCallMismatch(f"the {tool.name} call was cut off at max_tokens={budget}; {stop}",
+                                   truncated=True, max_tokens=budget)
         return calls[0].input
-    stop = f"stop_reason: {getattr(response, 'stop_reason', None)}"
     if len(calls) > 1:
-        raise ToolCallMismatch(f"model made {len(calls)} tool calls, expected one {tool.name}; {stop}")
+        raise ToolCallMismatch(f"model made {len(calls)} tool calls, expected one {tool.name}; {stop}",
+                               truncated=truncated, max_tokens=budget)
     raise ToolCallMismatch(
-        f"model did not call {tool.name}; blocks: {[b.type for b in blocks]}; {stop}")
+        f"model did not call {tool.name}; blocks: {[b.type for b in blocks]}; {stop}",
+        truncated=truncated, max_tokens=budget)
 
 
 # --------------------------------------------------------------------------

@@ -191,7 +191,7 @@ def trigger_review(path, repo, pr, head_sha, *, head=None):
         if not linked:
             db.set_error(path, review_id, "claim expired", "InterruptedError")
             return review_id, InterruptedError("claim expired")
-    fb_runner, fb_model = main._fallback_for(
+    fallbacks = main._fallback_chain(
         model, lambda m: lambda: main.run_review(repo, pr, m, bug_cap, expected_head_sha=head_sha)
     )
     error = main.run_one_review(
@@ -200,9 +200,8 @@ def trigger_review(path, repo, pr, head_sha, *, head=None):
         repo,
         pr,
         lambda: main.run_review(repo, pr, model, bug_cap, expected_head_sha=head_sha),
-        fallback_runner=fb_runner,
         primary_model=model,
-        fallback_model=fb_model,
+        fallbacks=fallbacks,
     )
     return review_id, error
 

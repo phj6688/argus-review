@@ -419,15 +419,36 @@ def _risk_for_files(files: list[FilePatch]) -> dict | None:
 ENV_FALLBACK_MODEL = "ARGUS_FALLBACK_MODEL"
 
 
+def fallback_models(primary_model: str | None) -> list[str]:
+    """The ordered ARGUS_FALLBACK_MODEL ids (comma separated), without the primary
+    and without repeats. Empty when unset: the opt-in stays the operator's."""
+    seen = {primary_model}
+    models = []
+    for item in os.environ.get(ENV_FALLBACK_MODEL, "").split(","):
+        model = item.strip()
+        if model and model not in seen:
+            seen.add(model)
+            models.append(model)
+    return models
+
+
+def fallback_chain(
+    primary_model: str, make_runner: Callable[[str], Callable[[], ReviewResult]]
+) -> list[tuple[str, Callable[[], ReviewResult]]]:
+    """One (model, runner) per configured fallback, in the operator's order."""
+    return [(model, make_runner(model)) for model in fallback_models(primary_model)]
+
+
 def fallback_for(
     primary_model: str, make_runner: Callable[[str], Callable[[], ReviewResult]]
 ) -> tuple[Callable[[], ReviewResult] | None, str | None]:
-    """Build the fallback runner if ARGUS_FALLBACK_MODEL is set and differs from
-    the primary (else None). Opt-in: unset means fail-hard. The model choice stays
+    """The first fallback runner and its model, or (None, None) when no fallback
+    differs from the primary. Opt-in: unset means fail-hard. The model choice stays
     the operator's; the fallback is explicit and recorded."""
-    fallback = os.environ.get(ENV_FALLBACK_MODEL, "").strip()
-    if fallback and fallback != primary_model:
-        return make_runner(fallback), fallback
+    chain = fallback_chain(primary_model, make_runner)
+    if chain:
+        model, runner = chain[0]
+        return runner, model
     return None, None
 
 
@@ -904,6 +925,7 @@ def _judge_lane(bug_items: list[VerifiedFinding], patches: dict[str, str],
 
     judged = failures = 0
     failure_causes = Counter()
+    answered = Counter()
     for item in bug_items:
         snippet = patches.get(item.finding.file) or ""
         if not snippet:
@@ -918,20 +940,27 @@ def _judge_lane(bug_items: list[VerifiedFinding], patches: dict[str, str],
             failure_causes[cause] += 1
             continue
         raw = str(data.get("verdict", "unsure")).lower()
+        model = data.get(automark.JUDGE_MODEL_KEY) or spec.model
+        answered[model] += 1
         item.judge = JudgeOpinion(
             verdict=raw if raw in _JUDGE_VERDICTS else "unsure",
             confidence=max(0.0, min(1.0, float(data.get("confidence") or 0.0))),
-            model=spec.model,
+            model=model,
         )
         judged += 1
     causes = ", ".join(f"{cause} x{count}" for cause, count in failure_causes.items())
     if failures:
         log.warning("judge lane: %d/%d second opinions failed (%s); those findings stay "
                     "single_critic", failures, len(bug_items), causes)
-    record = {"lane": JUDGE_LANE, "status": verdict.LANE_RAN, "model": spec.model,
+    # The model that gave most opinions; every one that answered when a judge
+    # model was retired mid-review.
+    lane_model = answered.most_common(1)[0][0] if answered else spec.model
+    record = {"lane": JUDGE_LANE, "status": verdict.LANE_RAN, "model": lane_model,
               "family": spec.family, "reviewer_family": judges.family_of(reviewer_model),
               "checks": judged, "eligible": len(bug_items), "failures": failures,
               "failure_causes": dict(failure_causes)}
+    if len(answered) > 1:
+        record["models"] = sorted(answered)
     if failures and not judged:
         # Every attempted call raised: the second opinion did not happen. Cause
         # names only, never exception text, which can carry response bodies.

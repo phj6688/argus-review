@@ -19,7 +19,7 @@ from .forge.errors import ForgeError
 from .forge.keys import is_gitlab_key
 from .gitlab import entry as gitlab_entry
 from .redact import redact
-from .review import fallback_eligible, fallback_for, from_github, run_review
+from .review import fallback_chain, fallback_eligible, from_github, run_review
 from .repo_policy import validate_repo
 from .schema import VerifiedFinding
 from .tokens import HeuristicEstimator
@@ -250,22 +250,24 @@ def _run_review(repo: str, pr: int) -> None:
 
 
 def _review_with_fallback(repo: str, pr: int):
-    """Review on the default model; on failure, once more on ARGUS_FALLBACK_MODEL.
+    """Review on the default model; on failure, on each ARGUS_FALLBACK_MODEL in order.
 
     Same rule as POST /reviews and the watcher: opt-in, never for a GitHub-side
-    failure, and the switch is printed, not silent. Returns (result, model that ran).
+    failure, and each switch is printed, not silent. Returns (result, model that ran).
     """
-    fallback_runner, fallback_model = fallback_for(
-        DEFAULT_MODEL, lambda m: lambda: run_review(repo, pr, m))
-    try:
-        return run_review(repo, pr, DEFAULT_MODEL), DEFAULT_MODEL
-    except Exception as error:  # noqa: BLE001 - any engine or transport failure may fall back
-        if fallback_runner is None or not fallback_eligible(error):
-            raise
-        reason = redact(f"{type(error).__name__}: {error}")
-        print(f"primary model {DEFAULT_MODEL} failed ({reason}); "
-              f"trying fallback {fallback_model}", file=sys.stderr)
-        return fallback_runner(), fallback_model
+    candidates = [(DEFAULT_MODEL, lambda: run_review(repo, pr, DEFAULT_MODEL)),
+                  *fallback_chain(DEFAULT_MODEL, lambda m: lambda: run_review(repo, pr, m))]
+    for index, (model, run) in enumerate(candidates):
+        try:
+            return run(), model
+        except Exception as error:  # noqa: BLE001 - any engine or transport failure may fall back
+            if index + 1 == len(candidates) or not fallback_eligible(error):
+                raise
+            reason = redact(f"{type(error).__name__}: {error}")
+            role = "primary" if index == 0 else "fallback"
+            print(f"{role} model {model} failed ({reason}); "
+                  f"trying fallback {candidates[index + 1][0]}", file=sys.stderr)
+    raise AssertionError("unreachable: the candidate list is never empty")
 
 
 def _print_finding(item: VerifiedFinding) -> None:

@@ -137,13 +137,20 @@ def test_without_scope_the_entire_request_is_unchanged(gateway, model):
     calls = gateway()
     tool = review.VERDICT_TOOL
     client.complete_tool(model, "system", "user", tool)
-    assert calls == [{
+    expected = {
         "model": model, "max_tokens": tool.max_tokens, "system": "system",
         "messages": [{"role": "user", "content": client._ask("user", tool)}],
         "tools": [{"name": tool.name, "description": f"Report the structured result for {tool.name}.",
                    "input_schema": tool.input_schema, "strict": True}],
         "tool_choice": {"type": "auto", "disable_parallel_tool_use": True},
-    }]
+    }
+    if model.startswith("claude"):
+        # Thinking shares max_tokens, so Claude ids get an allowance, a set effort
+        # and a timeout sized to the larger budget.
+        budget = tool.max_tokens + client.CLAUDE_THINKING_ALLOWANCE
+        expected.update(max_tokens=budget, output_config={"effort": "medium"},
+                        timeout=client._timeout_for(budget))
+    assert calls == [expected]
 
 
 @pytest.mark.parametrize("model", MODELS)

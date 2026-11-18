@@ -144,7 +144,9 @@ def test_every_family_gets_auto_and_a_strict_tool(monkeypatch, model):
     assert sent["tools"][0]["strict"] is True
     assert sent["tools"][0]["name"] == "report_findings"
     assert sent["tools"][0]["input_schema"] == TOOL.input_schema
-    assert sent["model"] == model and sent["max_tokens"] == 100
+    # Claude ids think inside max_tokens, so they get a thinking allowance on top.
+    budget = 100 + client.CLAUDE_THINKING_ALLOWANCE if model.startswith("claude") else 100
+    assert sent["model"] == model and sent["max_tokens"] == budget
     assert sent["system"] == "sys"
 
 
