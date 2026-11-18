@@ -20,6 +20,8 @@ router attributes budget and telemetry per judge.
 import os
 from dataclasses import dataclass
 
+from . import availability
+
 ANTHROPIC = "anthropic"
 OPENAI = "openai"
 UNKNOWN = None
@@ -54,10 +56,14 @@ class NoDecorrelatedJudge(Exception):
 
 @dataclass(frozen=True)
 class JudgeSpec:
+    """model is the judge to call first; fallbacks are the same-family ids to try,
+    in order, when a model is not served."""
+
     family: str
     model: str
     url: str
     key: str
+    fallbacks: tuple[str, ...] = ()
 
 
 def family_of(model: str | None) -> str | None:
@@ -94,21 +100,37 @@ def _configured(family: str) -> JudgeSpec | None:
         (ENV_ANTHROPIC_MODEL, ENV_ANTHROPIC_KEY) if family == ANTHROPIC
         else (ENV_OPENAI_MODEL, ENV_OPENAI_KEY)
     )
-    model = os.environ.get(model_var)
+    models = _model_list(os.environ.get(model_var))
     key = os.environ.get(key_var)
-    if not model or not key:
+    if not models or not key:
         return None
     url = os.environ.get(ENV_BASE_URL, "").strip()
     if not url:
         raise NoDecorrelatedJudge("ARGUS_JUDGE_BASE_URL not set")
-    actual = family_of(model)
-    if actual != family:
-        raise NoDecorrelatedJudge(
-            f"{model_var} is set to {model!r}, whose family is "
-            f"{actual or 'unknown'}, not {family}; a judge may not claim a family "
-            "its model does not have"
-        )
-    return JudgeSpec(family=family, model=model, url=url, key=key)
+    for model in models:
+        actual = family_of(model)
+        if actual != family:
+            raise NoDecorrelatedJudge(
+                f"{model_var} lists {model!r}, whose family is "
+                f"{actual or 'unknown'}, not {family}; a judge may not claim a family "
+                "its model does not have"
+            )
+    # A model marked as not served goes to the back, not out: when every id is
+    # marked, a call is the only way to learn that one came back.
+    marked = availability.marked_among(models, availability.JUDGE)
+    ordered = [m for m in models if m not in marked] + [m for m in models if m in marked]
+    return JudgeSpec(family=family, model=ordered[0], url=url, key=key,
+                     fallbacks=tuple(ordered[1:]))
+
+
+def _model_list(raw: str | None) -> list[str]:
+    """The ordered, de-duplicated ids of a comma-separated judge model variable."""
+    models: list[str] = []
+    for item in (raw or "").split(","):
+        model = item.strip()
+        if model and model not in models:
+            models.append(model)
+    return models
 
 
 def judge_for(reviewer_model: str | None) -> JudgeSpec:

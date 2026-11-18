@@ -32,11 +32,15 @@ services:
       # src/argus/providers.py). Once you save the config screen, the stored row
       # in ARGUS_DB_PATH wins over this variable. See .env.example.
       ARGUS_MODEL: "${ARGUS_MODEL:-}"
-      # Opt-in second attempt when a review fails on the primary. Unset means
-      # fail-hard. The switch is recorded on the review row, never silent.
-      # Covers POST /reviews, the watcher and `argus review`, not POST /review-diff. A model id
-      # with a slash runs on OpenRouter.
+      # Opt-in models to try, in order, when a review fails on the primary
+      # (comma-separated). Unset means fail-hard. The switch is recorded on the
+      # review row, never silent. Covers POST /reviews, the watcher and
+      # `argus review`, not POST /review-diff. A model id with a slash runs on OpenRouter.
       ARGUS_FALLBACK_MODEL: "${ARGUS_FALLBACK_MODEL:-}"
+      # Seconds to skip a model id the gateway does not serve. Empty means 1800.
+      ARGUS_MODEL_UNAVAILABLE_TTL: "${ARGUS_MODEL_UNAVAILABLE_TTL:-}"
+      # Effort for Claude reviewer models. Empty means medium.
+      ARGUS_CLAUDE_EFFORT: "${ARGUS_CLAUDE_EFFORT:-}"
       # Public base URL the API advertises. The default is the host address of the
       # published port. Set it when a reverse proxy fronts the API.
       ARGUS_PUBLIC_API_URL: "${ARGUS_PUBLIC_API_URL:-http://127.0.0.1:${ARGUS_API_PORT:-8350}}"

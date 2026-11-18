@@ -26,7 +26,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import httpx
@@ -34,7 +34,7 @@ import httpx
 from .client import llm_slot
 from .forge.skips import count_skip, is_gitlab_key, log_skips
 
-from . import judges, live, probes
+from . import availability, judges, live, probes
 
 log = logging.getLogger("argus.automark")
 
@@ -301,6 +301,9 @@ def _judge_payload(finding: Finding, content: str) -> dict:
     }
 
 
+JUDGE_MODEL_KEY = "judge_model"
+
+
 def judge_finding(finding: Finding, snippet: str,
                   reviewer_model: str | None = None) -> dict:
     """Live second-opinion entry point: judge one finding against a caller-built
@@ -310,6 +313,9 @@ def judge_finding(finding: Finding, snippet: str,
     the reviewer's. Without it the call falls back to the nightly lane's absolute
     rule, which keeps existing callers working. Raises on transport, parse or
     decorrelation failure so the caller decides the degradation.
+
+    When the judge model is not served, the next id of the same family answers,
+    and JUDGE_MODEL_KEY in the result names the model that did.
     """
     payload = {
         "title": finding.title,
@@ -320,9 +326,25 @@ def judge_finding(finding: Finding, snippet: str,
         "snippet": snippet,
     }
     if reviewer_model is None:
-        return default_judge(payload)
+        data = default_judge(payload)
+        data.pop(JUDGE_MODEL_KEY, None)
+        return data
     spec = judges.judge_for(reviewer_model)
-    return default_judge(payload, spec=spec, reviewer_model=reviewer_model)
+    last_error: Exception | None = None
+    for model in (spec.model, *spec.fallbacks):
+        try:
+            data = default_judge(payload, spec=replace(spec, model=model, fallbacks=()),
+                                 reviewer_model=reviewer_model)
+        except Exception as error:
+            if not availability.is_model_unavailable(error):
+                raise
+            availability.mark_unavailable(model, error, availability.JUDGE)
+            last_error = error
+            continue
+        # Set here, after the reply is parsed, so a judge cannot name itself.
+        data[JUDGE_MODEL_KEY] = model
+        return data
+    raise last_error
 
 
 def _judge_user(payload: dict) -> str:
