@@ -113,22 +113,22 @@ def test_whitespace_credentials_are_absent():
 
 
 @pytest.mark.parametrize("provider, model", [
-    ("gateway", "gpt-6.1-sol"), ("anthropic", "claude-sonnet-5-5"),
-    ("openrouter", "openai/gpt-6.1-sol"), ("openai", "gpt-6.1-sol"),
-    ("claude-cli", "claude-sonnet-5-5"), ("codex-cli", "gpt-6.1-sol"),
+    ("gateway", "gpt-6.2-sol"), ("anthropic", "claude-sonnet-5-5"),
+    ("openrouter", "openai/gpt-6.1-sol"), ("openai", "gpt-6.2-sol"),
+    ("claude-cli", "claude-sonnet-5-5"), ("codex-cli", "gpt-6.2-sol"),
 ])
 def test_explicit_default_model(provider, model):
     assert providers.default_model({"ARGUS_PROVIDER": provider}) == model
 
 
 @pytest.mark.parametrize("env, model", [
-    ({}, "gpt-6.1-sol"),
-    ({"ANTHROPIC_BASE_URL": "url", "ANTHROPIC_AUTH_TOKEN": "key"}, "gpt-6.1-sol"),
+    ({}, "gpt-6.2-sol"),
+    ({"ANTHROPIC_BASE_URL": "url", "ANTHROPIC_AUTH_TOKEN": "key"}, "gpt-6.2-sol"),
     ({"ANTHROPIC_API_KEY": "key"}, "claude-sonnet-5-5"),
     ({"OPENROUTER_API_KEY": "key"}, "openai/gpt-6.1-sol"),
-    ({"OPENAI_API_KEY": "key"}, "gpt-6.1-sol"),
-    ({"OPENAI_BASE_URL": "url"}, "gpt-6.1-sol"),
-    ({"ARGUS_PROVIDER": "typo", "ANTHROPIC_API_KEY": "key"}, "gpt-6.1-sol"),
+    ({"OPENAI_API_KEY": "key"}, "gpt-6.2-sol"),
+    ({"OPENAI_BASE_URL": "url"}, "gpt-6.2-sol"),
+    ({"ARGUS_PROVIDER": "typo", "ANTHROPIC_API_KEY": "key"}, "gpt-6.2-sol"),
 ])
 def test_auto_and_unconfigured_default_model(env, model):
     assert providers.default_model(env) == model
